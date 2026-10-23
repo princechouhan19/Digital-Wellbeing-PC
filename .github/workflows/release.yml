@@ -1,0 +1,114 @@
+name: NYW Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to release (e.g., v3.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref }}
+
+      - name: Extract Tag Version
+        id: tag_version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $tag = "${{ inputs.version }}"
+          } else {
+            $tag = "${{ github.ref_name }}"
+          }
+          if ($tag -match "^v([0-9]+\.[0-9]+\.[0-9]+)$") {
+            $version = $matches[1]
+            echo "TAG_NAME=$tag" >> $env:GITHUB_ENV
+            echo "CLEAN_VERSION=$version" >> $env:GITHUB_ENV
+            echo "Extracted Version: $version"
+          } else {
+            Write-Error "Tag $tag does not match required format vMAJOR.MINOR.PATCH"
+            exit 1
+          }
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pytest
+
+      - name: Verify Version Match
+        shell: pwsh
+        run: |
+          $appVer = python -c "import json; print(json.load(open('version.json'))['version'])"
+          if ("$appVer" -ne "${env:CLEAN_VERSION}") {
+            Write-Error "Version mismatch! Tag says ${env:CLEAN_VERSION} but application version.json says $appVer"
+            exit 1
+          }
+          echo "Version validated: $appVer"
+
+
+      - name: Build Application and Installer
+        run: python build.py
+
+      - name: Verify Installer Exists
+        shell: pwsh
+        run: |
+          $installerPath = "dist\DigitalWellbeingSetup-${env:CLEAN_VERSION}.exe"
+          if (!(Test-Path $installerPath)) {
+            Write-Error "Installer not found at $installerPath"
+            exit 1
+          }
+          echo "INSTALLER_PATH=$installerPath" >> $env:GITHUB_ENV
+
+      - name: Generate Checksum
+        shell: pwsh
+        run: |
+          $checksumPath = "${env:INSTALLER_PATH}.sha256"
+          (Get-FileHash ${env:INSTALLER_PATH} -Algorithm SHA256).Hash.ToLower() | Out-File -Encoding ascii $checksumPath
+          if (!(Test-Path $checksumPath)) {
+            Write-Error "Failed to generate checksum at $checksumPath"
+            exit 1
+          }
+          echo "Checksum generated successfully"
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: NYW ${{ env.TAG_NAME }}
+          files: |
+            dist/DigitalWellbeingSetup-${{ env.CLEAN_VERSION }}.exe
+            dist/DigitalWellbeingSetup-${{ env.CLEAN_VERSION }}.exe.sha256
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## NYW ${{ env.TAG_NAME }}
+            
+            ### What's new
+            - Core feature improvements and bug fixes
+            
+            ### Fixes
+            - Stability updates for SleepGuard and Focus Mode
+            
+            ### Installation
+            - Windows installer included. Download `DigitalWellbeingSetup-${{ env.CLEAN_VERSION }}.exe`.
