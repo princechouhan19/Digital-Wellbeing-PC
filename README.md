@@ -8,7 +8,7 @@
 
 Digital Wellbeing tracks your screen time, protects your attention, and filters the web — all locally, with an Apple-grade interface inspired by macOS Sequoia.
 
-[![Release](https://img.shields.io/badge/Release-v4.1.0--Aurora-0A84FF.svg?style=flat-square)](https://github.com/digital-wellbeing/digital-wellbeing/releases)
+[![Release](https://img.shields.io/badge/Release-v4.1.0--Aurora-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-30D158.svg?style=flat-square)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%20%28Qt%29-BF5AF2.svg?style=flat-square)](https://www.qt.io/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20x64-007AFF.svg?style=flat-square)](https://www.microsoft.com/windows)
@@ -205,7 +205,7 @@ DigitalWellbeingSetup-4.1.0.exe
 
 ```powershell
 # 1. Clone the repository
-git clone https://github.com/digital-wellbeing/digital-wellbeing.git
+git clone https://github.com/princechouhan19/Digital-Wellbeing-PC.git
 cd digital-wellbeing
 
 # 2. Create and activate a virtual environment

@@ -8,14 +8,14 @@ export const siteConfig = {
   stage: "Public Release",
   url: "https://digitalwellbeing.vercel.app",
   links: {
-    github: "https://github.com/digital-wellbeing/digital-wellbeing",
-    releases: "https://github.com/digital-wellbeing/digital-wellbeing/releases",
+    github: "https://github.com/princechouhan19/Digital-Wellbeing-PC",
+    releases: "https://github.com/princechouhan19/Digital-Wellbeing-PC/releases",
     reportBug:
-      "https://github.com/digital-wellbeing/digital-wellbeing/issues/new?template=bug_report.md",
+      "https://github.com/princechouhan19/Digital-Wellbeing-PC/issues/new?template=bug_report.md",
     requestFeature:
-      "https://github.com/digital-wellbeing/digital-wellbeing/issues/new?template=feature_request.md",
+      "https://github.com/princechouhan19/Digital-Wellbeing-PC/issues/new?template=feature_request.md",
     contactSupport:
-      "https://github.com/digital-wellbeing/digital-wellbeing/issues",
+      "https://github.com/princechouhan19/Digital-Wellbeing-PC/issues",
   },
 };
 

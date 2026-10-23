@@ -34,7 +34,7 @@
 ## Technical Identifiers (unchanged by design)
 To prevent breaking existing configurations, user data, or update mechanisms:
 - **Executable Name:** `DigitalWellbeing.exe` (registry paths, shortcut targets, startup tasks, updater hooks)
-- **GitHub Repository:** `digital-wellbeing/digital-wellbeing`
+- **GitHub Repository:** `princechouhan19/Digital-Wellbeing-PC`
 - **App Data Directory/DB:** `digital_wellbeing.db` inside user AppData (`DigitalWellbeing`)
 - **Python Module Imports:** internal module structure unchanged
 - **Windows Toast AppID:** `PrinceChouhan.DigitalWellbeing.App` retained for notification grouping

@@ -53,7 +53,7 @@ def test_browser_domain_extraction():
 
     # Known services extraction
     assert extract_domain_from_title("YouTube - Google Chrome", "chrome.exe") == "youtube.com"
-    assert extract_domain_from_title("GitHub - digital-wellbeing/digital-wellbeing - Microsoft Edge", "msedge.exe") == "github.com"
+    assert extract_domain_from_title("GitHub - princechouhan19/Digital-Wellbeing-PC - Microsoft Edge", "msedge.exe") == "github.com"
     assert extract_domain_from_title("Claude - Anthropic - Google Chrome", "chrome.exe") == "claude.ai"
     assert extract_domain_from_title("Notion – The all-in-one workspace - Brave", "brave.exe") == "notion.so"
     assert extract_domain_from_title("ChatGPT - Mozilla Firefox", "firefox.exe") == "chatgpt.com"

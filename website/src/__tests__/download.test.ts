@@ -22,11 +22,11 @@ describe('Public Release & Distribution System', () => {
     assert.equal(response.status, 307);
     assert.equal(
       response.headers.get('location'),
-      'https://github.com/digital-wellbeing/digital-wellbeing/releases/latest/download/DigitalWellbeingSetup-4.1.0.exe'
+      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.1.0.exe'
     );
     assert.equal(
       DEFAULT_DOWNLOAD_URL,
-      'https://github.com/digital-wellbeing/digital-wellbeing/releases/latest/download/DigitalWellbeingSetup-4.1.0.exe'
+      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.1.0.exe'
     );
   });
 
@@ -58,7 +58,7 @@ describe('Public Release & Distribution System', () => {
     assert.equal(siteConfig.stage, 'Public Beta');
     assert.equal(
       siteConfig.links.releases,
-      'https://github.com/digital-wellbeing/digital-wellbeing/releases'
+      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases'
     );
   });
 
@@ -67,7 +67,7 @@ describe('Public Release & Distribution System', () => {
     assert.equal(response.status, 307);
     assert.equal(
       response.headers.get('location'),
-      'https://github.com/digital-wellbeing/digital-wellbeing/releases/latest/download/DigitalWellbeingSetup-4.1.0.exe'
+      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.1.0.exe'
     );
   });
 });

@@ -34,7 +34,7 @@ There are many ways to contribute to Digital Wellbeing:
 
 ### 2. Clone the Repository
 ```powershell
-git clone https://github.com/digital-wellbeing/digital-wellbeing.git
+git clone https://github.com/princechouhan19/Digital-Wellbeing-PC.git
 cd digital-wellbeing
 ```
 
