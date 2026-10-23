@@ -309,6 +309,12 @@ class SleepGuardPage(QWidget):
 
         inner_layout.addLayout(content_row)
 
+        # 3. Circadian display warm-up (linked to the bedtime window above)
+        from ui.widgets.circadian_section import CircadianSection
+
+        self._circadian_section = CircadianSection()
+        inner_layout.addWidget(self._circadian_section)
+
     def _apply_theme(self, is_dark: bool) -> None:
         from ui.theme import ThemeManager
         tm = ThemeManager.instance()

@@ -5,7 +5,14 @@ import time
 from datetime import datetime
 from typing import Any, Callable, Optional
 
-from core.constants import AppCategory, MAX_SESSION_GAP_S, POLL_INTERVAL_MS
+from core.constants import (
+    AppCategory,
+    FOREGROUND_SAFETY_INTERVAL_S,
+    FOREGROUND_SAFETY_NO_HOOK_S,
+    IDLE_SAMPLE_INTERVAL_S,
+    MAX_ACCOUNT_DELTA_S,
+    TRACKING_TICK_INTERVAL_S,
+)
 from core.logger import logger
 from database.models import AppInfo, AppSession
 from database.repository import Repository
@@ -14,9 +21,10 @@ from tracker.auditor import TrackingAuditor
 from tracker.categorizer import categorize, categorize_with_reason, display_name
 from tracker.debug_logger import debug_logger
 from tracker.foreground import ForegroundApp, apps_are_same, get_foreground_app, is_window_fullscreen
-from tracker.idle import get_idle_seconds, is_idle
+from tracker.idle import get_idle_seconds
 from tracker.media import MediaDetectionEngine
 from tracker.session import SessionEvent, SessionMonitor
+from tracker.win_events import ForegroundEventWatcher
 
 _MIN_SESSION_DURATION_S = 1.0
 _HEARTBEAT_INTERVAL_S = 10.0
@@ -52,9 +60,23 @@ class TrackingManager:
         self._last_tick_time: Optional[datetime] = None
         self._consecutive_errors: int = 0
 
+        # Event-driven engine state. The Win32 watcher pushes foreground/title
+        # changes; the loop still runs a slow safety poll so a dropped hook can
+        # never strand a session on the wrong app.
+        self._watcher = ForegroundEventWatcher()
+        self._fg_dirty: bool = True
+        self._last_fg_query_mono: float = 0.0
+        self._last_tick_mono: float = 0.0
+        self._last_idle_sample_mono: float = 0.0
+        self._cached_idle_s: float = 0.0
+        self._tick_count: int = 0
+        self._fg_query_count: int = 0
+        self._event_wakeups: int = 0
+
         # Debounce grace buffer for momentary focus loss / transitions
         self._grace_app: Optional[ForegroundApp] = None
         self._grace_timer: Optional[datetime] = None
+        self._fg_missing: bool = False
 
         self._idle_threshold_s: float = float(
             self._repo.get_setting("idle_threshold_s") or 300
@@ -83,16 +105,24 @@ class TrackingManager:
         logger.info("[LIFECYCLE] Starting SessionMonitor and TrackingManager thread...")
         self._session_monitor.start()
         self._media_engine.start()
+        self._watcher.start()
+        self._fg_dirty = True
+        self._fg_missing = False
+        self._last_fg_query_mono = 0.0
+        self._last_idle_sample_mono = 0.0
+        self._last_tick_mono = time.monotonic()
         self._thread = threading.Thread(
             target=self._tracking_loop,
             daemon=True,
             name="TrackingManager",
         )
         self._thread.start()
+        # Sample immediately instead of waiting for the first periodic wake.
+        self._watcher.notify("startup")
         logger.info("[LIFECYCLE] TrackingManager thread started (ident=%s, daemon=%s)", self._thread.ident, self._thread.daemon)
         
         self._repo.log_event("tracker_start", "Tracking started")
-        logger.info("Tracking started")
+        logger.info("Tracking started (event-driven=%s)", self._watcher.available)
 
     def stop(self) -> None:
         with self._state_lock:
@@ -106,6 +136,7 @@ class TrackingManager:
 
         self._session_monitor.stop()
         self._media_engine.stop()
+        self._watcher.stop()
         self._end_current_session(reason="stop")
         self._end_website_session(datetime.now())
         
@@ -150,6 +181,18 @@ class TrackingManager:
                 "debug_enabled": self._debug_enabled,
             }
 
+    def get_performance_stats(self) -> dict[str, Any]:
+        """Lightweight counters for diagnostics and the Dev Mode page."""
+        return {
+            "event_driven": self._watcher.available,
+            "hook_events": self._watcher.event_count,
+            "wakeups_from_events": self._event_wakeups,
+            "ticks": self._tick_count,
+            "foreground_queries": self._fg_query_count,
+            "tick_interval_s": TRACKING_TICK_INTERVAL_S,
+            "idle_sample_interval_s": IDLE_SAMPLE_INTERVAL_S,
+        }
+
     @property
     def is_running(self) -> bool:
         return self._running
@@ -169,14 +212,38 @@ class TrackingManager:
     # ─── Tracking loop ────────────────────────────────────────────────────────
 
     def _tracking_loop(self) -> None:
-        poll_s = POLL_INTERVAL_MS / 1000.0
-
         try:
             while self._running:
                 try:
-                    if not self._paused:
-                        self._tick(poll_s)
-                        self._consecutive_errors = 0
+                    interval_s = (
+                        TRACKING_TICK_INTERVAL_S
+                        if self._watcher.available
+                        else FOREGROUND_SAFETY_NO_HOOK_S
+                    )
+                    if self._paused:
+                        # Do not accrue time while the session is locked/asleep.
+                        self._last_tick_mono = time.monotonic()
+                        self._last_tick_time = None
+                        self._watcher.wait(interval_s)
+                        continue
+
+                    signalled = self._watcher.wait(interval_s)
+                    if not self._running:
+                        break
+
+                    now_mono = time.monotonic()
+                    delta_s = (
+                        now_mono - self._last_tick_mono
+                        if self._last_tick_mono > 0.0
+                        else 0.0
+                    )
+                    self._last_tick_mono = now_mono
+                    delta_s = min(max(delta_s, 0.0), MAX_ACCOUNT_DELTA_S)
+                    if signalled:
+                        self._event_wakeups += 1
+
+                    self._tick(delta_s)
+                    self._consecutive_errors = 0
                 except Exception as exc:
                     self._consecutive_errors += 1
                     logger.error(
@@ -189,7 +256,6 @@ class TrackingManager:
                         logger.critical("Too many consecutive errors, pausing tracking for 60s")
                         time.sleep(60.0)
                         self._consecutive_errors = 0
-                time.sleep(poll_s)
         finally:
             # Ensure the thread's DB connection is closed before thread exit
             try:
@@ -198,8 +264,31 @@ class TrackingManager:
             except Exception as exc:
                 logger.warning("Failed to close repository connection in tracking thread: %s", exc)
 
+    def _sample_idle_seconds(self, now_mono: float) -> float:
+        """Sample GetLastInputInfo at most once per IDLE_SAMPLE_INTERVAL_S."""
+        if (
+            self._last_idle_sample_mono <= 0.0
+            or (now_mono - self._last_idle_sample_mono) >= IDLE_SAMPLE_INTERVAL_S
+        ):
+            self._cached_idle_s = get_idle_seconds()
+            self._last_idle_sample_mono = now_mono
+        return self._cached_idle_s
+
+    def _dispatch_active_tick(self, app: ForegroundApp, delta_s: float) -> None:
+        for cb in self._on_active_tick_callbacks:
+            try:
+                cb(app.process_name, delta_s, getattr(app, "url", ""), app.window_title, app.hwnd)
+            except TypeError:
+                try:
+                    cb(app.process_name, delta_s, getattr(app, "url", ""))
+                except Exception as exc:
+                    logger.warning(f"Active tick callback failed: {exc}")
+            except Exception as exc:
+                logger.warning(f"Active tick callback failed: {exc}")
+
     def _tick(self, delta_s: float) -> None:
         now = datetime.now()
+        self._tick_count += 1
 
         # Pre-sleep time-skip guard (e.g. system hibernate/suspend without event firing)
         if self._last_tick_time is not None:
@@ -210,9 +299,27 @@ class TrackingManager:
                 self._end_website_session(self._last_tick_time)
         self._last_tick_time = now
 
-        fg = get_foreground_app(self._current_app)
+        now_mono = time.monotonic()
+        # With working Win32 hooks the expensive query only needs to run as a
+        # safety net; without them we keep the legacy sub-second cadence.
+        safety_s = (
+            FOREGROUND_SAFETY_INTERVAL_S
+            if self._watcher.available
+            else FOREGROUND_SAFETY_NO_HOOK_S
+        )
+        needs_foreground = (
+            self._fg_dirty or (now_mono - self._last_fg_query_mono) >= safety_s
+        )
+        if needs_foreground:
+            fg = get_foreground_app(self._current_app)
+            self._last_fg_query_mono = now_mono
+            self._fg_dirty = False
+            self._fg_query_count += 1
+        else:
+            fg = self._current_app
+
         from core.constants import AppCategory as _Cat
-        
+
         media_engine_active = False
         if self._media_engine.is_playing and fg:
             app_n = fg.process_name.lower()
@@ -223,20 +330,45 @@ class TrackingManager:
             # Match if both foreground and media source are browsers
             elif app_n in {"chrome.exe", "brave.exe", "msedge.exe", "firefox.exe"} and any(b in m_app for b in {"chrome", "brave", "msedge", "firefox", "chromium"}):
                 media_engine_active = True
-                
+
         # For tracking purposes, decouple from SleepGuard's mode.
         # Treat media playing and fullscreen apps as highly active to prevent premature session splits.
         is_media = (self._current_category == _Cat.ENTERTAINMENT) or media_engine_active or (fg and getattr(fg, "is_fullscreen", False))
-        
+
         tracking_idle_threshold = self._idle_threshold_s
         if is_media:
             tracking_idle_threshold = max(tracking_idle_threshold, 7200.0)  # 2 hours for media/fullscreen
         elif self._current_category == _Cat.GAMING:
             tracking_idle_threshold = max(tracking_idle_threshold, 3600.0)  # 1 hour for gaming
-            
-        idle = get_idle_seconds() >= tracking_idle_threshold
+
+        idle = self._sample_idle_seconds(now_mono) >= tracking_idle_threshold
+
+        # Attribute the elapsed interval to the app that was active *during*
+        # it, before any transition below. Otherwise a switch would credit the
+        # new app with the previous app's final second.
+        if not idle and self._current_app is not None and not self._fg_missing:
+            self._dispatch_active_tick(self._current_app, delta_s)
+
+        # No fresh foreground sample this tick: keep the current session alive,
+        # update heartbeats, and only react to idle-state changes.
+        if not needs_foreground:
+            if idle != self._current_is_idle and self._current_app is not None:
+                app = self._current_app
+                url = getattr(app, "url", "")
+                self._end_current_session(reason="idle_switch")
+                self._end_website_session(now)
+                self._start_session(app, now, idle, reason="idle_switch")
+                if url and not idle:
+                    self._start_website_session(app.process_name, url, now)
+            self._maybe_heartbeat(now)
+            return
 
         if fg is None:
+            # Re-check every loop during the grace window: the user may have
+            # switched to the desktop briefly, and we must not keep billing the
+            # previous app while no foreground window exists.
+            self._fg_dirty = True
+            self._fg_missing = True
             if self._current_app is not None:
                 # Use longer grace period for fullscreen apps (5s vs 2.5s)
                 _grace_limit = 5.0 if self._current_is_fullscreen else 2.5
@@ -254,20 +386,8 @@ class TrackingManager:
         # Foreground window is present — clear grace buffer
         self._grace_app = None
         self._grace_timer = None
+        self._fg_missing = False
         self._current_is_fullscreen = fg.is_fullscreen
-        
-        # Dispatch active tick for limits/timers and adult content shield
-        if not idle:
-            for cb in self._on_active_tick_callbacks:
-                try:
-                    cb(fg.process_name, delta_s, getattr(fg, "url", ""), fg.window_title, fg.hwnd)
-                except TypeError:
-                    try:
-                        cb(fg.process_name, delta_s, getattr(fg, "url", ""))
-                    except Exception as exc:
-                        logger.warning(f"Active tick callback failed: {exc}")
-                except Exception as exc:
-                    logger.warning(f"Active tick callback failed: {exc}")
 
         same_process = self._current_app is not None and fg.process_name == self._current_app.process_name
         title_changed = self._current_app is not None and fg.window_title != self._current_app.window_title
@@ -569,6 +689,13 @@ class TrackingManager:
 
         elif event in (SessionEvent.UNLOCK, SessionEvent.RESUME):
             self._paused = False
+
+        # Wake the tracking loop so lock/unlock state changes take effect
+        # immediately instead of waiting for the next periodic tick.
+        try:
+            self._watcher.notify(f"session_{event.name.lower()}")
+        except Exception:
+            pass
 
     # ─── Callbacks ────────────────────────────────────────────────────────────
 

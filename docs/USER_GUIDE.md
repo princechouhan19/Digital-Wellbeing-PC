@@ -1,6 +1,6 @@
 # Digital Wellbeing for Windows — User Guide
 
-Welcome to **Digital Wellbeing for Windows** (v4.1 "Aurora"). This guide covers everything you need to know to take back control of your screen time, eliminate digital distractions, protect sensitive applications, and browse safely.
+Welcome to **Digital Wellbeing for Windows** (v4.2 "Attention"). This guide covers everything you need to know to take back control of your screen time, eliminate digital distractions, protect sensitive applications, and browse safely.
 
 ---
 
@@ -33,7 +33,7 @@ Computers are powerful tools, but modern applications and websites are engineere
 ## 2. Installation & First-Time Setup
 
 ### Running the Installer
-1. Download `DigitalWellbeingSetup-4.1.0.exe` from the official website or releases page.
+1. Download `DigitalWellbeingSetup-4.2.0.exe` from the official website or releases page.
 2. Launch the installer. Follow the setup wizard prompts.
 3. Once completed, Digital Wellbeing will launch automatically and add a shortcut to your Start Menu and Desktop.
 

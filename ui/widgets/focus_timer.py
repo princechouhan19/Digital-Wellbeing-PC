@@ -932,7 +932,7 @@ class FocusTimerWidget(QFrame):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setObjectName("focus_cockpit_card")
+        self.setObjectName("focus_suite_root")
 
         from protection.focus_manager import FocusManager
 
@@ -954,6 +954,15 @@ class FocusTimerWidget(QFrame):
         super().mousePressEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             self.card_clicked.emit()
+
+    def resizeEvent(self, event) -> None:
+        # Five mode cards fit side-by-side on wide layouts; on narrower
+        # windows the subtitles are hidden so the cards never force horizontal
+        # overflow in the page's scroll area.
+        compact = event.size().width() < 1060
+        for card in getattr(self, "_mode_cards", {}).values():
+            card.sub_lbl.setVisible(not compact)
+        super().resizeEvent(event)
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -977,90 +986,69 @@ class FocusTimerWidget(QFrame):
         self._sync_mode_cards()
         self._refresh_blocklist_ui()
         self._refresh_websites_ui()
+        self._refresh_rules_ui()
         self._sync_ui_state()
 
     def _build_inactive_view(self) -> None:
         layout = QVBoxLayout(self._inactive_view)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(20)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(16)
 
-        # 1. Header: Section Eyebrow & Apple Strict Mode Toggle
-        hdr_row = QHBoxLayout()
-        hdr_row.setSpacing(12)
+        # ── 1. Mode selection card ─────────────────────────────────────────
+        mode_card = QFrame()
+        mode_card.setObjectName("focus_section_card")
+        mode_layout = QVBoxLayout(mode_card)
+        mode_layout.setContentsMargins(22, 18, 22, 18)
+        mode_layout.setSpacing(12)
 
-        lbl_modes = QLabel("FOCUS MODES")
-        lbl_modes.setObjectName("section_eyebrow")
-        hdr_row.addWidget(lbl_modes)
-        hdr_row.addStretch()
+        mode_header = QHBoxLayout()
+        mode_text = QVBoxLayout()
+        mode_text.setSpacing(2)
+        mode_eyebrow = QLabel("FOCUS MODE")
+        mode_eyebrow.setObjectName("section_eyebrow")
+        mode_sub = QLabel("Pick the shape of this session. The timer and guardrails adapt to it.")
+        mode_sub.setObjectName("focus_section_sub")
+        mode_text.addWidget(mode_eyebrow)
+        mode_text.addWidget(mode_sub)
+        mode_header.addLayout(mode_text, 1)
+        mode_layout.addLayout(mode_header)
 
-        # Strict Mode row with Lock Icon & Apple ToggleSwitch
-        strict_box = QHBoxLayout()
-        strict_box.setSpacing(8)
-
-        lock_icon_lbl = QLabel()
-        lock_icon_lbl.setPixmap(get_pixmap("lock", color="#FF9F0A", size=15))
-        strict_box.addWidget(lock_icon_lbl)
-
-        strict_lbl = QLabel("Strict Enforcement")
-        strict_lbl.setObjectName("strict_label")
-        strict_lbl.setToolTip("Requires security PIN to stop session early.")
-        strict_box.addWidget(strict_lbl)
-
-        self._strict_switch = ToggleSwitch()
-        self._strict_switch.setToolTip("Requires security PIN to stop session early.")
-        self._strict_switch.toggled.connect(self._on_strict_toggled)
-        strict_box.addWidget(self._strict_switch)
-
-        hdr_row.addLayout(strict_box)
-        layout.addLayout(hdr_row)
-
-        # 2. Apple Focus Mode Selector Cards (5 Modes)
         modes_row = QHBoxLayout()
         modes_row.setSpacing(10)
         self._mode_cards: Dict[str, FocusModeCard] = {}
-
         for m_id in ("deep", "work", "study", "movie", "custom"):
             card = FocusModeCard(m_id)
             card.clicked.connect(self._set_mode)
             modes_row.addWidget(card, 1)
             self._mode_cards[m_id] = card
-        layout.addLayout(modes_row)
+        mode_layout.addLayout(modes_row)
+        layout.addWidget(mode_card)
 
-        # 3. Main Cockpit Body: Left (Timer Dial + Presets) & Right (Shielding Cards)
-        body_grid = QHBoxLayout()
-        body_grid.setSpacing(20)
+        # ── 2. Session + guardrails row ────────────────────────────────────
+        body_row = QHBoxLayout()
+        body_row.setSpacing(16)
 
-        # Left Column: Apple Focus Ring & Controls
-        left_box = QFrame()
-        left_box.setObjectName("apple_inset_card")
-        left_box.setFixedWidth(360)
-        left_layout = QVBoxLayout(left_box)
-        left_layout.setContentsMargins(20, 20, 20, 20)
-        left_layout.setSpacing(16)
-        left_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Left: timer / start
+        session_card = QFrame()
+        session_card.setObjectName("focus_section_card")
+        session_card.setMinimumWidth(340)
+        session_layout = QVBoxLayout(session_card)
+        session_layout.setContentsMargins(22, 18, 22, 18)
+        session_layout.setSpacing(12)
 
-        # Circular Countdown Dial
+        session_eyebrow = QLabel("SESSION")
+        session_eyebrow.setObjectName("section_eyebrow")
+        session_layout.addWidget(session_eyebrow)
+
         self._focus_ring = AppleFocusRing()
-        left_layout.addWidget(self._focus_ring, 0, Qt.AlignmentFlag.AlignCenter)
+        session_layout.addWidget(self._focus_ring, 0, Qt.AlignmentFlag.AlignCenter)
 
-        # Duration Adjustment Controls: Minus 5m | Presets Bar | Plus 5m
-        dur_ctrl_row = QHBoxLayout()
-        dur_ctrl_row.setSpacing(6)
-        dur_ctrl_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self._step_minus_btn = QPushButton("-5m")
-        self._step_minus_btn.setObjectName("stepper_btn")
-        self._step_minus_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._step_minus_btn.clicked.connect(lambda: self._adjust_duration(-5))
-        dur_ctrl_row.addWidget(self._step_minus_btn)
-
-        # Segmented Presets Capsule
+        # Duration presets
         presets_frame = QFrame()
         presets_frame.setObjectName("segmented_capsule")
         p_layout = QHBoxLayout(presets_frame)
         p_layout.setContentsMargins(3, 3, 3, 3)
         p_layout.setSpacing(2)
-
         self._chips = []
         for minutes in (15, 25, 45, 60, 90):
             chip = QPushButton(f"{minutes}m")
@@ -1072,186 +1060,302 @@ class FocusTimerWidget(QFrame):
             chip.clicked.connect(lambda checked, m=minutes: self.set_preset(m))
             p_layout.addWidget(chip)
             self._chips.append(chip)
+        session_layout.addWidget(presets_frame)
 
-        dur_ctrl_row.addWidget(presets_frame)
-
+        fine_row = QHBoxLayout()
+        fine_row.setSpacing(8)
+        self._step_minus_btn = QPushButton("−5m")
+        self._step_minus_btn.setObjectName("stepper_btn")
+        self._step_minus_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._step_minus_btn.clicked.connect(lambda: self._adjust_duration(-5))
+        fine_row.addWidget(self._step_minus_btn)
         self._step_plus_btn = QPushButton("+5m")
         self._step_plus_btn.setObjectName("stepper_btn")
         self._step_plus_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._step_plus_btn.clicked.connect(lambda: self._adjust_duration(5))
-        dur_ctrl_row.addWidget(self._step_plus_btn)
-
-        left_layout.addLayout(dur_ctrl_row)
-
-        # Primary Action CTA Button & Reset
-        action_row = QHBoxLayout()
-        action_row.setSpacing(10)
-
-        self._start_btn = QPushButton("Start Focus Session")
+        fine_row.addWidget(self._step_plus_btn)
+        fine_row.addStretch()
+        self._start_btn = QPushButton("Start Focus")
         self._start_btn.setObjectName("primary_start_btn")
         self._start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._start_btn.setMinimumHeight(46)
+        self._start_btn.setMinimumHeight(42)
         self._start_btn.setIcon(get_icon("play", "#FFFFFF", 15))
         self._start_btn.clicked.connect(self._toggle_timer)
-        action_row.addWidget(self._start_btn, 3)
+        fine_row.addWidget(self._start_btn, 1)
+        session_layout.addLayout(fine_row)
 
-        self._reset_btn = QPushButton("Reset")
-        self._reset_btn.setObjectName("secondary_pill_btn")
+        self._reset_btn = QPushButton("Reset to 25m")
+        self._reset_btn.setObjectName("text_link_btn")
         self._reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._reset_btn.setMinimumHeight(46)
-        self._reset_btn.setIcon(get_icon("refresh", "#A1A1A6", 14))
         self._reset_btn.clicked.connect(self._stop_timer)
-        action_row.addWidget(self._reset_btn, 1)
+        session_layout.addWidget(self._reset_btn, 0, Qt.AlignmentFlag.AlignRight)
+        body_row.addWidget(session_card, 5)
 
-        left_layout.addLayout(action_row)
-        body_grid.addWidget(left_box)
+        # Right: tabbed guardrails
+        guardrails_card = QFrame()
+        guardrails_card.setObjectName("focus_section_card")
+        guard_layout = QVBoxLayout(guardrails_card)
+        guard_layout.setContentsMargins(22, 18, 22, 16)
+        guard_layout.setSpacing(10)
 
-        # Right Column: Shielding Inset Cards (Apps & Websites)
-        right_col = QVBoxLayout()
-        right_col.setSpacing(14)
+        guard_header = QHBoxLayout()
+        guard_text = QVBoxLayout()
+        guard_text.setSpacing(2)
+        guard_eyebrow = QLabel("GUARDRAILS")
+        guard_eyebrow.setObjectName("section_eyebrow")
+        guard_sub = QLabel("What this session shields you from.")
+        guard_sub.setObjectName("focus_section_sub")
+        guard_text.addWidget(guard_eyebrow)
+        guard_text.addWidget(guard_sub)
+        guard_header.addLayout(guard_text, 1)
+        guard_layout.addLayout(guard_header)
 
-        # ── Card 1: Applications Shield ──
-        apps_card = QFrame()
-        apps_card.setObjectName("apple_inset_card")
-        apps_card_layout = QVBoxLayout(apps_card)
-        apps_card_layout.setContentsMargins(18, 16, 18, 16)
-        apps_card_layout.setSpacing(10)
+        tab_row = QHBoxLayout()
+        tab_row.setSpacing(4)
+        self._guardrail_tabs = []
+        for index, label in enumerate(("Apps", "Websites", "URL rules")):
+            tab = QPushButton(label)
+            tab.setObjectName("guardrail_tab")
+            tab.setCheckable(True)
+            tab.setChecked(index == 0)
+            tab.setCursor(Qt.CursorShape.PointingHandCursor)
+            tab.clicked.connect(lambda checked, i=index: self._set_guardrail_tab(i))
+            tab_row.addWidget(tab)
+            self._guardrail_tabs.append(tab)
+        tab_row.addStretch()
+        guard_layout.addLayout(tab_row)
 
-        app_hdr_row = QHBoxLayout()
-        app_hdr_row.setSpacing(8)
-
-        app_icon_lbl = QLabel()
-        app_icon_lbl.setPixmap(get_pixmap("apps", color="#0A84FF", size=18))
-        app_hdr_row.addWidget(app_icon_lbl)
-
+        self._guardrail_stack = QStackedWidget()
+        # Apps page
+        apps_page = QWidget()
+        apps_layout = QVBoxLayout(apps_page)
+        apps_layout.setContentsMargins(0, 2, 0, 0)
+        apps_layout.setSpacing(8)
+        apps_header = QHBoxLayout()
         self._list_hdr = QLabel("Permitted Applications")
         self._list_hdr.setObjectName("card_header_title")
-        app_hdr_row.addWidget(self._list_hdr)
-
+        apps_header.addWidget(self._list_hdr)
         self._apps_count_badge = QLabel("0 apps")
         self._apps_count_badge.setObjectName("count_badge")
-        app_hdr_row.addWidget(self._apps_count_badge)
-        app_hdr_row.addStretch()
-
-        self._add_app_btn = QPushButton("Add App")
+        apps_header.addWidget(self._apps_count_badge)
+        apps_header.addStretch()
+        self._add_app_btn = QPushButton("Add")
         self._add_app_btn.setObjectName("action_pill_btn")
         self._add_app_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_app_btn.setIcon(get_icon("plus", "#0A84FF", 12))
         self._add_app_btn.clicked.connect(self._open_app_picker)
-        app_hdr_row.addWidget(self._add_app_btn)
-        apps_card_layout.addLayout(app_hdr_row)
-
-        self._list_sub = QLabel("Only permitted user applications can run during session")
+        apps_header.addWidget(self._add_app_btn)
+        apps_layout.addLayout(apps_header)
+        self._list_sub = QLabel("Only these user applications can run during the session")
         self._list_sub.setObjectName("list_subtitle")
-        apps_card_layout.addWidget(self._list_sub)
-
-        # Scrollable chips container for apps
+        apps_layout.addWidget(self._list_sub)
         self._blocklist_container = QWidget()
         self._blocklist_layout = QHBoxLayout(self._blocklist_container)
         self._blocklist_layout.setContentsMargins(0, 0, 0, 0)
         self._blocklist_layout.setSpacing(8)
         self._blocklist_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
         self._blocklist_scroll = QScrollArea()
         self._blocklist_scroll.setWidgetResizable(True)
         self._blocklist_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._blocklist_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._blocklist_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._blocklist_scroll.setFixedHeight(46)
+        self._blocklist_scroll.setFixedHeight(52)
         self._blocklist_scroll.setWidget(self._blocklist_container)
-        apps_card_layout.addWidget(self._blocklist_scroll)
+        apps_layout.addWidget(self._blocklist_scroll)
+        apps_layout.addStretch()
+        self._guardrail_stack.addWidget(apps_page)
 
-        right_col.addWidget(apps_card)
-
-        # ── Card 2: Blocked Websites Shield ──
-        web_card = QFrame()
-        web_card.setObjectName("apple_inset_card")
-        web_card_layout = QVBoxLayout(web_card)
-        web_card_layout.setContentsMargins(18, 16, 18, 16)
-        web_card_layout.setSpacing(10)
-
-        web_hdr_row = QHBoxLayout()
-        web_hdr_row.setSpacing(8)
-
-        web_icon_lbl = QLabel()
-        web_icon_lbl.setPixmap(get_pixmap("globe", color="#30D158", size=18))
-        web_hdr_row.addWidget(web_icon_lbl)
-
+        # Websites page
+        web_page = QWidget()
+        web_layout = QVBoxLayout(web_page)
+        web_layout.setContentsMargins(0, 2, 0, 0)
+        web_layout.setSpacing(8)
+        web_header = QHBoxLayout()
         self._websites_hdr = QLabel("Blocked Websites")
         self._websites_hdr.setObjectName("card_header_title")
-        web_hdr_row.addWidget(self._websites_hdr)
-
+        web_header.addWidget(self._websites_hdr)
         self._websites_count_lbl = QLabel("0 sites")
         self._websites_count_lbl.setObjectName("count_badge")
-        web_hdr_row.addWidget(self._websites_count_lbl)
-        web_hdr_row.addStretch()
-
+        web_header.addWidget(self._websites_count_lbl)
+        web_header.addStretch()
         self._site_search_input = QLineEdit()
         self._site_search_input.setObjectName("site_search_input")
-        self._site_search_input.setPlaceholderText("Filter sites...")
-        self._site_search_input.setFixedWidth(130)
+        self._site_search_input.setPlaceholderText("Filter sites…")
+        self._site_search_input.setFixedWidth(120)
+        self._site_search_input.setClearButtonEnabled(True)
         self._site_search_input.textChanged.connect(self._on_search_websites)
-        web_hdr_row.addWidget(self._site_search_input)
-
-        self._add_website_btn = QPushButton("Add Website")
+        web_header.addWidget(self._site_search_input)
+        self._add_website_btn = QPushButton("Add")
         self._add_website_btn.setObjectName("action_pill_btn")
         self._add_website_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_website_btn.setIcon(get_icon("plus", "#0A84FF", 12))
         self._add_website_btn.clicked.connect(self._open_website_picker)
-        web_hdr_row.addWidget(self._add_website_btn)
-        web_card_layout.addLayout(web_hdr_row)
-
-        self._websites_sub = QLabel("Blocked at DNS & hosts level across all web browsers")
+        web_header.addWidget(self._add_website_btn)
+        web_layout.addLayout(web_header)
+        self._websites_sub = QLabel("Blocked at DNS + hosts level across every browser")
         self._websites_sub.setObjectName("list_subtitle")
-        web_card_layout.addWidget(self._websites_sub)
-
-        # Quick Popular Presets Row with Vector Plus/Check Icons
-        quick_row = QHBoxLayout()
-        quick_row.setSpacing(6)
-        quick_lbl = QLabel("POPULAR:")
-        quick_lbl.setObjectName("mini_eyebrow")
-        quick_row.addWidget(quick_lbl)
-
-        self._quick_preset_btns = {}
-        preset_names = [
-            ("YouTube", "youtube.com"),
-            ("Reddit", "reddit.com"),
-            ("Instagram", "instagram.com"),
-            ("X/Twitter", "x.com"),
-            ("TikTok", "tiktok.com"),
-        ]
-        for p_name, p_dom in preset_names:
-            btn = QPushButton(p_name)
-            btn.setObjectName("quick_add_chip")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setIcon(get_icon("plus", color="#8E8E93", size=11))
-            btn.clicked.connect(lambda _, d=p_dom: self._quick_toggle_site(d))
-            quick_row.addWidget(btn)
-            self._quick_preset_btns[p_dom] = btn
-
-        quick_row.addStretch()
-        web_card_layout.addLayout(quick_row)
-
-        # Scrollable chips container for websites
+        web_layout.addWidget(self._websites_sub)
         self._websites_container = QWidget()
         self._websites_layout = QHBoxLayout(self._websites_container)
         self._websites_layout.setContentsMargins(0, 0, 0, 0)
         self._websites_layout.setSpacing(8)
         self._websites_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
         self._websites_scroll = QScrollArea()
         self._websites_scroll.setWidgetResizable(True)
         self._websites_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._websites_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._websites_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._websites_scroll.setFixedHeight(46)
+        self._websites_scroll.setFixedHeight(52)
         self._websites_scroll.setWidget(self._websites_container)
-        web_card_layout.addWidget(self._websites_scroll)
+        web_layout.addWidget(self._websites_scroll)
+        web_layout.addStretch()
+        self._guardrail_stack.addWidget(web_page)
 
-        right_col.addWidget(web_card)
-        body_grid.addLayout(right_col, 1)
+        # URL rules page
+        rules_page = QWidget()
+        rules_layout = QVBoxLayout(rules_page)
+        rules_layout.setContentsMargins(0, 2, 0, 0)
+        rules_layout.setSpacing(9)
+        rules_title = QLabel("Granular sub-path rules")
+        rules_title.setObjectName("card_header_title")
+        rules_layout.addWidget(rules_title)
+        rules_hint = QLabel(
+            "Example: block youtube.com/shorts while keeping YouTube, or allow "
+            "reddit.com/r/programming while blocking r/all. Enforced in the browser "
+            "through the optional local bridge."
+        )
+        rules_hint.setObjectName("list_subtitle")
+        rules_hint.setWordWrap(True)
+        rules_layout.addWidget(rules_hint)
+        self._rules_count_lbl = QLabel("No URL rules configured")
+        self._rules_count_lbl.setObjectName("rules_count")
+        rules_layout.addWidget(self._rules_count_lbl)
+        rules_actions = QHBoxLayout()
+        self._manage_rules_btn = QPushButton("Manage web rules")
+        self._manage_rules_btn.setObjectName("secondary_pill_btn")
+        self._manage_rules_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._manage_rules_btn.clicked.connect(self._open_url_rules)
+        rules_actions.addWidget(self._manage_rules_btn)
+        rules_actions.addStretch()
+        rules_layout.addLayout(rules_actions)
+        self._bridge_status_lbl = QLabel("")
+        self._bridge_status_lbl.setObjectName("bridge_status_text")
+        self._bridge_status_lbl.setWordWrap(True)
+        rules_layout.addWidget(self._bridge_status_lbl)
+        rules_layout.addStretch()
+        self._guardrail_stack.addWidget(rules_page)
 
-        layout.addLayout(body_grid)
+        guard_layout.addWidget(self._guardrail_stack, 1)
+
+        guard_footer = QFrame()
+        guard_footer.setObjectName("guardrail_footer")
+        footer_layout = QVBoxLayout(guard_footer)
+        footer_layout.setContentsMargins(12, 9, 12, 9)
+        footer_layout.setSpacing(3)
+        safe_apps = QLabel("●  Windows system processes and Digital Wellbeing stay protected")
+        safe_apps.setObjectName("guardrail_footer_text")
+        safe_web = QLabel("●  Domain blocks use an isolated hosts section; URL rules stay local")
+        safe_web.setObjectName("guardrail_footer_text")
+        footer_layout.addWidget(safe_apps)
+        footer_layout.addWidget(safe_web)
+        guard_layout.addWidget(guard_footer)
+
+        body_row.addWidget(guardrails_card, 6)
+        layout.addLayout(body_row)
+
+        # ── 3. Session protection card ─────────────────────────────────────
+        protection_card = QFrame()
+        protection_card.setObjectName("focus_section_card")
+        protect_layout = QVBoxLayout(protection_card)
+        protect_layout.setContentsMargins(22, 16, 22, 16)
+        protect_layout.setSpacing(12)
+
+        protect_header = QLabel("SESSION PROTECTION")
+        protect_header.setObjectName("section_eyebrow")
+        protect_layout.addWidget(protect_header)
+
+        strict_row = QHBoxLayout()
+        strict_text = QVBoxLayout()
+        strict_text.setSpacing(2)
+        strict_lbl = QLabel("Strict enforcement")
+        strict_lbl.setObjectName("protection_title")
+        strict_desc = QLabel("Ending early requires your security PIN.")
+        strict_desc.setObjectName("list_subtitle")
+        strict_text.addWidget(strict_lbl)
+        strict_text.addWidget(strict_desc)
+        strict_row.addLayout(strict_text, 1)
+        self._strict_switch = ToggleSwitch()
+        self._strict_switch.toggled.connect(self._on_strict_toggled)
+        strict_row.addWidget(self._strict_switch)
+        protect_layout.addLayout(strict_row)
+
+        lockout_row = QHBoxLayout()
+        lockout_text = QVBoxLayout()
+        lockout_text.setSpacing(2)
+        lockout_lbl = QLabel("Lockout (hardcore)")
+        lockout_lbl.setObjectName("protection_title")
+        lockout_desc = QLabel(
+            "No early exit at all: the window cannot be closed or minimized, and a "
+            "watchdog relaunches the app if its process is killed. Best-effort, not "
+            "a kernel-level or Safe Mode defense."
+        )
+        lockout_desc.setObjectName("list_subtitle")
+        lockout_desc.setWordWrap(True)
+        lockout_text.addWidget(lockout_lbl)
+        lockout_text.addWidget(lockout_desc)
+        lockout_row.addLayout(lockout_text, 1)
+        self._lockout_switch = ToggleSwitch()
+        self._lockout_switch.setToolTip("Cannot be canceled until the countdown completes.")
+        lockout_row.addWidget(self._lockout_switch, 0, Qt.AlignmentFlag.AlignTop)
+        protect_layout.addLayout(lockout_row)
+
+        layout.addWidget(protection_card)
+
+        self._site_search_query = ""
+        self._quick_preset_btns = {}
+
+    def _set_guardrail_tab(self, index: int) -> None:
+        for i, tab in enumerate(getattr(self, "_guardrail_tabs", [])):
+            tab.setChecked(i == index)
+        if hasattr(self, "_guardrail_stack"):
+            self._guardrail_stack.setCurrentIndex(index)
+        if index == 2:
+            self._refresh_rules_ui()
+
+    def _refresh_rules_ui(self) -> None:
+        rules = self._fm.url_rules()
+        if rules:
+            blocks = sum(1 for r in rules if r.action == "block" and r.enabled)
+            allows = sum(1 for r in rules if r.action == "allow" and r.enabled)
+            self._rules_count_lbl.setText(
+                f"{len(rules)} rule{'s' if len(rules) != 1 else ''} · {blocks} block · {allows} allow"
+            )
+        else:
+            self._rules_count_lbl.setText("No URL rules configured")
+
+        info = self._fm.extension_bridge_info()
+        if info.get("running"):
+            self._bridge_status_lbl.setText(
+                f"● Browser bridge listening on 127.0.0.1:{info.get('port', 0)} · "
+                "install the bundled extension to enforce sub-paths."
+            )
+            self._bridge_status_lbl.setProperty("state", "on")
+        else:
+            self._bridge_status_lbl.setText(
+                "○ Browser bridge offline. Domain blocks still work through hosts; "
+                "install the extension for sub-path rules."
+            )
+            self._bridge_status_lbl.setProperty("state", "off")
+        self._bridge_status_lbl.style().unpolish(self._bridge_status_lbl)
+        self._bridge_status_lbl.style().polish(self._bridge_status_lbl)
+
+    def _open_url_rules(self) -> None:
+        from ui.widgets.url_rules_dialog import UrlRulesDialog
+
+        dialog = UrlRulesDialog(focus_manager=self._fm, parent=self.window())
+        dialog.exec()
+        self._refresh_rules_ui()
+        self._refresh_websites_ui()
 
     def _build_active_view(self) -> None:
         layout = QVBoxLayout(self._active_view)
@@ -1378,10 +1482,14 @@ class FocusTimerWidget(QFrame):
         )
 
         self.setStyleSheet(f"""
-            QFrame#focus_cockpit_card {{
+            QFrame#focus_suite_root {{
+                background: transparent;
+                border: none;
+            }}
+            QFrame#focus_section_card {{
                 background-color: {tm.color('surface')};
                 border: 1px solid {tm.color('border')};
-                border-radius: 20px;
+                border-radius: 18px;
             }}
             QFrame#apple_inset_card {{
                 background-color: {tm.color('surface_secondary')};
@@ -1394,10 +1502,15 @@ class FocusTimerWidget(QFrame):
                 color: {tm.color('text_muted')};
                 letter-spacing: 1.4px;
             }}
-            QLabel#strict_label {{
+            QLabel#focus_section_sub {{
                 font-size: 12px;
-                font-weight: 600;
+                font-weight: 500;
                 color: {tm.color('text_sub')};
+            }}
+            QLabel#protection_title {{
+                font-size: 13px;
+                font-weight: 600;
+                color: {tm.color('text_main')};
             }}
             QLabel#card_header_title {{
                 font-size: 14px;
@@ -1409,6 +1522,59 @@ class FocusTimerWidget(QFrame):
                 font-size: 12px;
                 font-weight: 500;
                 color: {tm.color('text_sub')};
+            }}
+            QLabel#rules_count {{
+                font-size: 12px;
+                font-weight: 600;
+                color: {tm.color('accent_tint_text')};
+            }}
+            QLabel#bridge_status_text {{
+                font-size: 11px;
+                font-weight: 500;
+                color: {tm.color('text_muted')};
+            }}
+            QLabel#bridge_status_text[state="on"] {{
+                color: #30D158;
+            }}
+            QFrame#guardrail_footer {{
+                background: {tm.color('surface_secondary')};
+                border: 1px solid {tm.color('border')};
+                border-radius: 10px;
+            }}
+            QLabel#guardrail_footer_text {{
+                color: {tm.color('text_muted')};
+                font-size: 10px;
+                font-weight: 500;
+            }}
+            QPushButton#text_link_btn {{
+                background: transparent;
+                border: none;
+                color: {tm.color('text_muted')};
+                font-size: 11px;
+                font-weight: 600;
+                padding: 3px 6px;
+            }}
+            QPushButton#text_link_btn:hover {{
+                color: {tm.color('text_main')};
+            }}
+            QPushButton#guardrail_tab {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 9px;
+                color: {tm.color('text_sub')};
+                font-size: 12px;
+                font-weight: 600;
+                padding: 5px 13px;
+            }}
+            QPushButton#guardrail_tab:hover {{
+                color: {tm.color('text_main')};
+                background: {tm.color('surface_hover')};
+            }}
+            QPushButton#guardrail_tab:checked {{
+                color: {mode_color};
+                background: {tm.color('accent_tint_bg')};
+                border: 1px solid {tm.color('accent_tint_border')};
+                font-weight: 700;
             }}
             QLabel#mini_eyebrow {{
                 font-size: 10px;
@@ -1783,16 +1949,24 @@ class FocusTimerWidget(QFrame):
         mode = self._fm.current_mode
         mode_color = _get_mode_color(mode, ThemeManager.instance().is_dark)
 
-        total = self._session_total_seconds if self._session_total_seconds > 0 else (self._selected_minutes * 60)
+        if self._fm.is_lockout:
+            host = self.window()
+            if host is not None and (host.isMinimized() or not host.isVisible()):
+                host.showNormal()
+                host.raise_()
+                host.activateWindow()
+
+        total = self._fm.session_total_seconds or self._session_total_seconds or (self._selected_minutes * 60)
         elapsed = max(0, total - seconds)
         pct = (elapsed / max(total, 1))
 
         # Update active ring dial
+        status_text = "Lockout in progress · cannot be ended" if self._fm.is_lockout else "Deep focus in progress"
         self._active_focus_ring.update_state(
             time_text=time_str,
             progress=pct,
             tag_text=MODE_CONFIG.get(mode, MODE_CONFIG["deep"])["title"],
-            status_text="Deep focus in progress",
+            status_text=status_text,
             mode_color=mode_color,
             is_active=True,
         )
@@ -1809,7 +1983,7 @@ class FocusTimerWidget(QFrame):
         mode_color = _get_mode_color(mode, is_dark)
 
         if self._fm.is_active:
-            self._session_total_seconds = self._selected_minutes * 60
+            self._session_total_seconds = self._fm.session_total_seconds or (self._selected_minutes * 60)
             self._active_mode_lbl.setText(f"{mode.upper()} FOCUS MODE")
 
             apps = self._fm.current_mode_apps
@@ -1825,7 +1999,13 @@ class FocusTimerWidget(QFrame):
 
             # Update active status pill with vector icon and color
             self._active_pill_icon.setPixmap(get_pixmap("sparkles", color=mode_color, size=14))
-            self._active_pill_text.setText(f"FOCUS ACTIVE — {mode.upper()}")
+            if self._fm.is_lockout:
+                self._active_pill_text.setText(f"LOCKOUT ACTIVE — {mode.upper()}")
+                self._active_stop_btn.setVisible(False)
+                self._active_mode_lbl.setText(f"{mode.upper()} LOCKOUT · CANNOT END EARLY")
+            else:
+                self._active_pill_text.setText(f"FOCUS ACTIVE — {mode.upper()}")
+                self._active_stop_btn.setVisible(True)
             q_acc = QColor(mode_color)
             r, g, b = q_acc.red(), q_acc.green(), q_acc.blue()
             self._active_status_pill.setStyleSheet(f"""
@@ -1859,11 +2039,30 @@ class FocusTimerWidget(QFrame):
 
     def _toggle_timer(self) -> None:
         if not self._fm.is_active:
-            if self._strict_switch.isChecked() and not self._fm._pin_manager.is_enabled():
+            lockout = bool(getattr(self, "_lockout_switch", None) and self._lockout_switch.isChecked())
+            strict = bool(self._strict_switch.isChecked())
+            if strict and not lockout and not self._fm._pin_manager.is_enabled():
                 from PySide6.QtWidgets import QMessageBox
                 QMessageBox.warning(self, "PIN Required", "You must configure a PIN in Settings before using Strict Mode.")
                 self._strict_switch.setChecked(False)
                 return
+
+            if lockout:
+                from PySide6.QtWidgets import QMessageBox
+
+                confirm = QMessageBox.warning(
+                    self,
+                    "Start Lockout Session?",
+                    "Lockout cannot be ended from inside the app until the countdown completes.\n\n"
+                    "The app will relaunch if its process is closed, and the remaining session "
+                    "will resume. This is best-effort: it cannot defeat an administrator, "
+                    "Safe Mode, or a full system shutdown.\n\n"
+                    "Continue?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel,
+                )
+                if confirm != QMessageBox.StandardButton.Yes:
+                    return
 
             mode = self._fm.current_mode
             # Preflight review showing BOTH applications and websites for all modes
@@ -1877,13 +2076,35 @@ class FocusTimerWidget(QFrame):
                 return
 
             self._session_total_seconds = self._selected_minutes * 60
-            self._fm.start_focus(self._selected_minutes, strict_mode=self._strict_switch.isChecked())
+            started = self._fm.start_focus(
+                self._selected_minutes,
+                strict_mode=strict,
+                lockout=lockout,
+            )
+            if started and lockout:
+                # A lockout must be visible: bring the host window forward.
+                host = self.window()
+                if host is not None:
+                    host.showNormal()
+                    host.raise_()
+                    host.activateWindow()
 
     def _stop_timer(self) -> None:
         if not self._fm.is_active:
             self._selected_minutes = self.DEFAULT_FOCUS_M
             self._session_total_seconds = self.DEFAULT_FOCUS_M * 60
             self.set_preset(self.DEFAULT_FOCUS_M)
+            return
+
+        if self._fm.is_lockout:
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.information(
+                self,
+                "Lockout active",
+                "This session is locked until the countdown completes. "
+                "You chose Lockout to make ending it harder — take a breath and keep going.",
+            )
             return
 
         if self._fm.is_strict:

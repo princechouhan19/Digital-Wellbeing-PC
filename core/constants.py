@@ -46,6 +46,15 @@ POLL_INTERVAL_MS = 500
 DEFAULT_IDLE_THRESHOLD_S = 300
 MAX_SESSION_GAP_S = 30
 
+# Tracking engine cadence (v4.2 event-driven loop).
+# The loop wakes on Win32 foreground/title events; these intervals bound how
+# long it may sleep and how often the expensive Win32/UIA queries re-run.
+TRACKING_TICK_INTERVAL_S = 2.0          # accounting / heartbeat cadence
+IDLE_SAMPLE_INTERVAL_S = 2.0            # GetLastInputInfo sampling cadence
+FOREGROUND_SAFETY_INTERVAL_S = 5.0      # re-read foreground window when hooks work
+FOREGROUND_SAFETY_NO_HOOK_S = 0.5       # fallback cadence without hooks
+MAX_ACCOUNT_DELTA_S = 5.0               # clamp after hibernate / debugger pauses
+
 # Apple system palette — category color mapping (Aurora design system)
 # Dark-mode variants (canonical); light variants in CATEGORY_COLORS_LIGHT.
 CATEGORY_COLORS: dict[AppCategory, str] = {

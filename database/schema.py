@@ -87,10 +87,18 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_sessions_category   ON app_sessions(category);",
     "CREATE INDEX IF NOT EXISTS idx_sessions_end        ON app_sessions(end_time);",
     "CREATE INDEX IF NOT EXISTS idx_sessions_open       ON app_sessions(end_time) WHERE end_time IS NULL;",
+    # Composite indexes for the hot analytics paths. Plain single-column
+    # indexes force SQLite to fetch every matching row before applying the
+    # second predicate; these let it seek straight into a process/domain and
+    # then range-scan the requested date window.
+    "CREATE INDEX IF NOT EXISTS idx_sessions_process_start ON app_sessions(process_name, start_time);",
+    "CREATE INDEX IF NOT EXISTS idx_sessions_category_start ON app_sessions(category, start_time);",
     "CREATE INDEX IF NOT EXISTS idx_event_log_time      ON event_log(timestamp);",
     "CREATE INDEX IF NOT EXISTS idx_event_log_type      ON event_log(event_type);",
     "CREATE INDEX IF NOT EXISTS idx_website_sessions_start ON website_sessions(start_time);",
     "CREATE INDEX IF NOT EXISTS idx_website_sessions_domain ON website_sessions(domain);",
+    "CREATE INDEX IF NOT EXISTS idx_website_domain_start ON website_sessions(domain, start_time);",
+    "CREATE INDEX IF NOT EXISTS idx_website_browser_start ON website_sessions(browser_process, start_time);",
 ]
 
 MIGRATE_ADD_EXE_PATH = """

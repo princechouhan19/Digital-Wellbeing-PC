@@ -48,11 +48,11 @@ class HeaderStatusCapsule(QFrame):
         self.text_lbl.setObjectName("header_status_text")
         layout.addWidget(self.text_lbl)
 
-    def set_active(self, is_active: bool, mode_name: str = "Focus"):
+    def set_active(self, is_active: bool, mode_name: str = "Focus", lockout: bool = False):
         tm = ThemeManager.instance()
         if is_active:
             self.icon_lbl.setPixmap(get_pixmap("sparkles", color="#30D158", size=13))
-            self.text_lbl.setText(f"{mode_name.title()} Focus Active")
+            self.text_lbl.setText("Lockout Active" if lockout else f"{mode_name.title()} Focus Active")
             self.setStyleSheet("""
                 QFrame#header_status_capsule {
                     background: rgba(48, 209, 88, 0.14);
@@ -123,7 +123,7 @@ class WellbeingPage(QWidget):
         title = QLabel("Focus")
         title.setObjectName("apple_page_title")
 
-        subtitle = QLabel("Intentional distraction-free sessions engineered for deep concentration.")
+        subtitle = QLabel("Protect your attention without fighting your tools.")
         subtitle.setObjectName("apple_page_subtitle")
 
         title_box.addWidget(title)
@@ -140,7 +140,7 @@ class WellbeingPage(QWidget):
         center_box = QWidget()
         center_layout = QVBoxLayout(center_box)
         center_layout.setContentsMargins(0, 0, 0, 0)
-        center_box.setMaximumWidth(1080)
+        center_box.setMaximumWidth(1180)
 
         self._focus_timer = FocusTimerWidget()
         self._focus_timer.focus_completed.connect(self.focus_completed.emit)
@@ -158,7 +158,7 @@ class WellbeingPage(QWidget):
         from protection.focus_manager import FocusManager
 
         fm = FocusManager.instance()
-        self._status_capsule.set_active(is_active, fm.current_mode)
+        self._status_capsule.set_active(is_active, fm.current_mode, lockout=fm.is_lockout)
 
     def _apply_theme(self, is_dark: bool) -> None:
         tm = ThemeManager.instance()
@@ -179,8 +179,14 @@ class WellbeingPage(QWidget):
         from protection.focus_manager import FocusManager
 
         fm = FocusManager.instance()
-        self._status_capsule.set_active(fm.is_active, fm.current_mode)
+        self._status_capsule.set_active(fm.is_active, fm.current_mode, lockout=fm.is_lockout)
         self.on_data_changed()
 
     def on_data_changed(self) -> None:
-        pass
+        # Keep the bridge/rule summary fresh when the page is revisited.
+        timer = getattr(self, "_focus_timer", None)
+        if timer is not None and hasattr(timer, "_refresh_rules_ui"):
+            try:
+                timer._refresh_rules_ui()
+            except Exception:
+                pass

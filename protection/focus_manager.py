@@ -13,6 +13,7 @@ from __future__ import annotations
 import time
 import ctypes
 import ctypes.wintypes
+import json
 import threading
 from typing import Dict, List, Optional
 
@@ -58,12 +59,29 @@ class FocusManager(QObject):
         self._pin_manager = PINManager(repo)
         self._is_active = False
         self._is_strict = False
+        self._lockout = False
+        self._watchdog_proc = None
         self._seconds_remaining = 0
+        self._session_total_seconds = 0
         
         self._last_blocked_feedback: Dict[str, float] = {}
         self._suppressed_blocked_apps: Dict[str, float] = {}
         self._website_blocker = WebsiteBlocker()
         self._website_blocker.cleanup_orphaned_blocks()
+
+        from protection.url_rules import UrlRuleEngine
+
+        self._url_rule_engine = UrlRuleEngine(repo)
+        self._url_rules_cache = None
+
+        # The browser extension bridge asks this manager for a decision on each
+        # navigation. Registration is cheap and does not start the server.
+        try:
+            from protection.extension_bridge import ExtensionBridge
+
+            ExtensionBridge.instance().set_decision_provider(self.check_url)
+        except Exception:
+            pass
 
         self._mode: str = self._repo.get_setting("focus_current_mode") or "custom"
         self._mode_apps: Dict[str, List[str]] = {
@@ -110,6 +128,11 @@ class FocusManager(QObject):
         if stored_response:
             self._app_block_response = stored_response
 
+        # A lockout session survives an unexpected app termination. Restore it
+        # before any UI is built so the countdown and guards are immediately
+        # active again.
+        self._restore_active_session()
+
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
@@ -123,12 +146,20 @@ class FocusManager(QObject):
         return self._is_strict
 
     @property
+    def is_lockout(self) -> bool:
+        return self._lockout
+
+    @property
     def app_block_response(self) -> str:
         return self._app_block_response
 
     @property
     def seconds_remaining(self) -> int:
         return self._seconds_remaining
+
+    @property
+    def session_total_seconds(self) -> int:
+        return self._session_total_seconds
 
     @property
     def remaining_seconds(self) -> int:
@@ -150,6 +181,11 @@ class FocusManager(QObject):
     @property
     def current_mode_websites(self) -> List[str]:
         return list(self._mode_websites.get(self._mode, []))
+
+    def blocked_websites(self) -> List[str]:
+        """Return the current mode's blocked domains (legacy alias used by the
+        foreground enforcement path)."""
+        return self.current_mode_websites
 
     def get_mode_websites(self, mode: str) -> List[str]:
         return list(self._mode_websites.get(mode, []))
@@ -184,6 +220,89 @@ class FocusManager(QObject):
             self.save_mode_websites(mode, current)
             return True
         return False
+
+    # ------------------------------------------------------------------
+    # Granular URL rules + extension bridge
+    # ------------------------------------------------------------------
+
+    def url_rules(self) -> list:
+        if self._url_rules_cache is None:
+            self._url_rules_cache = self._url_rule_engine.load()
+        return list(self._url_rules_cache)
+
+    def add_url_rule(self, pattern: str, action: str, label: str = ""):
+        rule = self._url_rule_engine.add(pattern, action, label)
+        if rule is not None:
+            self._url_rules_cache = None
+        return rule
+
+    def remove_url_rule(self, rule_id: str) -> bool:
+        removed = self._url_rule_engine.remove(rule_id)
+        if removed:
+            self._url_rules_cache = None
+        return removed
+
+    def set_url_rule_enabled(self, rule_id: str, enabled: bool) -> bool:
+        changed = self._url_rule_engine.set_enabled(rule_id, enabled)
+        if changed:
+            self._url_rules_cache = None
+        return changed
+
+    def _site_is_blocked(self, domain: str) -> bool:
+        if not domain:
+            return False
+        domain = domain.lower().strip()
+        if domain.startswith("www."):
+            domain = domain[4:]
+        for site in self.blocked_websites():
+            site = self._normalize_domain(site)
+            if site and (domain == site or domain.endswith("." + site)):
+                return True
+        return False
+
+    def check_url(self, url: str) -> dict:
+        """Return the Focus policy decision for a full browser URL.
+
+        This is the decision function used by the loopback extension bridge and
+        by foreground enforcement. Sub-path rules are evaluated only while a
+        Focus session is active; when inactive everything is allowed.
+        """
+        from protection.url_rules import UrlRuleEngine, domain_of
+
+        if not self._is_active:
+            return {
+                "action": "allow",
+                "reason": "Focus session inactive",
+                "rule": None,
+                "domain": domain_of(url),
+                "focus_active": False,
+                "mode": self._mode,
+            }
+
+        domain = domain_of(url)
+        default_action = "block" if self._site_is_blocked(domain) else "allow"
+        decision = UrlRuleEngine.decide(
+            url,
+            default_action=default_action,
+            rules=self.url_rules(),
+        )
+        return {
+            "action": decision.action,
+            "reason": decision.reason,
+            "rule": decision.matched_rule,
+            "domain": decision.domain,
+            "focus_active": True,
+            "mode": self._mode,
+            "seconds_remaining": self._seconds_remaining,
+        }
+
+    def extension_bridge_info(self) -> dict:
+        try:
+            from protection.extension_bridge import ExtensionBridge
+
+            return ExtensionBridge.instance().connection_info()
+        except Exception:
+            return {"running": False, "port": 0, "token": "", "last_error": ""}
 
     def set_mode(self, mode: str) -> None:
         if mode in self._mode_apps and not self._is_active:
@@ -223,25 +342,38 @@ class FocusManager(QObject):
     # Session control
     # ------------------------------------------------------------------
 
-    def start_focus(self, minutes: int = 25, strict_mode: bool = False, mode: Optional[str] = None) -> bool:
+    def start_focus(
+        self,
+        minutes: int = 25,
+        strict_mode: bool = False,
+        mode: Optional[str] = None,
+        lockout: bool = False,
+    ) -> bool:
         if self._is_active:
             return False
 
         if mode:
             self.set_mode(mode)
 
-        if strict_mode and not self._pin_manager.is_enabled():
+        if strict_mode and not lockout and not self._pin_manager.is_enabled():
             logger.warning("[FOCUS] Cannot start strict mode: PIN is not configured.")
             return False
 
         self._is_active = True
-        self._is_strict = strict_mode
+        self._is_strict = strict_mode or lockout
+        self._lockout = bool(lockout)
         self._deadline = time.monotonic() + minutes * 60
         self._seconds_remaining = minutes * 60
+        self._session_total_seconds = minutes * 60
+        # Only lockout needs crash/relaunch persistence; a normal session ends
+        # cleanly and should not surprise the user on the next launch.
+        if self._lockout:
+            self._save_active_session(minutes)
 
         logger.info(
             f"[FOCUS] Session started. mode={self._mode}, minutes={minutes}, strict={strict_mode}, "
-            f"apps={self.current_mode_apps or '(empty)'}, websites={self.current_mode_websites or '(none)'}"
+            f"lockout={lockout}, apps={self.current_mode_apps or '(empty)'}, "
+            f"websites={self.current_mode_websites or '(none)'}"
         )
 
         # Activate website blocking if configured
@@ -264,14 +396,112 @@ class FocusManager(QObject):
         self._run_enforcement_scan()
 
         self._timer.start()
+        if self._lockout:
+            self._spawn_lockout_watchdog()
         self.focus_state_changed.emit(True)
         return True
+
+    def _save_active_session(self, minutes: int) -> None:
+        try:
+            payload = {
+                "mode": self._mode,
+                "minutes": minutes,
+                "strict": self._is_strict,
+                "lockout": self._lockout,
+                "started_epoch": time.time(),
+                "deadline_epoch": time.time() + minutes * 60,
+            }
+            self._repo.set_setting("focus_active_session", json.dumps(payload))
+        except Exception as exc:
+            logger.warning("[FOCUS] Could not persist active session: %s", exc)
+
+    def _clear_active_session(self) -> None:
+        try:
+            self._repo.set_setting("focus_active_session", "")
+        except Exception:
+            pass
+
+    def _spawn_lockout_watchdog(self) -> None:
+        try:
+            from protection.focus_watchdog import spawn_watchdog
+
+            self._watchdog_proc = spawn_watchdog(time.time() + max(1, self._seconds_remaining))
+            if self._watchdog_proc is not None:
+                logger.info("[FOCUS] Lockout watchdog started (pid=%s).", self._watchdog_proc.pid)
+        except Exception as exc:
+            logger.debug("[FOCUS] Watchdog unavailable: %s", exc)
+
+    def _stop_lockout_watchdog(self) -> None:
+        proc = self._watchdog_proc
+        self._watchdog_proc = None
+        if proc is None:
+            return
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+        except Exception:
+            pass
+
+    def _restore_active_session(self) -> None:
+        try:
+            raw = self._repo.get_setting("focus_active_session") or ""
+            if not raw:
+                return
+            data = json.loads(raw)
+        except Exception:
+            self._clear_active_session()
+            return
+
+        try:
+            deadline_epoch = float(data.get("deadline_epoch", 0))
+        except (TypeError, ValueError):
+            deadline_epoch = 0.0
+
+        remaining = deadline_epoch - time.time()
+        if remaining <= 1:
+            self._clear_active_session()
+            try:
+                self._website_blocker.unblock_all()
+            except Exception:
+                pass
+            return
+
+        mode = str(data.get("mode", "custom"))
+        if mode in self._mode_apps:
+            self._mode = mode
+        self._is_active = True
+        self._is_strict = bool(data.get("strict", False))
+        self._lockout = bool(data.get("lockout", False))
+        self._deadline = time.monotonic() + remaining
+        self._seconds_remaining = int(remaining)
+        try:
+            self._session_total_seconds = max(1, int(float(data.get("minutes", 25)) * 60))
+        except (TypeError, ValueError):
+            self._session_total_seconds = max(int(remaining), 1)
+        self._timer.start()
+        logger.info(
+            "[FOCUS] Restored active session: mode=%s, remaining=%ds, lockout=%s",
+            self._mode,
+            self._seconds_remaining,
+            self._lockout,
+        )
+        if self.current_mode_websites:
+            try:
+                self._website_blocker.block_websites(self.current_mode_websites)
+            except Exception:
+                pass
+        if self._lockout:
+            self._spawn_lockout_watchdog()
 
     def stop_focus(self, provided_pin: str = "") -> bool:
         if not self._is_active:
             return True
 
-        if self._is_strict:
+        if self._lockout and self._seconds_remaining > 0:
+            logger.warning("[FOCUS] Stop denied: lockout session in progress.")
+            return False
+
+        if self._is_strict and not self._lockout:
             if not self._pin_manager.verify_pin(provided_pin):
                 logger.warning("[FOCUS] Stop denied: Invalid PIN.")
                 return False
@@ -289,14 +519,20 @@ class FocusManager(QObject):
         """
         if not self._is_active:
             return True
+        if self._lockout and self._seconds_remaining > 0:
+            return False
         return self._do_stop()
 
     def _do_stop(self) -> bool:
         """Internal teardown — reset state."""
         self._is_active = False
         self._is_strict = False
+        self._lockout = False
         self._seconds_remaining = 0
+        self._session_total_seconds = 0
         self._timer.stop()
+        self._clear_active_session()
+        self._stop_lockout_watchdog()
         self._website_blocker.unblock_all()
         self.focus_state_changed.emit(False)
         logger.info("[FOCUS] Session stopped.")
@@ -374,7 +610,7 @@ class FocusManager(QObject):
                 except Exception:
                     exe_path = ""
 
-                # Check browser tab website block
+                # Check browser tab website block (domain + granular URL rules)
                 from tracker.browser_domain import is_browser_process, get_active_browser_domain
                 if is_browser_process(p_name):
                     try:
@@ -383,14 +619,25 @@ class FocusManager(QObject):
                         title = ""
                     domain = get_active_browser_domain(p_name, title, hwnd=hwnd)
                     if domain:
-                        blocked_sites = self.blocked_websites()
-                        if any(self._normalize_domain(site) == domain or domain.endswith("." + self._normalize_domain(site)) for site in blocked_sites):
+                        full_url = ""
+                        try:
+                            from protection.extension_bridge import ExtensionBridge
+                            from protection.url_rules import domain_of
+
+                            candidate = ExtensionBridge.instance().latest_url(p_name, max_age_s=12.0)
+                            if candidate and domain_of(candidate) == domain:
+                                full_url = candidate
+                        except Exception:
+                            full_url = ""
+                        decision = self.check_url(full_url or f"https://{domain}/")
+                        if decision.get("action") == "block":
                             from protection.process import ProcessController
                             ProcessController.close_browser_tab(hwnd)
                             now = time.time()
-                            last_time = self._last_blocked_feedback.get(domain, 0.0)
+                            key = decision.get("rule") or domain
+                            last_time = self._last_blocked_feedback.get(key, 0.0)
                             if now - last_time >= 4.0:
-                                self._last_blocked_feedback[domain] = now
+                                self._last_blocked_feedback[key] = now
                                 self.app_blocked.emit(domain, self._mode, self._seconds_remaining)
                             return
 

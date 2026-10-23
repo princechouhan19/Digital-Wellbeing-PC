@@ -175,6 +175,7 @@ class DebugPage(QWidget):
         self._lbl_fullscreen = make_row_col2(1, "Fullscreen Detection:")
         self._lbl_game_reason = make_row_col2(2, "Game Detect Reason:")
         self._lbl_launcher_reason = make_row_col2(3, "Launcher Detect Reason:")
+        self._lbl_engine = make_row_col2(4, "Tracking Engine:")
         grid.setColumnStretch(1, 2)
         grid.setColumnStretch(3, 2)
 
@@ -238,6 +239,16 @@ class DebugPage(QWidget):
         self._lbl_fullscreen.setText("Fullscreen (exclusive / borderless)" if state.get("is_fullscreen") else "Windowed")
         self._lbl_game_reason.setText(state.get("game_reason", "—") or "—")
         self._lbl_launcher_reason.setText(state.get("launcher_reason", "—") or "—")
+
+        try:
+            stats = self._tracker.get_performance_stats()
+            mode = "Event-driven" if stats.get("event_driven") else "Polling"
+            self._lbl_engine.setText(
+                f"{mode} · {stats.get('foreground_queries', 0)} fg reads / "
+                f"{stats.get('ticks', 0)} ticks · {stats.get('wakeups_from_events', 0)} event wakes"
+            )
+        except Exception:
+            self._lbl_engine.setText("—")
 
     def _on_filter_changed(self) -> None:
         QTimer.singleShot(300, self._refresh)

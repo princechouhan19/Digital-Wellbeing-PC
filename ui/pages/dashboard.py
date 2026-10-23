@@ -43,7 +43,11 @@ class DashboardPage(QWidget):
         self._navigate = navigate_callback
         self._engine = AnalyticsEngine()
         self._setup_ui()
-        self._refresh()
+        # Defer the first analytics refresh to the event loop: constructing the
+        # page is cheap, while the initial query + row building is not. This
+        # lets the main window paint in well under 200 ms on cold start.
+        self._date_label.setText(date.today().strftime("%A, %B %d, %Y"))
+        self._context_label.setText("Loading today's activity…")
 
         self._timer = QTimer(self)
         self._timer.setInterval(30_000)

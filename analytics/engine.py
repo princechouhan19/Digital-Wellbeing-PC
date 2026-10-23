@@ -30,6 +30,29 @@ class DailyPoint:
     idle_s: float
 
 
+@dataclass
+class FlowBlock:
+    start: datetime
+    end: datetime
+    duration_s: float
+    primary_app: str
+    apps: List[str]
+
+    def to_dict(self) -> dict:
+        return {
+            "start": self.start,
+            "end": self.end,
+            "duration_s": self.duration_s,
+            "primary_app": self.primary_app,
+            "apps": self.apps,
+        }
+
+
+FLOW_CATEGORIES = ("Programming", "Productivity", "Education")
+FLOW_MIN_DURATION_S = 45 * 60
+FLOW_MAX_GAP_S = 120.0
+
+
 class AnalyticsEngine:
     def __init__(self) -> None:
         self._repo = Repository()
@@ -98,6 +121,137 @@ class AnalyticsEngine:
             {"hour": f"{h:02d}:00", "total_s": hour_map.get(f"{h:02d}", 0.0)}
             for h in range(24)
         ]
+
+    # ─── Attention quality: fragmentation + flow ────────────────────────────
+
+    def get_focus_fragmentation(self, target_date: Optional[date] = None) -> dict:
+        """Task-switch frequency per hour for a day.
+
+        A "switch" is a new non-idle app session starting in that hour. The
+        fragmentation index is switches per active hour; the hourly series is
+        what the Insights chart renders.
+        """
+        target_date = target_date or date.today()
+        sessions = [
+            s
+            for s in self._repo.get_sessions_for_date(target_date)
+            if not s.is_idle and s.duration_s > 0
+        ]
+        sessions.sort(key=lambda s: s.start_time)
+
+        buckets = [
+            {"hour": f"{hour:02d}:00", "switches": 0, "active_s": 0.0}
+            for hour in range(24)
+        ]
+
+        for session in sessions:
+            if not (0 <= session.start_time.hour < 24):
+                continue
+            buckets[session.start_time.hour]["switches"] += 1
+
+            # Split the session across hour boundaries so long sessions do not
+            # inflate a single hour's active time.
+            cursor = session.start_time
+            remaining = float(session.duration_s)
+            guard = 0
+            while remaining > 0.5 and guard < 48:
+                guard += 1
+                hour_end = cursor.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+                chunk = min(remaining, max(0.0, (hour_end - cursor).total_seconds()))
+                if chunk <= 0:
+                    break
+                if 0 <= cursor.hour < 24:
+                    buckets[cursor.hour]["active_s"] += chunk
+                remaining -= chunk
+                cursor = hour_end
+
+        total_active = sum(b["active_s"] for b in buckets)
+        total_switches = sum(b["switches"] for b in buckets)
+        active_hours = max(total_active / 3600.0, 0.25)
+        peak = max(buckets, key=lambda b: b["switches"])
+
+        return {
+            "date": target_date,
+            "hourly": buckets,
+            "total_switches": total_switches,
+            "active_hours": round(active_hours, 2),
+            "fragmentation_index": round(total_switches / active_hours, 2),
+            "peak_hour": peak["hour"],
+            "peak_switches": peak["switches"],
+        }
+
+    def get_flow_analytics(self, days: int = 7, end_date: Optional[date] = None) -> dict:
+        """Sustained >=45-minute productive runs (gaps <=2 minutes merged)."""
+        today = end_date or date.today()
+        start = today - timedelta(days=max(1, days) - 1)
+        sessions = [
+            s
+            for s in self._repo.get_sessions_for_range(start, today)
+            if s.duration_s > 0
+        ]
+        sessions.sort(key=lambda s: s.start_time)
+
+        blocks: List[FlowBlock] = []
+        current = None
+        current_apps: dict[str, float] = {}
+
+        def flush():
+            nonlocal current, current_apps
+            if current is None:
+                return
+            duration = (current["end"] - current["start"]).total_seconds()
+            if duration >= FLOW_MIN_DURATION_S:
+                apps = sorted(current_apps, key=lambda name: current_apps[name], reverse=True)
+                blocks.append(
+                    FlowBlock(
+                        start=current["start"],
+                        end=current["end"],
+                        duration_s=duration,
+                        primary_app=apps[0] if apps else "",
+                        apps=apps[:4],
+                    )
+                )
+            current = None
+            current_apps = {}
+
+        for session in sessions:
+            category = session.category.value if hasattr(session.category, "value") else str(session.category)
+            end = session.end_time or (session.start_time + timedelta(seconds=session.duration_s))
+            if category not in FLOW_CATEGORIES:
+                flush()
+                continue
+
+            if current is None:
+                current = {"start": session.start_time, "end": end}
+            else:
+                gap = (session.start_time - current["end"]).total_seconds()
+                if gap > FLOW_MAX_GAP_S:
+                    flush()
+                    current = {"start": session.start_time, "end": end}
+                else:
+                    current["end"] = max(current["end"], end)
+
+            if current is not None:
+                name = session.process_name.lower()
+                current_apps[name] = current_apps.get(name, 0.0) + session.duration_s
+
+        flush()
+
+        blocks.sort(key=lambda b: b.start, reverse=True)
+        longest = max(blocks, key=lambda b: b.duration_s) if blocks else None
+        total_flow_s = sum(b.duration_s for b in blocks)
+        today_blocks = [b for b in blocks if b.start.date() == today]
+
+        return {
+            "days": days,
+            "blocks": [b.to_dict() for b in blocks],
+            "total_flow_s": total_flow_s,
+            "longest": longest.to_dict() if longest else None,
+            "today_flow_s": sum(b.duration_s for b in today_blocks),
+            "today_blocks": [b.to_dict() for b in today_blocks],
+            "count": len(blocks),
+        }
+
 
     def get_yesterday_comparison(self) -> dict:
         today = date.today()

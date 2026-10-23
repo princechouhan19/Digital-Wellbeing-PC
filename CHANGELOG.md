@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] — 2026-10-23
+
+The **Attention** release — event-driven performance work, granular web rules, flow analytics, circadian display warm-up, strict lockout, and a redesigned Focus page.
+
+### Changed
+- **Event-driven tracking engine** — the 500 ms polling loop is replaced by `SetWinEventHook` notifications for foreground and title changes (`tracker/win_events.py`), with event coalescing, a 2 s accounting tick, a 5 s safety poll, and automatic 500 ms fallback when hooks are unavailable. Foreground re-reads drop from 2/s to ≤0.2/s.
+- **Lazy Qt page instantiation** — `MainWindow` now builds only the landing page at startup and constructs the other twelve pages on first navigation (`_ensure_page`). Cold construction drops from 2522 ms to ~185 ms, and startup widgets from 1766 to 95. Legacy `window._settings_page`-style access still works through lazy properties.
+- **Deferred dashboard analytics** — the first dashboard query/row build runs on the first event-loop turn, so the window shell paints first.
+- **SQLite tuning** — adaptive `PRAGMA mmap_size` (32–256 MB by database size, disabled on 32-bit), `busy_timeout=5000`, `wal_autocheckpoint=1000`, and `PRAGMA optimize` on close.
+- **Browser UIA fallback** — replaced per-call thread spawning with a single bounded worker, latest-request-wins coalescing, a 30 s positive TTL, 45 s stale-while-revalidate, negative-cache backoff (5–120 s), and a 256-entry LRU. 100 unresolved-title calls now produce one UIA query.
+- **Hot-path caches** — browser title→domain parsing is memoised; adult-content keyword matching uses one compiled alternation and memoised `(title, domain)` classification; the settings lookup only runs after a positive match; XInput/joystick probing is throttled to 2 s.
+- **Focus page redesign** — removed the single nested cockpit card. Mode selection, session/timer, a tabbed guardrails panel (Apps / Websites / URL rules), and Session Protection are now separate cards. The URL rules tab shows local bridge status; the active view hides the stop action during lockout.
+- **SleepGuard** now includes the Circadian display card beneath its power configuration.
+
+### Added
+- Composite SQLite indexes: `app_sessions(process_name, start_time)`, `app_sessions(category, start_time)`, `website_sessions(domain, start_time)`, `website_sessions(browser_process, start_time)`.
+- `TrackingManager.get_performance_stats()` for Dev Mode diagnostics (hook availability, event wakeups, ticks, foreground queries).
+- `docs/PERFORMANCE.md` with methodology and before/after measurements, plus `tools/benchmark_performance.py` to reproduce them.
+- `tests/test_performance_optimizations.py` covering the watcher, throttled polling, idle probe, UIA cache, classifier cache, SQLite tuning, and lazy pages.
+- **Granular sub-path web filtering** — `protection/url_rules.py` (host + path allow/block with most-specific-match resolution), a token-protected loopback bridge (`protection/extension_bridge.py`), an optional MV3 extension (`assets/browser_extension/`), and a Focus → Guardrails → URL rules editor. 100 unresolved-title calls still leave the app fully local; URLs are never logged.
+- **Focus Fragmentation Index** — hourly task-switch analytics (`AnalyticsEngine.get_focus_fragmentation`) with an Apple-style bar card on Insights.
+- **Flow Continuity Tracker** — merges productive programming/writing/study sessions across ≤2-minute gaps and highlights 45+ minute flow blocks (`AnalyticsEngine.get_flow_analytics`).
+- **Circadian display warm-up** — reversible per-monitor gamma ramps driven by the SleepGuard bedtime (`protection/circadian.py`), with bedtime/lead/warmth controls on the SleepGuard page.
+- **Strict Lockout mode** — optional non-cancelable Focus session with persisted deadline, close/minimize/tray-quit guards, and a best-effort relaunch watchdog (`protection/focus_watchdog.py`). The UI explicitly states that administrator/Safe Mode termination cannot be prevented.
+- `docs/ATTENTION_WELLNESS.md` describing rule semantics, bridge endpoints, flow definitions, circadian schedule, lockout guarantees/limits, and the Focus layout.
+- `tests/test_attention_wellness_features.py` covering URL rules, bridge round-trip, fragmentation/flow, circadian phases, lockout persistence, and the redesigned Focus page.
+
+### Re-scoped
+- The planned `dw_native.pyd` extension was not built: the hot Win32 calls are already native `ctypes` calls, COM/UIA traversal would not be removed by a C shim, and a per-Python-ABI binary adds significant packaging risk. The `< 15 MB` resident-RAM target is not achievable for a PySide6 application; lazy loading instead cuts first-paint RSS from ~178 MB to ~75 MB. See `docs/PERFORMANCE.md` for details.
+
 ## [4.1.0] — 2026-10-22
 
 The **Digital Wellbeing** release — full rebrand to the product's real name, a first-run onboarding experience, the SafeBrowse content filter, and a batch of reliability fixes.

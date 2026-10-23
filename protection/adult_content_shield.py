@@ -14,6 +14,7 @@ import re
 import threading
 import time
 import urllib.parse
+from functools import lru_cache
 from typing import Callable, Optional, Set, Tuple
 
 from core.logger import logger
@@ -72,6 +73,59 @@ _LEET_MAP = {
     "$": "s", "5": "s", "7": "t", "!": "i", "+": "t"
 }
 
+# One compiled alternation instead of ~55 per-call regex compilations. This is
+# on the tracker hot path (every active browser tick).
+_EXPLICIT_TERM_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(k) for k in sorted(_EXPLICIT_KEYWORDS, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
+_NUDITY_ROOT_RE = re.compile(r"\b(naked|nude|sex|sexy|erotic|strip|leaked)\b", re.IGNORECASE)
+_MEDIA_ROOT_RE = re.compile(r"\b(video|videos|clips|pics|photos|movie|movies|stream|leak|leaks)\b", re.IGNORECASE)
+_WHITESPACE_RE = re.compile(r"[\s\-_.]+")
+
+
+@lru_cache(maxsize=2048)
+def _normalize_cached(text: str) -> str:
+    if not text:
+        return ""
+    try:
+        text = urllib.parse.unquote(text)
+    except Exception:
+        pass
+    text = text.lower()
+    # Convert simple leetspeak
+    for k, v in _LEET_MAP.items():
+        text = text.replace(k, v)
+    return _WHITESPACE_RE.sub(" ", text).strip()
+
+
+@lru_cache(maxsize=2048)
+def _classify_adult_title(title: str, domain: str) -> Tuple[bool, str]:
+    """Memoised full-title classification (pure given the static word lists)."""
+    if not title:
+        return False, ""
+
+    # Check domain first
+    if domain and AdultContentClassifier.is_adult_domain(domain):
+        return True, f"Restricted adult domain: {domain}"
+
+    query = AdultContentClassifier.extract_search_query(title)
+    if query:
+        is_adult, reason = AdultContentClassifier.is_adult_query(query)
+        if is_adult:
+            return True, reason
+
+    norm_title = AdultContentClassifier.normalize_text(title)
+    for safe in _SAFE_CONTEXT_EXCLUSIONS:
+        if safe in norm_title:
+            return False, ""
+
+    match = _EXPLICIT_TERM_RE.search(norm_title)
+    if match:
+        return True, f"Window title contains explicit keyword: '{match.group(0)}'"
+
+    return False, ""
+
 
 class AdultContentClassifier:
     """Classifies search queries, window titles, and domains for adult content."""
@@ -79,19 +133,7 @@ class AdultContentClassifier:
     @classmethod
     def normalize_text(cls, text: str) -> str:
         """Lowercases, decodes URL characters, and standardizes spacing."""
-        if not text:
-            return ""
-        try:
-            text = urllib.parse.unquote(text)
-        except Exception:
-            pass
-        text = text.lower()
-        # Convert simple leetspeak
-        for k, v in _LEET_MAP.items():
-            text = text.replace(k, v)
-        # Collapse multiple spaces or repeated dots/underscores
-        text = re.sub(r"[\s\-_.]+", " ", text).strip()
-        return text
+        return _normalize_cached(text or "")
 
     @classmethod
     def extract_search_query(cls, title: str) -> Optional[str]:
@@ -122,15 +164,14 @@ class AdultContentClassifier:
             if safe in norm:
                 return False, ""
 
-        # 2. Check explicit keywords with word boundaries
-        for kw in _EXPLICIT_KEYWORDS:
-            pattern = rf"\b{re.escape(kw)}\b"
-            if re.search(pattern, norm):
-                return True, f"Search contains restricted term: '{kw}'"
+        # 2. Check explicit keywords with word boundaries (single compiled pass)
+        match = _EXPLICIT_TERM_RE.search(norm)
+        if match:
+            return True, f"Search contains restricted term: '{match.group(0)}'"
 
         # 3. Compound check (e.g. "naked" + "girls", "sex" + "clips")
-        has_nudity_root = bool(re.search(r"\b(naked|nude|sex|sexy|erotic|strip|leaked)\b", norm))
-        has_media_root = bool(re.search(r"\b(video|videos|clips|pics|photos|movie|movies|stream|leak|leaks)\b", norm))
+        has_nudity_root = bool(_NUDITY_ROOT_RE.search(norm))
+        has_media_root = bool(_MEDIA_ROOT_RE.search(norm))
         if has_nudity_root and has_media_root:
             return True, "Compound restricted adult search query detected"
 
@@ -168,33 +209,11 @@ class AdultContentClassifier:
         """
         Evaluates a browser window title and optional domain for explicit material.
         Returns (is_adult: bool, reason: str).
+
+        The classification is deterministic and memoised: the same title is
+        re-evaluated on every tracking tick while a tab stays in the foreground.
         """
-        if not title:
-            return False, ""
-
-        # Check domain first
-        if domain and cls.is_adult_domain(domain):
-            return True, f"Restricted adult domain: {domain}"
-
-        # Check if window title is a search engine query
-        query = cls.extract_search_query(title)
-        if query:
-            is_adult, reason = cls.is_adult_query(query)
-            if is_adult:
-                return True, reason
-
-        # Check raw title against explicit terms
-        norm_title = cls.normalize_text(title)
-        for safe in _SAFE_CONTEXT_EXCLUSIONS:
-            if safe in norm_title:
-                return False, ""
-
-        for kw in _EXPLICIT_KEYWORDS:
-            pattern = rf"\b{re.escape(kw)}\b"
-            if re.search(pattern, norm_title):
-                return True, f"Window title contains explicit keyword: '{kw}'"
-
-        return False, ""
+        return _classify_adult_title(title or "", domain or "")
 
 
 # ---------------------------------------------------------------------------
@@ -254,16 +273,18 @@ class AdultContentShield:
         if p_lower not in BROWSER_PROCESSES:
             return False
 
-        # Check if content filtering is enabled in Settings
-        from settings.manager import SettingsManager
-        sm = SettingsManager()
-        # Active if either content_filter_enabled (SafeBrowse) or adult_filter_enabled is True (default True)
-        is_enabled = sm.get_bool("adult_filter_enabled", True) or sm.get_bool("content_filter_enabled", True)
-        if not is_enabled:
-            return False
-
+        # Classify first: the classification is memoised and cheap, while the
+        # settings lookup hits SQLite. Doing the cheap check first means the
+        # common (non-adult) tick never opens a database cursor at all.
         is_adult, reason = AdultContentClassifier.is_adult_title(window_title, domain)
         if not is_adult:
+            return False
+
+        # Check if content filtering is enabled in Settings. This only runs for
+        # titles that already matched, so the DB read is rare.
+        from settings.manager import SettingsManager
+        sm = SettingsManager()
+        if not (sm.get_bool("adult_filter_enabled", True) or sm.get_bool("content_filter_enabled", True)):
             return False
 
         now = time.monotonic()

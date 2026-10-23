@@ -128,6 +128,21 @@ class InsightsPage(QWidget):
         self._metrics_row.addWidget(self._card_top_app)
         self._inner_layout.addLayout(self._metrics_row)
 
+        # 2b. Attention Quality: fragmentation + flow
+        lbl_attention = QLabel("ATTENTION QUALITY")
+        lbl_attention.setObjectName("section_header")
+        self._inner_layout.addWidget(lbl_attention)
+
+        from ui.widgets.attention_cards import FlowContinuityCard, FocusFragmentationCard
+
+        self._attention_row = QHBoxLayout()
+        self._attention_row.setSpacing(14)
+        self._fragmentation_card = FocusFragmentationCard()
+        self._flow_card = FlowContinuityCard()
+        self._attention_row.addWidget(self._fragmentation_card, 1)
+        self._attention_row.addWidget(self._flow_card, 1)
+        self._inner_layout.addLayout(self._attention_row)
+
         # 3. Category Distribution Donut
         lbl_dist = QLabel("CATEGORY DISTRIBUTION")
         lbl_dist.setObjectName("section_header")
@@ -176,6 +191,11 @@ class InsightsPage(QWidget):
         summary = self._engine.get_today_summary()
         long_term = self._engine.get_long_term_analytics()
         comparison = self._engine.get_yesterday_comparison()
+        fragmentation = self._engine.get_focus_fragmentation()
+        flow = self._engine.get_flow_analytics(days=7)
+
+        self._fragmentation_card.update_data(fragmentation)
+        self._flow_card.update_data(flow)
 
         # Update Hero Headline & Narrative
         total_s = summary.total_screen_time_s
@@ -343,6 +363,51 @@ class InsightsPage(QWidget):
                 font-weight: 500;
                 color: {tm.color('text_sub')};
             }}
+            QFrame#attention_card {{
+                background-color: {tm.color('surface')};
+                border: 1px solid {tm.color('border')};
+                border-radius: 14px;
+            }}
+            QLabel#attention_eyebrow {{
+                color: {tm.color('text_muted')};
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1.3px;
+            }}
+            QLabel#attention_badge {{
+                color: {tm.color('text_muted')};
+                font-size: 10px;
+                font-weight: 600;
+                background: {tm.color('surface_secondary')};
+                border: 1px solid {tm.color('border')};
+                border-radius: 8px;
+                padding: 2px 8px;
+            }}
+            QLabel#attention_value {{
+                color: {tm.color('text_main')};
+                font-size: 20px;
+                font-weight: 700;
+                letter-spacing: -0.4px;
+            }}
+            QLabel#attention_sub {{
+                color: {tm.color('text_sub')};
+                font-size: 11px;
+                font-weight: 500;
+            }}
+            QLabel#attention_legend {{
+                color: {tm.color('text_muted')};
+                font-size: 10px;
+                font-weight: 500;
+            }}
+            QLabel#attention_empty {{
+                color: {tm.color('text_muted')};
+                font-size: 11px;
+                font-weight: 500;
+                padding: 6px 0;
+            }}
+            QLabel#flow_dot {{ color: #30D158; font-size: 9px; }}
+            QLabel#flow_app {{ color: {tm.color('text_main')}; font-size: 12px; font-weight: 600; }}
+            QLabel#flow_time {{ color: {tm.color('text_muted')}; font-size: 10px; font-weight: 500; }}
         """)
         self._refresh()
 

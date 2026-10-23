@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
 import threading
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -12,11 +13,29 @@ from core.logger import logger
 from database.models import AppInfo, AppSession, EventLogEntry, DailyStat, Setting, WebsiteSession
 from database.schema import ALL_DDL, DEFAULT_SETTINGS, MIGRATIONS
 
+# Upper bound for SQLite's memory-mapped I/O window (256 MB). The window is
+# capped by the on-disk size of the database and disabled on 32-bit builds so
+# a large mapping can never exhaust the process address space.
+_MMAP_MAX_BYTES = 268435456
+_MMAP_MIN_BYTES = 33554432
+
 
 def _get_db_path() -> Path:
     app_data = Path.home() / "AppData" / "Local" / "DigitalWellbeing"
     app_data.mkdir(parents=True, exist_ok=True)
     return app_data / "digital_wellbeing.db"
+
+
+def _mmap_size_for(db_path: Path) -> int:
+    """Return a safe mmap window: min(256 MB, max(32 MB, database size))."""
+    if sys.maxsize <= 2**32:
+        # 32-bit interpreter: large mappings are not worth the address-space risk.
+        return 0
+    try:
+        db_bytes = db_path.stat().st_size
+    except OSError:
+        db_bytes = 0
+    return max(_MMAP_MIN_BYTES, min(_MMAP_MAX_BYTES, db_bytes))
 
 
 class Repository:
@@ -61,11 +80,19 @@ class Repository:
                 timeout=10.0,
             )
             conn.row_factory = sqlite3.Row
+            # WAL keeps readers non-blocking while the tracker commits sessions.
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA foreign_keys=ON;")
             conn.execute("PRAGMA synchronous=NORMAL;")
+            # Wait rather than immediately raising "database is locked" when a
+            # UI analytics query overlaps a tracker write.
+            conn.execute("PRAGMA busy_timeout=5000;")
             conn.execute("PRAGMA cache_size=-8000;")
             conn.execute("PRAGMA temp_store=MEMORY;")
+            conn.execute("PRAGMA wal_autocheckpoint=1000;")
+            mmap_bytes = _mmap_size_for(self._db_path)
+            if mmap_bytes:
+                conn.execute(f"PRAGMA mmap_size={mmap_bytes};")
             self._local.conn = conn
         return self._local.conn
 
@@ -1003,6 +1030,12 @@ class Repository:
         """
         try:
             if hasattr(self._local, "conn") and self._local.conn:
+                try:
+                    # Let SQLite refresh stale index statistics before the
+                    # connection goes away (recommended by the SQLite docs).
+                    self._local.conn.execute("PRAGMA optimize;")
+                except Exception:
+                    pass
                 try:
                     self._local.conn.close()
                     logger.info("Closed repository DB connection for thread %s", threading.current_thread().name)

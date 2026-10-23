@@ -134,6 +134,29 @@ class DigitalWellbeingApp:
         self._window.quit_requested.connect(self._quit)
         self._window.focus_completed.connect(self._on_focus_completed)
 
+        # A persisted lockout must be visible even when the app was started
+        # minimized. Check the cheap settings row before importing the manager.
+        try:
+            from database.repository import Repository as _Repo
+
+            if _Repo().get_setting("focus_active_session"):
+                from protection.focus_manager import FocusManager as _FM
+
+                if _FM.instance().is_lockout:
+                    self._window.show()
+        except Exception:
+            pass
+
+        # Optional loopback bridge for the bundled Web Rules browser extension.
+        from protection.extension_bridge import ExtensionBridge
+        self._extension_bridge = ExtensionBridge.instance()
+        self._extension_bridge.start()
+
+        # Evening display warm-up, scheduled from the SleepGuard bedtime.
+        from protection.circadian import CircadianController
+        self._circadian = CircadianController.instance()
+        self._circadian.start()
+
         # Adult Content Protection Motivation Modal
         from protection.adult_content_shield import AdultContentShield
         from ui.widgets.adult_motivation_dialog import AdultContentMotivationDialog
@@ -181,8 +204,9 @@ class DigitalWellbeingApp:
                     return
                 info = self._latest_update_info
                 ver = info.get("version", "")
-                if hasattr(self, "_window") and self._window and hasattr(self._window, "_settings_page"):
-                    self._window._settings_page.set_download_progress(0, ver)
+                page = self._loaded_page("_settings_page")
+                if page:
+                    page.set_download_progress(0, ver)
 
                 self._updater.download_installer(
                     asset_url=info.get("asset_url"),
@@ -200,8 +224,9 @@ class DigitalWellbeingApp:
                 self._manual_update_check_in_progress = False
 
                 ver = info.get("version", "")
-                if hasattr(self, "_window") and self._window and hasattr(self._window, "_settings_page"):
-                    self._window._settings_page.set_update_available(ver)
+                page = self._loaded_page("_settings_page")
+                if page:
+                    page.set_update_available(ver)
 
                 # If this was an automatic background check and user already dismissed it this session, skip modal dialog
                 if not is_manual and self._update_dismissed_this_session:
@@ -216,8 +241,9 @@ class DigitalWellbeingApp:
                     pass
                 focus_active = False
                 try:
-                    if hasattr(self, "_window") and self._window and hasattr(self._window, "_wellbeing_page"):
-                        ft = getattr(self._window._wellbeing_page, "_focus_timer", None)
+                    page = self._loaded_page("_wellbeing_page")
+                    if page:
+                        ft = getattr(page, "_focus_timer", None)
                         if ft and getattr(ft, "_is_running", False):
                             focus_active = True
                 except Exception:
@@ -245,18 +271,21 @@ class DigitalWellbeingApp:
 
             def _on_no_update():
                 self._manual_update_check_in_progress = False
-                if hasattr(self, "_window") and self._window and hasattr(self._window, "_settings_page"):
-                    self._window._settings_page.set_update_status_up_to_date()
+                page = self._loaded_page("_settings_page")
+                if page:
+                    page.set_update_status_up_to_date()
 
             def _on_check_error(msg: str):
                 self._manual_update_check_in_progress = False
-                if hasattr(self, "_window") and self._window and hasattr(self._window, "_settings_page"):
-                    self._window._settings_page.set_update_error("Couldn't check for updates right now.")
+                page = self._loaded_page("_settings_page")
+                if page:
+                    page.set_update_error("Couldn't check for updates right now.")
 
             def _on_download_progress(pct: int):
                 ver = self._latest_update_info.get("version", "") if self._latest_update_info else ""
-                if hasattr(self, "_window") and self._window and hasattr(self._window, "_settings_page"):
-                    self._window._settings_page.set_download_progress(pct, ver)
+                page = self._loaded_page("_settings_page")
+                if page:
+                    page.set_download_progress(pct, ver)
                 if self._active_update_dialog:
                     try:
                         self._active_update_dialog.set_progress(pct)
@@ -265,8 +294,9 @@ class DigitalWellbeingApp:
 
             def _on_download_complete(installer_path: str):
                 ver = self._latest_update_info.get("version", "") if self._latest_update_info else ""
-                if hasattr(self, "_window") and self._window and hasattr(self._window, "_settings_page"):
-                    self._window._settings_page.set_installing_status(ver)
+                page = self._loaded_page("_settings_page")
+                if page:
+                    page.set_installing_status(ver)
                 if self._active_update_dialog:
                     try:
                         self._active_update_dialog.set_installing(ver)
@@ -278,8 +308,9 @@ class DigitalWellbeingApp:
                 self._quit()
 
             def _on_download_error(msg: str):
-                if hasattr(self, "_window") and self._window and hasattr(self._window, "_settings_page"):
-                    self._window._settings_page.set_update_error("Couldn't check for updates right now.")
+                page = self._loaded_page("_settings_page")
+                if page:
+                    page.set_update_error("Couldn't check for updates right now.")
                 if self._active_update_dialog:
                     try:
                         self._active_update_dialog.show_error(msg)
@@ -359,6 +390,18 @@ class DigitalWellbeingApp:
             logger.warning(f"SafeBrowse startup hook failed: {exc}")
 
         logger.info("Application started successfully")
+
+    def _loaded_page(self, attr_name: str):
+        """Return a MainWindow page only if it has already been instantiated.
+
+        Update notifications must not force lazy pages (Settings, Focus) to be
+        built in the background; if the page is not loaded there is no UI to
+        update, and it will pick up the current state when first opened.
+        """
+        window = getattr(self, "_window", None)
+        if window is None or not hasattr(window, "get_loaded_page"):
+            return None
+        return window.get_loaded_page(attr_name)
 
     def _on_new_connection(self) -> None:
         conn = self._server.nextPendingConnection()
@@ -522,6 +565,14 @@ class DigitalWellbeingApp:
             logger.info("[LIFECYCLE] Stopping _sleepguard")
             self._sleepguard.stop()
 
+        if hasattr(self, "_extension_bridge") and self._extension_bridge:
+            logger.info("[LIFECYCLE] Stopping extension bridge")
+            self._extension_bridge.stop()
+
+        if hasattr(self, "_circadian") and self._circadian:
+            logger.info("[LIFECYCLE] Stopping circadian display schedule")
+            self._circadian.stop()
+
         # 2b. Close repository connections for this (main) thread. Background threads
         # are responsible for closing their own thread-local connections on exit.
         try:
@@ -561,6 +612,25 @@ class DigitalWellbeingApp:
         if self._shutting_down:
             logger.info("[LIFECYCLE] DigitalWellbeingApp._quit() called but already shutting down")
             return
+
+        # Strict lockout cannot be bypassed through the tray Quit action. The
+        # watchdog only covers forceful termination; this is the normal path.
+        try:
+            from protection.focus_manager import FocusManager
+
+            fm = FocusManager.instance()
+            if fm.is_lockout:
+                logger.warning("[LIFECYCLE] Quit denied: strict lockout is active.")
+                self._notifier.notify(
+                    "Lockout active",
+                    "This Focus session cannot be ended until its countdown completes.",
+                    duration=4,
+                )
+                if self._window:
+                    self._show_window()
+                return
+        except Exception:
+            pass
 
         logger.info("[LIFECYCLE] Initiating controlled application shutdown...")
         self._cleanup()

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paused by Digital Wellbeing</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101012;
+      --text: #f5f5f7;
+      --sub: #a1a1a6;
+      --border: rgba(255,255,255,.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      background: radial-gradient(circle at 50% 20%, #1d2433 0%, var(--bg) 62%);
+      color: var(--text); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 24px;
+    }
+    .card {
+      max-width: 520px; width: 100%; text-align: center;
+      background: rgba(44,44,46,.72); border: 1px solid var(--border);
+      border-radius: 22px; padding: 40px 32px; backdrop-filter: blur(24px);
+    }
+    .glyph { font-size: 44px; line-height: 1; margin-bottom: 18px; }
+    h1 { font-size: 24px; letter-spacing: -.4px; margin: 0 0 10px; }
+    p { color: var(--sub); margin: 0 0 8px; }
+    .reason {
+      display: inline-block; margin: 16px 0 22px; padding: 7px 12px;
+      border-radius: 10px; background: rgba(255,159,10,.12);
+      border: 1px solid rgba(255,159,10,.28); color: #ff9f0a; font-size: 12px; font-weight: 600;
+    }
+    .url { font-size: 12px; color: var(--sub); word-break: break-all; margin-bottom: 22px; }
+    button {
+      background: #0a84ff; color: white; border: 0; border-radius: 999px;
+      padding: 11px 24px; font-weight: 700; font-size: 14px; cursor: pointer;
+    }
+    button.secondary { background: rgba(255,255,255,.10); margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="glyph">🌿</div>
+    <h1>This page is paused</h1>
+    <p>You are in a Focus session. This sub-path is on your distraction list.</p>
+    <div id="reason" class="reason">Blocked by Focus rules</div>
+    <div id="url" class="url"></div>
+    <button id="close">Close tab</button>
+    <button id="back" class="secondary">Go back</button>
+  </div>
+  <script src="blocked.js"></script>
+</body>
+</html>

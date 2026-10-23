@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QThread, Signal, QTimer
+from PySide6.QtCore import Qt, QEvent, QThread, Signal, QTimer
 from PySide6.QtGui import QIcon, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel, QPushButton,
@@ -18,20 +18,7 @@ from PySide6.QtWidgets import (
 from core.constants import APP_NAME, APP_VERSION
 from tracker.manager import TrackingManager
 from tracker.sleepguard import SleepGuardController
-from ui.pages.activity import ActivityPage
-from ui.pages.dashboard import DashboardPage
-from ui.pages.websites import WebsitesPage
-
-from ui.widgets.limit_dialog import LimitReachedDialog, PinOverrideDialog
-from ui.pages.debug import DebugPage
-from ui.pages.settings import SettingsPage
-from ui.pages.wellbeing import WellbeingPage
-from ui.pages.app_locker import AppLockerPage
-from ui.pages.insights import InsightsPage
-from ui.pages.history import HistoryPage
-from ui.pages.sleepguard_page import SleepGuardPage
 from ui.widgets.animated_stacked_widget import AnimatedStackedWidget
-from ui.widgets.countdown_dialog import ShutdownCountdownDialog
 
 
 class DataUpdateThread(QThread):
@@ -54,6 +41,26 @@ class MainWindow(QMainWindow):
     update_now_requested = Signal()
     update_later_requested = Signal()
 
+    _PAGE_COUNT = 13
+    _PAGE_ATTRS = {
+        0: "_dashboard_page",
+        1: "_activity_page",
+        2: "_wellbeing_page",
+        3: "_app_locker_page",
+        4: "_app_timer_page",
+        5: "_insights_page",
+        6: "_sleepguard_page",
+        7: "_history_page",
+        8: "_settings_page",
+        9: "_debug_page",
+        10: "_screen_time_details_page",
+        11: "_app_details_page",
+        12: "_websites_page",
+    }
+    # These pages populate themselves in __init__; calling on_data_changed()
+    # immediately after construction would double their initial queries.
+    _SELF_REFRESHING_PAGES = frozenset({0, 1, 5, 9, 12})
+
     def __init__(self, tracker: TrackingManager, sleepguard: Optional[SleepGuardController] = None, protection_manager=None, parent=None) -> None:
         super().__init__(parent)
         self._tracker = tracker
@@ -72,6 +79,11 @@ class MainWindow(QMainWindow):
         self._active_nav_btn: Optional[QPushButton] = None
         self._navigation_history: list[int] = []
         self._active_limit_dialogs = set()
+        # Lazy page instantiation: index -> real widget, plus placeholders that
+        # keep QStackedWidget indices stable until a page is first visited.
+        self._pages: dict[int, QWidget] = {}
+        self._pages_by_attr: dict[str, QWidget] = {}
+        self._page_placeholders: dict[int, QWidget] = {}
         self._setup_ui()
         self._connect_tracker()
         self._setup_shortcuts()
@@ -187,79 +199,233 @@ class MainWindow(QMainWindow):
 
         self._stack = AnimatedStackedWidget()
         self._stack.setObjectName("content_area")
+        # Placeholders reserve every page index so lazy creation cannot shift
+        # the stable index -> sidebar mapping.
+        self._stack.blockSignals(True)
+        for index in range(self._PAGE_COUNT):
+            placeholder = QWidget()
+            placeholder.setObjectName(f"page_placeholder_{index}")
+            self._stack.addWidget(placeholder)
+            self._page_placeholders[index] = placeholder
+        self._stack.blockSignals(False)
         self._stack.currentChanged.connect(self._refresh_current_page)
 
-        self._dashboard_page = DashboardPage(on_global_refresh=self.refresh_all_pages, navigate_callback=self._navigate)
-        
-        from ui.pages.screen_time_details import ScreenTimeDetailsPage
-        self._screen_time_details_page = ScreenTimeDetailsPage()
-        
-        from ui.pages.app_details import AppDetailsPage
-        self._app_details_page = AppDetailsPage(protection_manager=self._protection_manager)
-        
-        self._dashboard_page.request_screen_time_details.connect(self._navigate_to_screen_time_details)
-        self._dashboard_page.request_app_details.connect(self._navigate_to_app_details)
-        self._dashboard_page.request_focus_session.connect(lambda: self._navigate(2))
-        
-        self._screen_time_details_page.request_app_details.connect(self._navigate_to_app_details)
-        self._screen_time_details_page.back_requested.connect(self._navigate_back)
-        
-        self._app_details_page.back_requested.connect(self._navigate_back)
-        
-        self._activity_page = ActivityPage(protection_manager=self._protection_manager)
-        self._activity_page.request_historical_details.connect(self._navigate_to_screen_time_details)
-        self._wellbeing_page = WellbeingPage(sleepguard=self._sleepguard)
-        self._wellbeing_page.focus_completed.connect(self.focus_completed.emit)
-        from ui.pages.app_locker import AppLockerPage
-        self._app_locker_page = AppLockerPage(protection_manager=self._protection_manager)
-        from ui.pages.app_timer import AppTimerPage
-        self._app_timer_page = AppTimerPage(protection_manager=self._protection_manager)
-        self._insights_page = InsightsPage()
-        self._sleepguard_page = SleepGuardPage(sleepguard=self._sleepguard)
-        self._history_page = HistoryPage()
-        self._settings_page = SettingsPage(tracker=self._tracker, protection_manager=self._protection_manager)
-        self._settings_page.settings_changed.connect(self._on_settings_changed)
-        self._settings_page.theme_changed_req.connect(self._animate_theme_change)
-        self._settings_page.manual_update_requested.connect(self.manual_update_requested.emit)
-        self._settings_page.update_now_requested.connect(self.update_now_requested.emit)
-        self._settings_page.update_later_requested.connect(self.update_later_requested.emit)
-        self._debug_page = DebugPage(tracker=self._tracker)
-        self._websites_page = WebsitesPage(protection_manager=self._protection_manager)
+        # Only the landing page is built during startup; every other page is
+        # instantiated on first navigation.
+        self._ensure_page(0)
 
-        self._stack.addWidget(self._dashboard_page)         # 0: Home
-        self._stack.addWidget(self._activity_page)          # 1: Usage
-        self._stack.addWidget(self._wellbeing_page)         # 2: Focus
-        self._stack.addWidget(self._app_locker_page)        # 3: App Locker
-        self._stack.addWidget(self._app_timer_page)         # 4: App Timer
-        self._stack.addWidget(self._insights_page)          # 5: Insights
-        self._stack.addWidget(self._sleepguard_page)        # 6: SleepGuard
-        self._stack.addWidget(self._history_page)           # 7: History
-        self._stack.addWidget(self._settings_page)          # 8: Settings
-        self._stack.addWidget(self._debug_page)             # 9: Dev Mode
-        self._stack.addWidget(self._screen_time_details_page) # 10: Screen Time Details
-        self._stack.addWidget(self._app_details_page)         # 11: App Details
-        self._stack.addWidget(self._websites_page)            # 12: Websites (Cross-Browser)
-
-        # Wire App Locker lock events to auth dialog
-        from protection.app_locker import AppLockerManager
-        self._app_locker_mgr = AppLockerManager.instance()
-        self._app_locker_mgr.lock_triggered.connect(self._show_lock_auth_dialog)
-
-        # Wire Focus Manager app_blocked signal to feedback dialog
-        from protection.focus_manager import FocusManager
-        self._focus_mgr = FocusManager.instance()
-        self._focus_mgr.app_blocked.connect(self._show_blocked_app_dialog)
+        # Wire App Locker and Focus Manager lazily (see properties below). Both
+        # modules pull in pywin32/psutil and are only needed once an enforcement
+        # event or the Focus page actually appears.
+        self._app_locker_mgr_instance = None
+        self._focus_mgr_instance = None
         self._active_blocked_dialog = None
 
         # Stack layout for main content
         root_layout.addWidget(self._stack, 1)
-        if self._nav_buttons:
-            self._nav_buttons[0].click()
+        # Do not run the dashboard refresh synchronously here; the single-shot
+        # timer below performs it on the first event-loop turn, after the shell
+        # has been laid out.
+        self._stack.blockSignals(True)
+        self._stack.setCurrentIndex(0)
+        self._stack.blockSignals(False)
+        self._activate_nav(0)
 
         ThemeManager.instance().theme_changed.connect(self._apply_theme)
         self._apply_theme(ThemeManager.instance().is_dark)
 
+        # Warm the enforcement managers after the first frame so their imports
+        # never inflate the cold-start critical path.
+        QTimer.singleShot(300, self._warm_protection_managers)
 
+    @property
+    def _app_locker_mgr(self):
+        manager = self._app_locker_mgr_instance
+        if manager is None:
+            from protection.app_locker import AppLockerManager
+            manager = AppLockerManager.instance()
+            manager.lock_triggered.connect(self._show_lock_auth_dialog)
+            self._app_locker_mgr_instance = manager
+        return manager
+
+    @property
+    def _focus_mgr(self):
+        manager = self._focus_mgr_instance
+        if manager is None:
+            from protection.focus_manager import FocusManager
+            manager = FocusManager.instance()
+            manager.app_blocked.connect(self._show_blocked_app_dialog)
+            self._focus_mgr_instance = manager
+        return manager
+
+    def _warm_protection_managers(self) -> None:
+        try:
+            _ = self._app_locker_mgr
+            _ = self._focus_mgr
+        except Exception as exc:
+            from core.logger import logger
+            logger.warning("Failed to initialise protection managers: %s", exc)
+
+    # ─── Lazy page router ────────────────────────────────────────────────────
+
+    def _create_page(self, index: int) -> QWidget:
+        """Construct a page on first navigation (imports stay lazy too)."""
+        if index == 0:
+            from ui.pages.dashboard import DashboardPage
+            return DashboardPage(
+                on_global_refresh=self.refresh_all_pages,
+                navigate_callback=self._navigate,
+            )
+        if index == 1:
+            from ui.pages.activity import ActivityPage
+            return ActivityPage(protection_manager=self._protection_manager)
+        if index == 2:
+            from ui.pages.wellbeing import WellbeingPage
+            return WellbeingPage(sleepguard=self._sleepguard)
+        if index == 3:
+            from ui.pages.app_locker import AppLockerPage
+            return AppLockerPage(protection_manager=self._protection_manager)
+        if index == 4:
+            from ui.pages.app_timer import AppTimerPage
+            return AppTimerPage(protection_manager=self._protection_manager)
+        if index == 5:
+            from ui.pages.insights import InsightsPage
+            return InsightsPage()
+        if index == 6:
+            from ui.pages.sleepguard_page import SleepGuardPage
+            return SleepGuardPage(sleepguard=self._sleepguard)
+        if index == 7:
+            from ui.pages.history import HistoryPage
+            return HistoryPage()
+        if index == 8:
+            from ui.pages.settings import SettingsPage
+            return SettingsPage(tracker=self._tracker, protection_manager=self._protection_manager)
+        if index == 9:
+            from ui.pages.debug import DebugPage
+            return DebugPage(tracker=self._tracker)
+        if index == 10:
+            from ui.pages.screen_time_details import ScreenTimeDetailsPage
+            return ScreenTimeDetailsPage()
+        if index == 11:
+            from ui.pages.app_details import AppDetailsPage
+            return AppDetailsPage(protection_manager=self._protection_manager)
+        if index == 12:
+            from ui.pages.websites import WebsitesPage
+            return WebsitesPage(protection_manager=self._protection_manager)
+        raise IndexError(f"Unknown page index {index}")
+
+    def _wire_page(self, index: int, page: QWidget) -> None:
+        if index == 0:
+            page.request_screen_time_details.connect(self._navigate_to_screen_time_details)
+            page.request_app_details.connect(self._navigate_to_app_details)
+            page.request_focus_session.connect(lambda: self._navigate(2))
+        elif index == 1:
+            page.request_historical_details.connect(self._navigate_to_screen_time_details)
+        elif index == 2:
+            page.focus_completed.connect(self.focus_completed.emit)
+        elif index == 8:
+            page.settings_changed.connect(self._on_settings_changed)
+            page.theme_changed_req.connect(self._animate_theme_change)
+            page.manual_update_requested.connect(self.manual_update_requested.emit)
+            page.update_now_requested.connect(self.update_now_requested.emit)
+            page.update_later_requested.connect(self.update_later_requested.emit)
+        elif index == 10:
+            page.request_app_details.connect(self._navigate_to_app_details)
+            page.back_requested.connect(self._navigate_back)
+        elif index == 11:
+            page.back_requested.connect(self._navigate_back)
+
+    def _ensure_page(self, index: int) -> QWidget:
+        """Return the real page for *index*, creating it on first use."""
+        page = self._pages.get(index)
+        if page is not None:
+            return page
+
+        page = self._create_page(index)
+        self._wire_page(index, page)
+
+        placeholder = self._page_placeholders.pop(index, None)
+        self._stack.blockSignals(True)
+        try:
+            slot = self._stack.indexOf(placeholder) if placeholder is not None else -1
+            if slot < 0:
+                slot = index
+            self._stack.insertWidget(slot, page)
+            if placeholder is not None:
+                self._stack.removeWidget(placeholder)
+                placeholder.deleteLater()
+        finally:
+            self._stack.blockSignals(False)
+
+        self._pages[index] = page
+        self._pages_by_attr[self._PAGE_ATTRS[index]] = page
+
+        if index not in self._SELF_REFRESHING_PAGES and hasattr(page, "on_data_changed"):
+            try:
+                page.on_data_changed()
+            except Exception as exc:
+                from core.logger import logger
+                logger.warning("Initial refresh failed for page %d: %s", index, exc)
+        return page
+
+    def get_loaded_page(self, attr_name: str) -> Optional[QWidget]:
+        """Return a page only if it has already been instantiated."""
+        return self._pages_by_attr.get(attr_name)
+
+    # Backwards-compatible page accessors. Accessing one instantiates it, which
+    # is what legacy scripts expect; internal app paths use get_loaded_page() to
+    # avoid defeating lazy loading.
+    @property
+    def _dashboard_page(self) -> QWidget:
+        return self._ensure_page(0)
+
+    @property
+    def _activity_page(self) -> QWidget:
+        return self._ensure_page(1)
+
+    @property
+    def _wellbeing_page(self) -> QWidget:
+        return self._ensure_page(2)
+
+    @property
+    def _app_locker_page(self) -> QWidget:
+        return self._ensure_page(3)
+
+    @property
+    def _app_timer_page(self) -> QWidget:
+        return self._ensure_page(4)
+
+    @property
+    def _insights_page(self) -> QWidget:
+        return self._ensure_page(5)
+
+    @property
+    def _sleepguard_page(self) -> QWidget:
+        return self._ensure_page(6)
+
+    @property
+    def _history_page(self) -> QWidget:
+        return self._ensure_page(7)
+
+    @property
+    def _settings_page(self) -> QWidget:
+        return self._ensure_page(8)
+
+    @property
+    def _debug_page(self) -> QWidget:
+        return self._ensure_page(9)
+
+    @property
+    def _screen_time_details_page(self) -> QWidget:
+        return self._ensure_page(10)
+
+    @property
+    def _app_details_page(self) -> QWidget:
+        return self._ensure_page(11)
+
+    @property
+    def _websites_page(self) -> QWidget:
+        return self._ensure_page(12)
 
     def _setup_shortcuts(self) -> None:
         self._dev_shortcut = QShortcut(QKeySequence("Ctrl+Shift+D"), self)
@@ -289,6 +455,7 @@ class MainWindow(QMainWindow):
     def _show_shutdown_warning_dialog(self, countdown_s: int, action: str = "lock") -> None:
         from core.logger import logger
         from PySide6.QtCore import QTimer
+        from ui.widgets.countdown_dialog import ShutdownCountdownDialog
         logger.info(
             "[SLEEPGUARD_UI] _show_shutdown_warning_dialog entered. countdown_s=%d, action='%s'",
             countdown_s, action,
@@ -366,8 +533,9 @@ class MainWindow(QMainWindow):
     def refresh_all_pages(self) -> None:
         from core.logger import logger
         logger.info("[REFRESH] Executing V2 global refresh for all pages...")
-        for i in range(self._stack.count()):
-            page = self._stack.widget(i)
+        # Only live pages need refreshing; unvisited pages load fresh data when
+        # they are first instantiated.
+        for index, page in list(self._pages.items()):
             if hasattr(page, "on_data_changed"):
                 try:
                     page.on_data_changed()
@@ -411,21 +579,25 @@ class MainWindow(QMainWindow):
                 logger.info("App Locker: access denied for %s", process_name)
         except Exception as exc:
             logger.error("_show_lock_auth_dialog error: %s", exc)
-            # Always clear the dialog_open flag so the next tick can try again
-            if hasattr(self, "_app_locker_mgr"):
-                self._app_locker_mgr.on_auth_canceled()
+            # Always clear the dialog_open flag so the next tick can try again.
+            # Use the cached instance: accessing the property could re-raise the
+            # same import/init error inside this error handler.
+            manager = getattr(self, "_app_locker_mgr_instance", None)
+            if manager is not None:
+                manager.on_auth_canceled()
 
     def _navigate_to_screen_time_details(self, target_date=None) -> None:
         from datetime import date
+        page = self._ensure_page(10)
         if isinstance(target_date, date):
-            self._screen_time_details_page.refresh(target_date)
-            self._navigate(10)
+            page.refresh(target_date)
         else:
-            self._screen_time_details_page.refresh()
-            self._navigate(10)
+            page.refresh()
+        self._navigate(10)
 
     def _navigate_to_app_details(self, process_name: str) -> None:
-        self._app_details_page.set_app(process_name)
+        page = self._ensure_page(11)
+        page.set_app(process_name)
         self._navigate(11)
 
     def _build_sidebar(self) -> QFrame:
@@ -653,18 +825,7 @@ class MainWindow(QMainWindow):
             self._active_nav_btn.style().unpolish(self._active_nav_btn)
             self._active_nav_btn.style().polish(self._active_nav_btn)
 
-    def _navigate(self, page_idx: int) -> None:
-        curr_idx = self._stack.currentIndex()
-        if curr_idx == page_idx:
-            return
-
-        if page_idx in getattr(self, "_page_to_nav_btn", {}):
-            # Main sidebar navigation, clear history
-            self._navigation_history.clear()
-        else:
-            # Drilling down into a detail page, push current index
-            self._navigation_history.append(curr_idx)
-
+    def _activate_nav(self, page_idx: int) -> None:
         if self._active_nav_btn:
             self._active_nav_btn.setProperty("active", False)
             self._active_nav_btn.style().unpolish(self._active_nav_btn)
@@ -679,30 +840,35 @@ class MainWindow(QMainWindow):
             self._active_nav_btn = target_btn
 
         self._refresh_nav_icons()
+
+    def _navigate(self, page_idx: int) -> None:
+        curr_idx = self._stack.currentIndex()
+        if curr_idx == page_idx:
+            return
+
+        if page_idx in getattr(self, "_page_to_nav_btn", {}):
+            # Main sidebar navigation, clear history
+            self._navigation_history.clear()
+        else:
+            # Drilling down into a detail page, push current index
+            self._navigation_history.append(curr_idx)
+
+        # Build the page before switching so the first paint has real content.
+        self._ensure_page(page_idx)
+        self._activate_nav(page_idx)
         self._stack.setCurrentIndexAnimated(page_idx)
 
     def _navigate_back(self) -> None:
         if self._navigation_history:
             prev_idx = self._navigation_history.pop()
-            
-            if self._active_nav_btn:
-                self._active_nav_btn.setProperty("active", False)
-                self._active_nav_btn.style().unpolish(self._active_nav_btn)
-                self._active_nav_btn.style().polish(self._active_nav_btn)
-
-            target_btn = getattr(self, "_page_to_nav_btn", {}).get(prev_idx)
-            if target_btn:
-                target_btn.setProperty("active", True)
-                target_btn.style().unpolish(target_btn)
-                target_btn.style().polish(target_btn)
-                self._active_nav_btn = target_btn
-
-            self._refresh_nav_icons()
+            self._ensure_page(prev_idx)
+            self._activate_nav(prev_idx)
             self._stack.setCurrentIndexAnimated(prev_idx)
 
 
 
     def _show_limit_dialog(self, process_name: str, limit_seconds: int) -> None:
+        from ui.widgets.limit_dialog import LimitReachedDialog, PinOverrideDialog
         if process_name in self._active_limit_dialogs:
             return
             
@@ -840,8 +1006,34 @@ class MainWindow(QMainWindow):
         self._data_thread = DataUpdateThread(self._tracker, self)
         self._data_thread.data_changed.connect(self._refresh_current_page)
 
+    def changeEvent(self, event) -> None:
+        if event.type() == QEvent.Type.WindowStateChange:
+            try:
+                from protection.focus_manager import FocusManager
+
+                if FocusManager.instance().is_lockout and self.isMinimized():
+                    # Re-assert the lockout window on the next event-loop turn.
+                    QTimer.singleShot(0, self.showNormal)
+                    QTimer.singleShot(0, self.raise_)
+            except Exception:
+                pass
+        super().changeEvent(event)
+
     def closeEvent(self, event) -> None:
         from settings.manager import SettingsManager
+        # Strict lockout: the main window cannot be closed or hidden until the
+        # deadline. Forceful process termination is handled by the watchdog.
+        try:
+            from protection.focus_manager import FocusManager
+
+            if FocusManager.instance().is_lockout:
+                event.ignore()
+                self.showNormal()
+                self.raise_()
+                self.activateWindow()
+                return
+        except Exception:
+            pass
         sm = SettingsManager()
         if sm.get_bool("minimize_to_tray", default=False):
             event.ignore()

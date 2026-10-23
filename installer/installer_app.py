@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QPushButton, QVBox
 
 from branding import get_logo_pixmap, get_app_icon
 
-APP, VER, EXE = "Digital Wellbeing", "4.1.0", "DigitalWellbeing.exe"
+APP, VER, EXE = "Digital Wellbeing", "4.2.0", "DigitalWellbeing.exe"
 ACCENT, BG, CARD, LINE = "#3E8BFF", "#0B0B0E", "#17171D", "#26262D"
 TXT, SUB, DANGER, SUCCESS = "#F3F3F6", "#9B9BA6", "#FF6B6B", "#4CAF50"
 
@@ -669,7 +669,7 @@ def main():
     if sys.platform == "win32":
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PrinceChouhan.DigitalWellbeing.Setup.4.1.0")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PrinceChouhan.DigitalWellbeing.Setup.4.2.0")
         except Exception:
             pass
 

@@ -8,14 +8,14 @@
 
 Digital Wellbeing tracks your screen time, protects your attention, and filters the web — all locally, with an Apple-grade interface inspired by macOS Sequoia.
 
-[![Release](https://img.shields.io/badge/Release-v4.1.0--Aurora-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
+[![Release](https://img.shields.io/badge/Release-v4.2.0--Attention-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-30D158.svg?style=flat-square)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%20%28Qt%29-BF5AF2.svg?style=flat-square)](https://www.qt.io/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20x64-007AFF.svg?style=flat-square)](https://www.microsoft.com/windows)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-30D158.svg?style=flat-square)](PRIVACY.md)
 [![License](https://img.shields.io/badge/License-MIT-FF9F0A.svg?style=flat-square)](LICENSE)
 
-[**Download Installer (v4.1.0)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
+[**Download Installer (v4.2.0)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
 
 </div>
 
@@ -86,11 +86,12 @@ Tracking runs quietly in the background with negligible CPU footprint; the **Aur
 - Haptics-lite sound feedback utilizing native Windows system audio cues.
 
 ### 2. Intelligent Screen Time Tracking
-- Real-time foreground application tracking (process binary, path, and window title).
+- Real-time foreground application tracking (process binary, path, and window title) driven by `SetWinEventHook` foreground/title notifications instead of a 500 ms polling loop.
 - Wraparound-safe idle detection via `GetLastInputInfo`.
-- UI Automation tree traversal for active browser tab domain extraction across **Chrome**, **Edge**, **Brave**, **Firefox**, **Opera**, and **Vivaldi**.
+- Cached UI Automation fallback for active browser tab domain extraction across **Chrome**, **Edge**, **Brave**, **Firefox**, **Opera**, and **Vivaldi**.
 - Crash-safe 30-second heartbeat database synchronization ensuring zero data loss.
 - Detection of native Win32 power management events (Lock, Unlock, Sleep, Resume, Shutdown).
+- Lazy Qt page construction keeps cold startup around 0.2 s; see [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) for measured numbers.
 
 ### 3. SafeBrowse Content Shield
 - System-wide adult content filter blocking over 100,000+ adult and malicious domains at the DNS resolution layer.
@@ -100,27 +101,34 @@ Tracking runs quietly in the background with negligible CPU footprint; the **Aur
 - **Zero packet sniffing or local VPNs:** Functions safely in every browser, normal and private/incognito windows alike.
 
 ### 4. Focus Mode & Distraction Blocker
-- Curated presets: *Study*, *Work*, *Movie*, *Deep Focus*, and *Custom*.
+- Curated presets: *Study*, *Work*, *Movie*, *Deep Focus*, and *Custom*, in a redesigned page with separate mode, session, guardrails, and protection cards.
 - Strict **Allowlist Mode** (only approved applications run) or **Blocklist Mode** (restricts distracting apps).
+- **Granular sub-path rules** — block `youtube.com/shorts` or `reddit.com/r/all` while allowing `reddit.com/r/programming`. Enforced by an optional loopback-only browser extension bridge; domain blocking still works without it.
 - Browser tab URL enforcement: automatically closes unauthorized browser tabs during active focus.
+- **Strict Lockout**: optional non-cancelable sessions with a persisted deadline and best-effort relaunch watchdog. The UI clearly states that administrator/Safe Mode termination cannot be prevented.
 - Temporary DNS domain blocking via an isolated hosts section (`# DIGITAL WELLBEING BLOCK`).
 
-### 5. App Locker with Windows Hello
+### 5. Attention Quality
+- **Focus Fragmentation Index** — switches per active hour, charted across the day so fragmented periods are visible.
+- **Flow Continuity Tracker** — highlights sustained 45+ minute productive runs in programming, writing, and study tools.
+
+### 6. App Locker with Windows Hello
 - Protect sensitive applications (communication suites, banking, private browsers) behind biometric authentication.
 - Direct integration with native Windows Hello via WinRT (`UserConsentVerifier`) for instant facial or fingerprint unlock.
 - Salted PBKDF2 / SHA-256 local PIN fallback when biometric hardware is unavailable.
 - Configurable authentication frequencies: *Every Launch*, *5 Minutes*, *15 Minutes*, or *Until Application Closes*.
 
-### 6. Unified App & Website Timers
+### 7. Unified App & Website Timers
 - Configure daily usage quotas for specific software or web domains.
 - Non-intrusive toast notifications when approaching limits (80% warning threshold).
 - Graceful countdown dialogs and hard lockouts when daily time expires.
 
-### 7. SleepGuard
+### 8. SleepGuard
 - Late-night inactivity and burnout detection.
 - Prompts gentle rest reminders and automatically locks the workstation or sleeps the PC if you doze off.
+- **Circadian display warm-up** — reversible per-monitor gamma ramps gradually shift the display from 6500 K to a warm target over the 90 minutes before bedtime, then restore daylight at wake.
 
-### 8. First-Run Onboarding
+### 9. First-Run Onboarding
 - A five-step welcome wizard introducing theme selection, daily goals, and SafeBrowse activation in under 60 seconds.
 
 ---
@@ -193,7 +201,7 @@ For full architectural details, consult the [Architecture Documentation](docs/AR
 ### Standard Windows Installer (Recommended)
 Download and run the installer from the [Releases page](https://digitalwellbeing.vercel.app):
 ```text
-DigitalWellbeingSetup-4.1.0.exe
+DigitalWellbeingSetup-4.2.0.exe
 ```
 
 ### Running from Source

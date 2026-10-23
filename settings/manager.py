@@ -193,6 +193,31 @@ class SettingsManager:
     def bedtime_end(self, value: str) -> None:
         self.set("bedtime_end", value)
 
+    # Circadian display extensions
+    @property
+    def circadian_enabled(self) -> bool:
+        return self.get_bool("circadian_enabled", False)
+
+    @circadian_enabled.setter
+    def circadian_enabled(self, value: bool) -> None:
+        self.set_bool("circadian_enabled", value)
+
+    @property
+    def circadian_lead_minutes(self) -> int:
+        return max(0, min(360, self.get_int("circadian_lead_minutes", 90)))
+
+    @circadian_lead_minutes.setter
+    def circadian_lead_minutes(self, value: int) -> None:
+        self.set_int("circadian_lead_minutes", max(0, min(360, int(value))))
+
+    @property
+    def circadian_target_kelvin(self) -> int:
+        return max(1800, min(6500, self.get_int("circadian_target_kelvin", 3400)))
+
+    @circadian_target_kelvin.setter
+    def circadian_target_kelvin(self, value: int) -> None:
+        self.set_int("circadian_target_kelvin", max(1800, min(6500, int(value))))
+
     @property
     def debug_tracking(self) -> bool:
         return self.get_bool("debug_tracking", False)

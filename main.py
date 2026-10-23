@@ -102,7 +102,29 @@ def main() -> None:
         default="",
         help="Comma separated domains for elevated helper.",
     )
+    parser.add_argument(
+        "--focus-watchdog",
+        action="store_true",
+        help="Internal: relaunch the app if a lockout session process disappears.",
+    )
+    parser.add_argument(
+        "--parent-pid",
+        type=int,
+        default=0,
+        help="Internal: parent process id for the lockout watchdog.",
+    )
+    parser.add_argument(
+        "--deadline",
+        type=float,
+        default=0.0,
+        help="Internal: epoch deadline for the lockout watchdog.",
+    )
     args = parser.parse_args()
+
+    if args.focus_watchdog:
+        from protection.focus_watchdog import run_watchdog
+
+        sys.exit(run_watchdog(args.parent_pid, args.deadline))
 
     from core.logger import logger
     

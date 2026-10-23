@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.wintypes
+import time
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -94,8 +95,27 @@ _last_xinput_states: list[Optional[tuple[int, int, int, int, int, int, int]]] = 
 _last_joy_states: list[Optional[tuple[int, int, int, int, int, int]]] = [None] * 2
 _last_controller_activity_tick: int = 0
 
+# XInput/joyGetPosEx are cheap native calls but they cross the Win32 boundary
+# six times per sample. Sampling them at 2 s is far below perceptible input
+# latency (SleepGuard thresholds are minutes) and cuts their cost by ~2x.
+_CONTROLLER_PROBE_INTERVAL_S = 2.0
+_last_controller_probe_mono: float = 0.0
+
 
 def _check_controller_activity(tick_now: int) -> None:
+    """Throttled wrapper around the XInput / WinMM controller probe."""
+    global _last_controller_probe_mono
+    now = time.monotonic()
+    if (
+        _last_controller_probe_mono > 0.0
+        and (now - _last_controller_probe_mono) < _CONTROLLER_PROBE_INTERVAL_S
+    ):
+        return
+    _last_controller_probe_mono = now
+    _poll_controllers(tick_now)
+
+
+def _poll_controllers(tick_now: int) -> None:
     global _last_controller_activity_tick
 
     # 1. Check XInput Gamepads (ports 0..3)

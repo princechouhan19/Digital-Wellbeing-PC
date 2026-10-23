@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Digital Wellbeing — Web Rules",
+  "version": "1.0.0",
+  "description": "Local-only bridge that enforces Digital Wellbeing Focus sub-path rules. No telemetry, no remote servers.",
+  "permissions": ["tabs", "storage", "alarms"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Digital Wellbeing Web Rules"
+  }
+}
