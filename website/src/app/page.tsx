@@ -76,7 +76,7 @@ export default function Home() {
               {/* Category Pill Tag */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-100/80 dark:bg-surface border border-slate-200 dark:border-border text-[11px] font-mono uppercase tracking-[0.2em] text-slate-800 dark:text-foreground/80 backdrop-blur-md">
                 <span className="w-1.5 h-1.5 rounded-full bg-dw-emerald animate-pulse" />
-                <span>Beta Release · Windows 10 & 11 (v3.1.6)</span>
+                <span>v4.1.0 "Aurora" · Windows 10 & 11 (64-bit)</span>
               </div>
 
               {/* Bold, Calm Headline */}
@@ -89,7 +89,7 @@ export default function Home() {
 
               {/* Subtext */}
               <p className="text-base sm:text-xl text-slate-700 dark:text-foreground/75 max-w-2xl mx-auto leading-relaxed font-normal">
-                Digital Wellbeing is an attention-control app for Windows. It removes digital clutter at the process level, leaving you with only the work that matters.
+                Digital Wellbeing is an Apple-grade digital wellbeing and attention-control system for Windows. It tracks your screen time, enforces boundaries, and filters the web — completely locally with zero telemetry.
               </p>
 
               {/* Primary Download CTA */}
@@ -103,7 +103,7 @@ export default function Home() {
                   <span>Download for Windows</span>
                 </a>
                 <p className="text-xs font-mono text-slate-600 dark:text-foreground/60">
-                  Windows 10 / 11 (64-bit) · ~73.5 MB installer · Free &amp; local-first
+                  Windows 10 / 11 (64-bit) · Inno Setup installer · Free &amp; local-first
                 </p>
               </div>
 
@@ -122,7 +122,7 @@ export default function Home() {
           <div className="container mx-auto px-6 max-w-5xl">
             <div className="text-center max-w-2xl mx-auto mb-10 space-y-3">
               <span className="text-[11px] font-mono tracking-[0.2em] text-dw-emerald uppercase font-semibold">
-                NATIVE OS INTEGRATION · v3.1.6
+                AURORA DESIGN SYSTEM · v4.1.0
               </span>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-foreground">
                 A calm, silent presence on Windows.
@@ -143,7 +143,7 @@ export default function Home() {
                 }`}
               >
                 <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Dark Obsidian</span>
+                <span>Aurora Dark</span>
               </button>
               <button
                 onClick={() => setHeroTheme("light")}
@@ -154,7 +154,7 @@ export default function Home() {
                 }`}
               >
                 <Sun className="w-3.5 h-3.5 text-dw-amber" />
-                <span>Light Theme</span>
+                <span>Aurora Light</span>
               </button>
             </div>
 
@@ -188,7 +188,7 @@ export default function Home() {
                   <Cpu className="w-3.5 h-3.5 text-dw-emerald" />
                   <span>Sub-25MB RAM Footprint · 0% Idle CPU Usage</span>
                 </div>
-                <span>Native Windows Mica Acrylic Foundation · {heroTheme === "dark" ? "Dark Obsidian" : "Light Theme"}</span>
+                <span>Apple-grade Aurora Design Tokens · {heroTheme === "dark" ? "Aurora Dark" : "Aurora Light"}</span>
               </div>
             </div>
           </div>
@@ -309,7 +309,7 @@ export default function Home() {
                   <span className="text-slate-700 dark:text-foreground/75 ml-2 font-normal hidden md:inline">{themeScreens[themeSectionScreen].desc}</span>
                 </div>
                 <span className="font-mono text-slate-600 dark:text-foreground/65 text-[11px]">
-                  Windows Desktop Application · {themeSectionMode === "dark" ? "Dark Obsidian" : "Light Theme"}
+                  Windows Desktop Application · {themeSectionMode === "dark" ? "Aurora Dark" : "Aurora Light"}
                 </span>
               </div>
             </div>
@@ -458,7 +458,7 @@ export default function Home() {
                 <span>Download for Windows</span>
               </a>
               <p className="text-[11px] font-mono text-slate-600 dark:text-foreground/65 font-medium">
-                Windows 10 / Windows 11 (64-bit) · Independent Software · v3.1.6
+                Windows 10 / Windows 11 (64-bit) · Independent Software · v4.1.0 "Aurora"
               </p>
             </div>
           </div>

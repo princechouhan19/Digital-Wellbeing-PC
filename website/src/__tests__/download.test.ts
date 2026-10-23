@@ -41,21 +41,21 @@ describe('Public Release & Distribution System', () => {
     );
   });
 
-  it('3. /api/stats returns accurate project metadata and Public Beta stage', async () => {
+  it('3. /api/stats returns accurate project metadata and Public Release stage', async () => {
     const response = await statsRoute();
     assert.equal(response.status, 200);
 
     const data = await response.json();
     assert.equal(data.project, 'Digital Wellbeing for Windows');
-    assert.equal(data.version, '3.1.6');
-    assert.equal(data.stage, 'Public Beta');
+    assert.equal(data.version, '4.1.0');
+    assert.equal(data.stage, 'Public Release');
     assert.equal(data.architecture, 'Local-First, Zero Cloud Sync, No Telemetry');
   });
 
-  it('4. siteConfig is aligned with Public Beta v3.1.6', () => {
+  it('4. siteConfig is aligned with Public Release v4.1.0', () => {
     assert.equal(siteConfig.name, 'Digital Wellbeing');
-    assert.equal(siteConfig.version, '3.1.6');
-    assert.equal(siteConfig.stage, 'Public Beta');
+    assert.equal(siteConfig.version, '4.1.0');
+    assert.equal(siteConfig.stage, 'Public Release');
     assert.equal(
       siteConfig.links.releases,
       'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases'

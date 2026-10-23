@@ -53,7 +53,7 @@ export function Navbar() {
             DIGITAL WELLBEING
           </span>
           <span className="hidden sm:inline-block text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/[0.06] text-slate-700 dark:text-foreground/70 border border-slate-300/80 dark:border-white/[0.08]">
-            Beta
+            v4.1.0
           </span>
         </Link>
 

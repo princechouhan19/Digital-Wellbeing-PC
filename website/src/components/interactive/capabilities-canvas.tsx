@@ -51,8 +51,8 @@ const TABS: CapabilityTab[] = [
     summary:
       "Set daily usage allowances on distracting software with fast 15m, 30m, 1h, 2h, or custom hour/minute presets. When your limit is reached, the app is gracefully suspended and your focus is preserved without abrupt crashes.",
     icon: Hourglass,
-    screenshot: "/images/app/app-timer-config-dark.png",
-    screenshotCaption: "App Timer quota configuration modal with instant time presets",
+    screenshot: "/images/app/app-timer-dark.png",
+    screenshotCaption: "App Timer daily quota configuration and active limits",
   },
   {
     id: "locker",
@@ -62,8 +62,8 @@ const TABS: CapabilityTab[] = [
     summary:
       "Lock Telegram, Discord, Steam, or sensitive work tools behind facial recognition, fingerprint, or a custom PIN. Launches are intercepted in milliseconds, strictly isolated from App Timer.",
     icon: ShieldAlert,
-    screenshot: "/images/app/authentication-dark.png",
-    screenshotCaption: "Hardware-backed Windows Hello PIN authentication modal",
+    screenshot: "/images/app/app-locker-dark.png",
+    screenshotCaption: "App Locker interface with Windows Hello biometric authentication",
   },
   {
     id: "sleepguard",
@@ -73,8 +73,8 @@ const TABS: CapabilityTab[] = [
     summary:
       "If you fall asleep while watching media late at night, SleepGuard detects genuine inactivity and automatically suspends your PC with a single unified, gentle audio-visual countdown dialog.",
     icon: Moon,
-    screenshot: "/images/app/sleepguard-countdown-dark.png",
-    screenshotCaption: "Unified SleepGuard inactivity countdown dialog with cancel protection",
+    screenshot: "/images/app/sleepguard-dark.png",
+    screenshotCaption: "SleepGuard schedule controls and inactivity power actions",
   },
   {
     id: "usage",
