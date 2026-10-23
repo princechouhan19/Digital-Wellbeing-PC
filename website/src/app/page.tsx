@@ -2,7 +2,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
-import { FocusPreview } from "@/components/interactive/focus-preview"
+import { SoftwareDemo } from "@/components/interactive/software-demo"
 import { CapabilitiesCanvas } from "@/components/interactive/capabilities-canvas"
 import {
   ShieldCheck,
@@ -15,10 +15,13 @@ import {
   Zap,
   Palette,
   Download,
+  Sparkles,
+  Layers,
+  Activity,
+  CheckCircle2,
 } from "lucide-react"
 
 export default function Home() {
-  const [heroTheme, setHeroTheme] = useState<"dark" | "light">("dark")
   const [themeSectionMode, setThemeSectionMode] = useState<"dark" | "light">("dark")
   const [themeSectionScreen, setThemeSectionScreen] = useState<"home" | "usage" | "focus" | "insights" | "settings">("home")
 
@@ -60,13 +63,13 @@ export default function Home() {
       <main className="flex-1">
         
         {/* ===================================================
-            HERO SECTION
+            HERO SECTION WITH LIVE INTERACTIVE SOFTWARE DEMO
         =================================================== */}
-        <section className="relative pt-36 pb-20 md:pt-44 md:pb-28 overflow-hidden text-center">
+        <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden text-center">
           {/* Ambient Glow / Radial Gradients */}
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[350px] bg-gradient-to-tr from-dw-emerald/10 via-dw-amber/5 to-transparent blur-[140px] pointer-events-none -z-10" />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[380px] bg-gradient-to-tr from-dw-emerald/15 via-dw-amber/10 to-transparent blur-[150px] pointer-events-none -z-10" />
 
-          <div className="container mx-auto px-6 max-w-5xl">
+          <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -76,10 +79,10 @@ export default function Home() {
               {/* Category Pill Tag */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-100/80 dark:bg-surface border border-slate-200 dark:border-border text-[11px] font-mono uppercase tracking-[0.2em] text-slate-800 dark:text-foreground/80 backdrop-blur-md">
                 <span className="w-1.5 h-1.5 rounded-full bg-dw-emerald animate-pulse" />
-                <span>v4.1.0 "Aurora" · Windows 10 & 11 (64-bit)</span>
+                <span>Windows 10 & 11 (64-bit) · Native PySide6</span>
               </div>
 
-              {/* Bold, Calm Headline */}
+              {/* Bold Headline */}
               <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-slate-900 dark:text-foreground leading-[1.1] max-w-4xl mx-auto">
                 Control your machine. <br />
                 <span className="text-slate-800 dark:text-foreground/80 font-semibold">
@@ -92,110 +95,73 @@ export default function Home() {
                 Digital Wellbeing is an Apple-grade digital wellbeing and attention-control system for Windows. It tracks your screen time, enforces boundaries, and filters the web — completely locally with zero telemetry.
               </p>
 
-              {/* Primary Download CTA */}
-              <div className="pt-4 pb-2 flex flex-col items-center justify-center gap-3">
+              {/* Primary Download CTAs */}
+              <div className="pt-2 pb-2 flex flex-wrap items-center justify-center gap-3">
                 <a
                   href="/api/download"
-                  className="inline-flex items-center gap-3 px-8 py-4 rounded-full text-sm sm:text-base font-semibold transition-all duration-200 bg-slate-900 text-white dark:bg-foreground dark:text-background hover:opacity-90 shadow-xl glow-emerald cursor-pointer group"
+                  className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full text-sm sm:text-base font-semibold transition-all duration-200 bg-slate-900 text-white dark:bg-foreground dark:text-background hover:opacity-90 shadow-xl glow-emerald cursor-pointer group"
                   title="Download for Windows"
                 >
                   <Download className="w-5 h-5 transition-transform duration-200 group-hover:-translate-y-0.5" />
                   <span>Download for Windows</span>
                 </a>
-                <p className="text-xs font-mono text-slate-600 dark:text-foreground/60">
-                  Windows 10 / 11 (64-bit) · Inno Setup installer · Free &amp; local-first
+                <a
+                  href="https://github.com/princechouhan19/Digital-Wellbeing-PC"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-semibold transition-all duration-200 bg-slate-100 dark:bg-surface border border-slate-200 dark:border-border text-slate-900 dark:text-foreground hover:bg-slate-200/80 dark:hover:bg-white/10"
+                >
+                  <span>View on GitHub</span>
+                </a>
+              </div>
+
+              <p className="text-xs font-mono text-slate-600 dark:text-foreground/60">
+                Windows 10 / 11 (64-bit) · Inno Setup installer · Free &amp; local-first
+              </p>
+
+              {/* Interactive App Banner / Prompt */}
+              <div className="pt-8 pb-2 flex flex-col items-center justify-center gap-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dw-emerald/10 border border-dw-emerald/30 text-[11px] font-mono text-dw-emerald font-semibold uppercase tracking-wider">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Interactive Live Software Demo · Click Below to Test</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-foreground/65 max-w-md">
+                  Interact with real app pages: switch between modules, start a focus sprint, test PIN unlocking, adjust quotas, and toggle themes.
                 </p>
               </div>
 
-              {/* Live Interactive Focus Pill Demo */}
-              <div className="pt-8">
-                <FocusPreview />
+              {/* ===================================================
+                  REAL INTERACTIVE SOFTWARE APPLICATION PREVIEW
+              =================================================== */}
+              <div id="product" className="scroll-mt-28">
+                <SoftwareDemo />
+              </div>
+
+              {/* Native Architecture Spec Badges */}
+              <div className="pt-4 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600 dark:text-foreground/70 font-mono">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-dw-emerald" />
+                  <span>Sub-25MB RAM Footprint</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-dw-amber" />
+                  <span>0% Idle CPU Overhead</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-indigo-400" />
+                  <span>100% Local SQLite Storage</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <EyeOff className="w-4 h-4 text-emerald-400" />
+                  <span>Zero Cloud Telemetry</span>
+                </div>
               </div>
             </motion.div>
           </div>
         </section>
 
         {/* ===================================================
-            SECTION 02: PRODUCT EXPERIENCE & NATIVE DESKTOP CANVAS
-        =================================================== */}
-        <section id="product" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border relative">
-          <div className="container mx-auto px-6 max-w-5xl">
-            <div className="text-center max-w-2xl mx-auto mb-10 space-y-3">
-              <span className="text-[11px] font-mono tracking-[0.2em] text-dw-emerald uppercase font-semibold">
-                AURORA DESIGN SYSTEM · v4.1.0
-              </span>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-foreground">
-                A calm, silent presence on Windows.
-              </h2>
-              <p className="text-sm md:text-base text-slate-700 dark:text-foreground/75 leading-relaxed">
-                Built natively with PySide6 and the Win32 API. No Electron bloat, no resource hogging, and zero intrusive popups.
-              </p>
-            </div>
-
-            {/* Interactive Theme Switcher for Hero App Screenshot */}
-            <div className="flex items-center justify-center gap-2 mb-6">
-              <button
-                onClick={() => setHeroTheme("dark")}
-                className={`px-4 py-2 rounded-full text-xs font-semibold cursor-pointer transition-all duration-200 flex items-center gap-2 ${
-                  heroTheme === "dark"
-                    ? "bg-slate-900 text-white dark:bg-white/[0.12] dark:text-foreground border border-slate-800 dark:border-white/20 shadow-sm"
-                    : "text-slate-700 dark:text-foreground/70 hover:text-slate-950 dark:hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
-                }`}
-              >
-                <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Aurora Dark</span>
-              </button>
-              <button
-                onClick={() => setHeroTheme("light")}
-                className={`px-4 py-2 rounded-full text-xs font-semibold cursor-pointer transition-all duration-200 flex items-center gap-2 ${
-                  heroTheme === "light"
-                    ? "bg-dw-emerald/15 text-dw-emerald-dark dark:text-dw-emerald border border-dw-emerald/30 shadow-sm font-bold"
-                    : "text-slate-700 dark:text-foreground/70 hover:text-slate-950 dark:hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
-                }`}
-              >
-                <Sun className="w-3.5 h-3.5 text-dw-amber" />
-                <span>Aurora Light</span>
-              </button>
-            </div>
-
-            {/* Desktop Experience Mockup Container */}
-            <div className="glass-card rounded-3xl p-3 md:p-5 border border-slate-200 dark:border-border shadow-xl relative">
-              <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-border aspect-[16/10] md:aspect-[16/9]">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={heroTheme}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="relative w-full h-full"
-                  >
-                    <Image
-                      src={heroTheme === "dark" ? "/images/app/home-dark.png" : "/images/app/home-light.png"}
-                      alt={`Digital Wellbeing desktop interface (${heroTheme} theme)`}
-                      fill
-                      sizes="(max-width: 1200px) 100vw, 1200px"
-                      className="object-cover object-top"
-                      priority
-                    />
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              {/* Caption */}
-              <div className="pt-4 px-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600 dark:text-foreground/65 font-mono">
-                <div className="flex items-center gap-2">
-                  <Cpu className="w-3.5 h-3.5 text-dw-emerald" />
-                  <span>Sub-25MB RAM Footprint · 0% Idle CPU Usage</span>
-                </div>
-                <span>Apple-grade Aurora Design Tokens · {heroTheme === "dark" ? "Aurora Dark" : "Aurora Light"}</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            SECTION 03: CORE CAPABILITIES (INTERACTIVE)
+            SECTION 02: CORE CAPABILITIES (INTERACTIVE CANVAS)
         =================================================== */}
         <section id="capabilities" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border bg-slate-50/60 dark:bg-[#07090c] relative">
           <div className="container mx-auto px-6 max-w-6xl text-center">
@@ -207,7 +173,7 @@ export default function Home() {
                 Engineered for focus. Tested for safety.
               </h2>
               <p className="text-sm md:text-base text-slate-700 dark:text-foreground/75 leading-relaxed">
-                Explore the foundational capabilities engineered to give you control over your operating system.
+                Explore the foundational capabilities engineered to give you complete mechanical control over your operating system.
               </p>
             </div>
 
@@ -217,7 +183,7 @@ export default function Home() {
         </section>
 
         {/* ===================================================
-            SECTION 04: THEME THAT FITS YOUR WORKSPACE
+            SECTION 03: THEME THAT FITS YOUR WORKSPACE
         =================================================== */}
         <section id="themes" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border relative">
           <div className="container mx-auto px-6 max-w-5xl">
@@ -317,7 +283,7 @@ export default function Home() {
         </section>
 
         {/* ===================================================
-            SECTION 05: PHILOSOPHY & DIGITAL WELLBEING STORY
+            SECTION 04: PHILOSOPHY & DIGITAL WELLBEING STORY
         =================================================== */}
         <section id="philosophy" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border bg-slate-50/60 dark:bg-[#07090c] relative">
           <div className="container mx-auto px-6 max-w-5xl">
@@ -380,7 +346,7 @@ export default function Home() {
         </section>
 
         {/* ===================================================
-            SECTION 06: PRIVACY GUARANTEE
+            SECTION 05: PRIVACY GUARANTEE
         =================================================== */}
         <section id="privacy" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border relative">
           <div className="container mx-auto px-6 max-w-5xl">
@@ -425,7 +391,7 @@ export default function Home() {
         </section>
 
         {/* ===================================================
-            SECTION 07: GET THE APP / DOWNLOAD CTA
+            SECTION 06: GET THE APP / DOWNLOAD CTA
         =================================================== */}
         <section className="py-24 md:py-36 border-t border-slate-200 dark:border-border bg-slate-50/60 dark:bg-[#07090c] relative overflow-hidden text-center">
           <div className="container mx-auto px-6 max-w-3xl space-y-8">
@@ -458,7 +424,7 @@ export default function Home() {
                 <span>Download for Windows</span>
               </a>
               <p className="text-[11px] font-mono text-slate-600 dark:text-foreground/65 font-medium">
-                Windows 10 / Windows 11 (64-bit) · Independent Software · v4.1.0 "Aurora"
+                Windows 10 / Windows 11 (64-bit) · Independent Software
               </p>
             </div>
           </div>

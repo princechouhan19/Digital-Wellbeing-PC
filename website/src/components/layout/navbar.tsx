@@ -52,9 +52,6 @@ export function Navbar() {
           <span className="font-bold text-sm tracking-wider text-slate-900 dark:text-foreground">
             DIGITAL WELLBEING
           </span>
-          <span className="hidden sm:inline-block text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/[0.06] text-slate-700 dark:text-foreground/70 border border-slate-300/80 dark:border-white/[0.08]">
-            v4.1.0
-          </span>
         </Link>
 
         {/* Center: Navigation Links */}
@@ -113,7 +110,7 @@ export function Navbar() {
           <a
             href="/api/download"
             className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer bg-slate-900 text-white dark:bg-foreground dark:text-background hover:opacity-90 shadow-md glow-emerald"
-            title="Download Digital Wellbeing v3.1.6 for Windows"
+            title="Download Digital Wellbeing for Windows"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download</span>
