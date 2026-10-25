@@ -98,7 +98,7 @@ class AppleFocusRing(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(250, 250)
+        self.setFixedSize(220, 220)
         self._progress = 0.0          # 0.0 to 1.0
         self._time_text = "25:00"
         self._tag_text = "DEEP FOCUS"
@@ -239,19 +239,19 @@ class FocusModeCard(QFrame):
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
 
         # Squircle Icon Container
         self.icon_frame = QFrame()
-        self.icon_frame.setFixedSize(34, 34)
+        self.icon_frame.setFixedSize(30, 30)
         self.icon_frame.setObjectName("mode_icon_frame")
         icon_layout = QVBoxLayout(self.icon_frame)
         icon_layout.setContentsMargins(0, 0, 0, 0)
         icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.icon_lbl = QLabel()
-        self.icon_lbl.setFixedSize(18, 18)
+        self.icon_lbl.setFixedSize(16, 16)
         self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_layout.addWidget(self.icon_lbl)
         layout.addWidget(self.icon_frame)
@@ -289,7 +289,7 @@ class FocusModeCard(QFrame):
         r, g, b = q_acc.red(), q_acc.green(), q_acc.blue()
 
         icon_color = accent_color if self._is_selected else tm.color("text_sub")
-        self.icon_lbl.setPixmap(get_pixmap(self.icon_name, color=icon_color, size=18))
+        self.icon_lbl.setPixmap(get_pixmap(self.icon_name, color=icon_color, size=16))
 
         if self._is_selected:
             bg = f"rgba({r}, {g}, {b}, 0.14)" if is_dark else f"rgba({r}, {g}, {b}, 0.12)"
@@ -1031,7 +1031,7 @@ class FocusTimerWidget(QFrame):
         # Left: timer / start
         session_card = QFrame()
         session_card.setObjectName("focus_section_card")
-        session_card.setMinimumWidth(340)
+        session_card.setMinimumWidth(270)
         session_layout = QVBoxLayout(session_card)
         session_layout.setContentsMargins(*ds.CARD_MARGINS)
         session_layout.setSpacing(12)
@@ -1148,6 +1148,7 @@ class FocusTimerWidget(QFrame):
         apps_layout.addLayout(apps_header)
         self._list_sub = QLabel("Only these user applications can run during the session")
         self._list_sub.setObjectName("list_subtitle")
+        self._list_sub.setWordWrap(True)
         apps_layout.addWidget(self._list_sub)
         self._blocklist_container = QWidget()
         self._blocklist_layout = QHBoxLayout(self._blocklist_container)
@@ -1194,6 +1195,7 @@ class FocusTimerWidget(QFrame):
         web_layout.addLayout(web_header)
         self._websites_sub = QLabel("Blocked at DNS + hosts level across every browser")
         self._websites_sub.setObjectName("list_subtitle")
+        self._websites_sub.setWordWrap(True)
         web_layout.addWidget(self._websites_sub)
         self._websites_container = QWidget()
         self._websites_layout = QHBoxLayout(self._websites_container)
@@ -1270,9 +1272,18 @@ class FocusTimerWidget(QFrame):
         protect_layout.setContentsMargins(*ds.CARD_MARGINS)
         protect_layout.setSpacing(12)
 
+        protect_header_row = QHBoxLayout()
         protect_header = QLabel("SESSION PROTECTION")
         protect_header.setObjectName("section_eyebrow")
-        protect_layout.addWidget(protect_header)
+        protect_header_row.addWidget(protect_header)
+        protect_header_row.addStretch()
+        self._schedules_btn = QPushButton("Schedules")
+        self._schedules_btn.setObjectName("action_pill_btn")
+        self._schedules_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._schedules_btn.setIcon(get_icon("clock", "#0A84FF", 12))
+        self._schedules_btn.clicked.connect(self._open_focus_schedules)
+        protect_header_row.addWidget(self._schedules_btn)
+        protect_layout.addLayout(protect_header_row)
 
         strict_row = QHBoxLayout()
         strict_text = QVBoxLayout()
@@ -1356,6 +1367,13 @@ class FocusTimerWidget(QFrame):
         dialog.exec()
         self._refresh_rules_ui()
         self._refresh_websites_ui()
+
+    def _open_focus_schedules(self) -> None:
+        from protection.focus_schedule import FocusScheduleEngine
+        from ui.widgets.focus_schedule_dialog import FocusScheduleDialog
+
+        dialog = FocusScheduleDialog(FocusScheduleEngine(), parent=self.window())
+        dialog.exec()
 
     def _build_active_view(self) -> None:
         layout = QVBoxLayout(self._active_view)
@@ -1461,8 +1479,21 @@ class FocusTimerWidget(QFrame):
         self._active_stop_btn.setIcon(get_icon("stop", "#FF453A", 16))
         self._active_stop_btn.clicked.connect(self._stop_timer)
         btn_box.addWidget(self._active_stop_btn)
-
         layout.addLayout(btn_box)
+
+        self._emergency_btn = QPushButton("Need to exit? Emergency unlock")
+        self._emergency_btn.setObjectName("text_link_btn")
+        self._emergency_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._emergency_btn.setVisible(False)
+        self._emergency_btn.clicked.connect(self._open_emergency_exit)
+        layout.addWidget(self._emergency_btn, 0, Qt.AlignmentFlag.AlignCenter)
+
+    def _open_emergency_exit(self) -> None:
+        from ui.widgets.emergency_exit_dialog import EmergencyExitDialog
+
+        dialog = EmergencyExitDialog(self._fm, parent=self.window())
+        dialog.exec()
+        self._sync_ui_state()
 
     def _apply_theme(self, is_dark: bool) -> None:
         tm = ThemeManager.instance()
@@ -1839,7 +1870,7 @@ class FocusTimerWidget(QFrame):
         mode = self._fm.current_mode
 
         is_custom = (mode == "custom")
-        self._list_hdr.setText("Blocked Applications (Blocklist)" if is_custom else "Permitted Applications (Allowlist)")
+        self._list_hdr.setText("Blocked apps" if is_custom else "Permitted apps")
         self._list_sub.setText("These applications will be closed & blocked" if is_custom else "Only these user applications can run during session")
         self._apps_count_badge.setText(f"{len(items)} app{'s' if len(items) != 1 else ''}")
 
@@ -1957,6 +1988,15 @@ class FocusTimerWidget(QFrame):
                 host.showNormal()
                 host.raise_()
                 host.activateWindow()
+            if hasattr(self, "_emergency_btn") and self._emergency_btn.isVisible():
+                if self._fm.is_emergency_pending:
+                    remaining = self._fm.emergency_unlock_remaining
+                    self._emergency_btn.setText(
+                        f"Emergency unlock in {remaining // 60}:{remaining % 60:02d}"
+                    )
+                    self._emergency_btn.setEnabled(False)
+                else:
+                    self._emergency_btn.setEnabled(True)
 
         total = self._fm.session_total_seconds or self._session_total_seconds or (self._selected_minutes * 60)
         elapsed = max(0, total - seconds)
@@ -2005,9 +2045,20 @@ class FocusTimerWidget(QFrame):
                 self._active_pill_text.setText(f"LOCKOUT ACTIVE — {mode.upper()}")
                 self._active_stop_btn.setVisible(False)
                 self._active_mode_lbl.setText(f"{mode.upper()} LOCKOUT · CANNOT END EARLY")
+                self._emergency_btn.setVisible(True)
+                if self._fm.is_emergency_pending:
+                    remaining = self._fm.emergency_unlock_remaining
+                    self._emergency_btn.setText(
+                        f"Emergency unlock in {remaining // 60}:{remaining % 60:02d}"
+                    )
+                    self._emergency_btn.setEnabled(False)
+                else:
+                    self._emergency_btn.setText("Need to exit? Emergency unlock")
+                    self._emergency_btn.setEnabled(True)
             else:
                 self._active_pill_text.setText(f"FOCUS ACTIVE — {mode.upper()}")
                 self._active_stop_btn.setVisible(True)
+                self._emergency_btn.setVisible(False)
             q_acc = QColor(mode_color)
             r, g, b = q_acc.red(), q_acc.green(), q_acc.blue()
             self._active_status_pill.setStyleSheet(f"""
@@ -2047,6 +2098,16 @@ class FocusTimerWidget(QFrame):
                 from PySide6.QtWidgets import QMessageBox
                 QMessageBox.warning(self, "PIN Required", "You must configure a PIN in Settings before using Strict Mode.")
                 self._strict_switch.setChecked(False)
+                return
+            if lockout and not self._fm._pin_manager.is_enabled():
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    "PIN Required",
+                    "Lockout needs a PIN so the safe emergency exit can verify you. "
+                    "Configure one in Settings first.",
+                )
+                self._lockout_switch.setChecked(False)
                 return
 
             if lockout:

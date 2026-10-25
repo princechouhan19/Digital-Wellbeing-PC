@@ -87,6 +87,15 @@ class SettingsManager:
         if val in ("light", "dark"):
             self.set_bool("dark_mode", val == "dark")
 
+    @property
+    def ui_density(self) -> str:
+        val = self.get("ui_density", "comfortable").lower()
+        return "compact" if val == "compact" else "comfortable"
+
+    @ui_density.setter
+    def ui_density(self, value: str) -> None:
+        self.set("ui_density", "compact" if str(value).lower() == "compact" else "comfortable")
+
     # SleepGuard Extensions
     @property
     def sleepguard_enabled(self) -> bool:

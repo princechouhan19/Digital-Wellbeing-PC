@@ -8,14 +8,14 @@
 
 Digital Wellbeing tracks your screen time, protects your attention, and filters the web — all locally, with an Apple-grade interface inspired by macOS Sequoia.
 
-[![Release](https://img.shields.io/badge/Release-v4.2.0--Attention-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
+[![Release](https://img.shields.io/badge/Release-v4.3.0--Momentum-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-30D158.svg?style=flat-square)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%20%28Qt%29-BF5AF2.svg?style=flat-square)](https://www.qt.io/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20x64-007AFF.svg?style=flat-square)](https://www.microsoft.com/windows)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-30D158.svg?style=flat-square)](PRIVACY.md)
 [![License](https://img.shields.io/badge/License-MIT-FF9F0A.svg?style=flat-square)](LICENSE)
 
-[**Download Installer (v4.2.0)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
+[**Download Installer (v4.3.0)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
 
 </div>
 
@@ -104,13 +104,19 @@ Tracking runs quietly in the background with negligible CPU footprint; the **Aur
 - Curated presets: *Study*, *Work*, *Movie*, *Deep Focus*, and *Custom*, in a redesigned page with separate mode, session, guardrails, and protection cards.
 - Strict **Allowlist Mode** (only approved applications run) or **Blocklist Mode** (restricts distracting apps).
 - **Granular sub-path rules** — block `youtube.com/shorts` or `reddit.com/r/all` while allowing `reddit.com/r/programming`. Enforced by an optional loopback-only browser extension bridge; domain blocking still works without it.
+- **Rule packs & portability** — Study / Deep Work / Evening presets plus JSON import/export.
 - Browser tab URL enforcement: automatically closes unauthorized browser tabs during active focus.
-- **Strict Lockout**: optional non-cancelable sessions with a persisted deadline and best-effort relaunch watchdog. The UI clearly states that administrator/Safe Mode termination cannot be prevented.
+- **Recurring Focus schedules** — weekday/time/mode blocks auto-start, and join the remaining block if you open the app late.
+- **Session recap** — after every session see blocked interruptions, fragmentation vs. your baseline, and the best next focus window, with Today/Yesterday/7-day history.
+- **Strict Lockout**: optional non-cancelable sessions with a persisted deadline and best-effort relaunch watchdog. A deliberate **10-second hold + PIN + 15-minute cooldown** emergency exit remains available. The UI clearly states that administrator/Safe Mode termination cannot be prevented.
 - Temporary DNS domain blocking via an isolated hosts section (`# DIGITAL WELLBEING BLOCK`).
 
 ### 5. Attention Quality
 - **Focus Fragmentation Index** — switches per active hour, charted across the day so fragmented periods are visible.
 - **Flow Continuity Tracker** — highlights sustained 45+ minute productive runs in programming, writing, and study tools.
+- **Weekly attention report** — 7×24 heatmap, flow streaks, best/worst hours, CSV/PDF export, and clipboard summary.
+- **Real-time nudge** — after 12 switches in 30 minutes, a one-click 10-minute Focus reset appears.
+- **Command palette** — `Ctrl+K` for navigation, Focus starts, rules, schedules, and the weekly report.
 
 ### 6. App Locker with Windows Hello
 - Protect sensitive applications (communication suites, banking, private browsers) behind biometric authentication.
@@ -201,7 +207,7 @@ For full architectural details, consult the [Architecture Documentation](docs/AR
 ### Standard Windows Installer (Recommended)
 Download and run the installer from the [Releases page](https://digitalwellbeing.vercel.app):
 ```text
-DigitalWellbeingSetup-4.2.0.exe
+DigitalWellbeingSetup-4.3.0.exe
 ```
 
 ### Running from Source

@@ -80,6 +80,28 @@ CREATE TABLE IF NOT EXISTS app_locker_apps (
 );
 """
 
+CREATE_FOCUS_SESSIONS = """
+CREATE TABLE IF NOT EXISTS focus_sessions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode                TEXT    NOT NULL,
+    planned_s           REAL    NOT NULL DEFAULT 0,
+    actual_s            REAL    NOT NULL DEFAULT 0,
+    started_at          TEXT    NOT NULL,
+    ended_at            TEXT,
+    was_completed       INTEGER NOT NULL DEFAULT 0,
+    strict              INTEGER NOT NULL DEFAULT 0,
+    lockout             INTEGER NOT NULL DEFAULT 0,
+    blocked_apps        INTEGER NOT NULL DEFAULT 0,
+    blocked_sites       INTEGER NOT NULL DEFAULT 0,
+    interruptions       INTEGER NOT NULL DEFAULT 0,
+    auto_started        INTEGER NOT NULL DEFAULT 0,
+    schedule_id         TEXT    NOT NULL DEFAULT '',
+    blocked_apps_json   TEXT    NOT NULL DEFAULT '{}',
+    blocked_sites_json  TEXT    NOT NULL DEFAULT '{}',
+    recap_json          TEXT    NOT NULL DEFAULT '{}'
+);
+"""
+
 
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_sessions_start      ON app_sessions(start_time);",
@@ -99,6 +121,7 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_website_sessions_domain ON website_sessions(domain);",
     "CREATE INDEX IF NOT EXISTS idx_website_domain_start ON website_sessions(domain, start_time);",
     "CREATE INDEX IF NOT EXISTS idx_website_browser_start ON website_sessions(browser_process, start_time);",
+    "CREATE INDEX IF NOT EXISTS idx_focus_sessions_start ON focus_sessions(started_at);",
 ]
 
 MIGRATE_ADD_EXE_PATH = """
@@ -141,6 +164,7 @@ ALL_DDL = [
     CREATE_EVENT_LOG,
     CREATE_WEBSITE_SESSIONS,
     CREATE_APP_LOCKER_APPS,
+    CREATE_FOCUS_SESSIONS,
     *CREATE_INDEXES,
 ]
 
@@ -163,6 +187,8 @@ DEFAULT_SETTINGS = {
     "notifications_enabled": "true",
     "daily_limit_minutes": "480",
     "export_path": "",
+    "fragmentation_nudge_enabled": "true",
+    "ui_density": "comfortable",
     # App Locker defaults
     "app_locker_enabled": "false",
     "app_locker_auth_method": "hello_pin",  # hello | pin | hello_pin

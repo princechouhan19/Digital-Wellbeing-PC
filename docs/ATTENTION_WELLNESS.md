@@ -204,7 +204,85 @@ content column. It no longer wraps every control in one visual container.
 
 ---
 
-## 6. Key files
+## 7. Momentum features (v4.3)
+
+### Session recap & history
+
+Every Focus session is persisted to the `focus_sessions` table with planned and
+actual duration, mode, strict/lockout flags, blocked-app/site counters, and a
+serialized recap. On stop, `FocusManager.session_recap_ready` emits a recap
+containing:
+
+- focus time and interruptions blocked;
+- blocked apps and sites;
+- fragmentation during the session versus the previous seven-day baseline;
+- the best next two-hour focus window derived from the last 14 days.
+
+The recap dialog shows this session plus **Today / Yesterday / Previous 7 days**
+history. The same dialog is available from `Ctrl+Shift+R` and the command
+palette.
+
+### Recurring Focus schedules
+
+`protection/focus_schedule.py` stores local schedules (name, mode, start time,
+duration, weekdays, enabled). A 30-second timer checks for a due block. If the
+app opens partway through a block, the remaining portion is joined. The last
+fired date prevents loops, and no second session starts while Focus is active.
+Manage schedules in **Focus → Session Protection → Schedules**.
+
+### Weekly attention report
+
+`AnalyticsEngine.get_weekly_attention_report()` returns a 7×24 fragmentation
+heatmap, average switches per active hour, flow totals and streaks, and the
+best/worst hours. **Insights → Weekly report** exports:
+
+- CSV: one row per date/hour with switches and active seconds;
+- PDF: summary, best/worst hours, and daily table (`QPdfWriter`, no external
+  dependency);
+- clipboard: a plain-text summary for manual sharing.
+
+### Safe lockout emergency exit
+
+Lockout now requires a configured PIN. The emergency path is deliberately slow:
+
+1. hold the button for **10 seconds**;
+2. confirm the **PIN**;
+3. wait through a **15-minute cooldown**.
+
+The session auto-ends when the cooldown reaches zero, or the user can click
+**End session now** once it is available. The lockout remains enforced during
+the cooldown.
+
+### Fragmentation nudge
+
+`protection/attention_nudge.py` checks once a minute. When at least 12 app
+switches occurred in the last 30 minutes it shows a non-modal reset prompt with
+a one-click **10-minute Focus reset**. It is suppressed during an active Focus
+session, while idle, for five minutes after startup, and for 90 minutes after
+the previous nudge.
+
+### Rule packs & portability
+
+The Web Rules editor includes **Study**, **Deep Work**, and **Evening** packs,
+plus JSON import/export of all rules. Imports validate patterns/actions and skip
+duplicates.
+
+### Command palette
+
+`Ctrl+K` opens a Spotlight-style palette containing navigation, 25/50-minute
+Focus starts, Web Rules, Schedules, Weekly Report, Last Recap, Insights, and
+Settings. `Ctrl+Shift+F` starts a 25-minute Focus block; `Ctrl+Shift+R` opens
+the last recap.
+
+### UI primitives & density foundation
+
+`ui/primitives.py` provides `PageScaffold`, `Card`, and `Button`, backed by the
+design-system tokens. The scaffold supports comfortable/compact margins; new
+surfaces should use it. Existing pages can migrate incrementally.
+
+---
+
+## 8. Key files
 
 | Area | File |
 |---|---|
@@ -217,6 +295,13 @@ content column. It no longer wraps every control in one visual container.
 | Circadian engine | `protection/circadian.py` |
 | Circadian UI | `ui/widgets/circadian_section.py` |
 | Lockout watchdog | `protection/focus_watchdog.py` |
+| Session recap | `ui/widgets/focus_recap_dialog.py` |
+| Schedules | `protection/focus_schedule.py`, `ui/widgets/focus_schedule_dialog.py` |
+| Weekly report | `ui/widgets/weekly_report_dialog.py` |
+| Emergency exit | `ui/widgets/emergency_exit_dialog.py` |
+| Fragmentation nudge | `protection/attention_nudge.py`, `ui/widgets/fragmentation_nudge_dialog.py` |
+| UI primitives | `ui/primitives.py`, `docs/UX_GUIDELINES.md` |
+| Release automation | `tools/bump_version.py`, `.github/workflows/release.yml` |
 | Focus widget | `ui/widgets/focus_timer.py` |
 | Focus page | `ui/pages/wellbeing.py` |
-| Tests | `tests/test_attention_wellness_features.py` |
+| Tests | `tests/test_attention_wellness_features.py`, `tests/test_v43_attention_features.py`, `tests/test_visual_layout.py` |

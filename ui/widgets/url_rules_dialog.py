@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -143,6 +144,34 @@ class UrlRulesDialog(QDialog):
         preset_row.addStretch()
         root.addLayout(preset_row)
 
+        # Rule packs / portability
+        pack_row = QHBoxLayout()
+        pack_row.setSpacing(8)
+        pack_row.addWidget(QLabel("Rule pack:"))
+        self._preset_combo = QComboBox()
+        self._preset_combo.addItem("Study", "study")
+        self._preset_combo.addItem("Deep Work", "deep_work")
+        self._preset_combo.addItem("Evening", "evening")
+        self._preset_combo.setFixedWidth(130)
+        pack_row.addWidget(self._preset_combo)
+        apply_btn = QPushButton("Apply pack")
+        apply_btn.setObjectName("preset_btn")
+        apply_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        apply_btn.clicked.connect(self._apply_pack)
+        pack_row.addWidget(apply_btn)
+        pack_row.addStretch()
+        import_btn = QPushButton("Import…")
+        import_btn.setObjectName("preset_btn")
+        import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        import_btn.clicked.connect(self._import_rules)
+        pack_row.addWidget(import_btn)
+        export_btn = QPushButton("Export…")
+        export_btn.setObjectName("preset_btn")
+        export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        export_btn.clicked.connect(self._export_rules)
+        pack_row.addWidget(export_btn)
+        root.addLayout(pack_row)
+
         # Rules list
         self._rules_scroll = QScrollArea()
         self._rules_scroll.setWidgetResizable(True)
@@ -235,6 +264,36 @@ class UrlRulesDialog(QDialog):
     def _quick_add(self, pattern: str, action: str) -> None:
         if self._fm.add_url_rule(pattern, action):
             self._refresh_rules()
+
+    def _apply_pack(self) -> None:
+        preset = self._preset_combo.currentData()
+        if preset and self._fm.apply_url_preset(preset):
+            self._refresh_rules()
+
+    def _import_rules(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import web rules",
+            "",
+            "JSON files (*.json)",
+        )
+        if not path:
+            return
+        added, error = self._fm.import_url_rules(path)
+        if error:
+            logger.warning("URL rules import failed: %s", error)
+        if added:
+            self._refresh_rules()
+
+    def _export_rules(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export web rules",
+            "digital-wellbeing-web-rules.json",
+            "JSON files (*.json)",
+        )
+        if path:
+            self._fm.export_url_rules(path)
 
     def _delete_rule(self, rule) -> None:
         try:

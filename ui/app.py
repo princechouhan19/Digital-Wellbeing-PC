@@ -157,6 +157,17 @@ class DigitalWellbeingApp:
         self._circadian = CircadianController.instance()
         self._circadian.start()
 
+        # Recurring Focus blocks (stored locally, checked every 30 seconds).
+        from protection.focus_schedule import FocusScheduleEngine
+        self._schedule_engine = FocusScheduleEngine()
+        self._schedule_engine.start()
+
+        # Gentle in-the-moment fragmentation nudge.
+        from protection.attention_nudge import AttentionNudgeController
+        self._nudge_controller = AttentionNudgeController()
+        self._nudge_controller.nudge_ready.connect(self._show_fragmentation_nudge)
+        self._nudge_controller.start()
+
         # Adult Content Protection Motivation Modal
         from protection.adult_content_shield import AdultContentShield
         from ui.widgets.adult_motivation_dialog import AdultContentMotivationDialog
@@ -487,6 +498,20 @@ class DigitalWellbeingApp:
             duration=5,
         )
 
+    def _show_fragmentation_nudge(self, switches: int) -> None:
+        import os
+
+        if os.environ.get("DW_TEST_MODE") == "1" or self._window is None:
+            return
+        from protection.focus_manager import FocusManager
+        from ui.widgets.fragmentation_nudge_dialog import FragmentationNudgeDialog
+
+        dialog = FragmentationNudgeDialog(switches, FocusManager.instance(), parent=self._window)
+        self._active_nudge_dialog = dialog
+        dialog.finished.connect(lambda _: setattr(self, "_active_nudge_dialog", None))
+        dialog.show()
+        dialog.raise_()
+
     def _trigger_quick_focus(self) -> None:
         """Starts an immediate 5-minute Focus Reset session to steer attention away from adult content."""
         try:
@@ -572,6 +597,14 @@ class DigitalWellbeingApp:
         if hasattr(self, "_circadian") and self._circadian:
             logger.info("[LIFECYCLE] Stopping circadian display schedule")
             self._circadian.stop()
+
+        if hasattr(self, "_schedule_engine") and self._schedule_engine:
+            logger.info("[LIFECYCLE] Stopping Focus schedule engine")
+            self._schedule_engine.stop()
+
+        if hasattr(self, "_nudge_controller") and self._nudge_controller:
+            logger.info("[LIFECYCLE] Stopping attention nudge controller")
+            self._nudge_controller.stop()
 
         # 2b. Close repository connections for this (main) thread. Background threads
         # are responsible for closing their own thread-local connections on exit.

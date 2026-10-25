@@ -15,6 +15,7 @@ import ctypes
 import ctypes.wintypes
 import json
 import threading
+from datetime import date, datetime
 from typing import Dict, List, Optional
 
 import win32gui
@@ -40,6 +41,7 @@ class FocusManager(QObject):
     focus_state_changed = Signal(bool)   # is_active
     tick = Signal(int)                   # seconds remaining
     focus_completed = Signal()
+    session_recap_ready = Signal(object)
     mode_changed = Signal(str)
     app_blocked = Signal(str, str, int)  # process_name, mode_name, seconds_remaining
 
@@ -63,6 +65,15 @@ class FocusManager(QObject):
         self._watchdog_proc = None
         self._seconds_remaining = 0
         self._session_total_seconds = 0
+        self._focus_session_id: Optional[int] = None
+        self._focus_started_at: Optional[datetime] = None
+        self._blocked_apps_counts: Dict[str, int] = {}
+        self._blocked_sites_counts: Dict[str, int] = {}
+        self._interruptions = 0
+        self._block_count_last: Dict[str, float] = {}
+        self._auto_started = False
+        self._schedule_id = ""
+        self._emergency_unlock_at: Optional[float] = None
         
         self._last_blocked_feedback: Dict[str, float] = {}
         self._suppressed_blocked_apps: Dict[str, float] = {}
@@ -248,6 +259,21 @@ class FocusManager(QObject):
             self._url_rules_cache = None
         return changed
 
+    def apply_url_preset(self, preset_name: str) -> int:
+        added = self._url_rule_engine.apply_preset(preset_name)
+        if added:
+            self._url_rules_cache = None
+        return added
+
+    def export_url_rules(self, path: str) -> int:
+        return self._url_rule_engine.export_to_file(path)
+
+    def import_url_rules(self, path: str) -> tuple[int, str]:
+        added, error = self._url_rule_engine.import_from_file(path)
+        if added:
+            self._url_rules_cache = None
+        return added, error
+
     def _site_is_blocked(self, domain: str) -> bool:
         if not domain:
             return False
@@ -286,6 +312,8 @@ class FocusManager(QObject):
             default_action=default_action,
             rules=self.url_rules(),
         )
+        if decision.action == "block":
+            self._record_block("site", decision.matched_rule or decision.domain)
         return {
             "action": decision.action,
             "reason": decision.reason,
@@ -348,6 +376,8 @@ class FocusManager(QObject):
         strict_mode: bool = False,
         mode: Optional[str] = None,
         lockout: bool = False,
+        auto_started: bool = False,
+        schedule_id: str = "",
     ) -> bool:
         if self._is_active:
             return False
@@ -358,6 +388,9 @@ class FocusManager(QObject):
         if strict_mode and not lockout and not self._pin_manager.is_enabled():
             logger.warning("[FOCUS] Cannot start strict mode: PIN is not configured.")
             return False
+        if lockout and not self._pin_manager.is_enabled():
+            logger.warning("[FOCUS] Cannot start lockout: a PIN is required for the safe emergency exit.")
+            return False
 
         self._is_active = True
         self._is_strict = strict_mode or lockout
@@ -365,6 +398,27 @@ class FocusManager(QObject):
         self._deadline = time.monotonic() + minutes * 60
         self._seconds_remaining = minutes * 60
         self._session_total_seconds = minutes * 60
+        self._focus_started_at = datetime.now()
+        self._blocked_apps_counts = {}
+        self._blocked_sites_counts = {}
+        self._interruptions = 0
+        self._block_count_last = {}
+        self._auto_started = bool(auto_started)
+        self._schedule_id = schedule_id or ""
+        self._emergency_unlock_at = None
+        try:
+            self._focus_session_id = self._repo.insert_focus_session(
+                mode=self._mode,
+                planned_s=minutes * 60,
+                started_at=self._focus_started_at,
+                strict=self._is_strict,
+                lockout=self._lockout,
+                auto_started=self._auto_started,
+                schedule_id=self._schedule_id,
+            )
+        except Exception as exc:
+            logger.warning("[FOCUS] Could not create session record: %s", exc)
+            self._focus_session_id = None
         # Only lockout needs crash/relaunch persistence; a normal session ends
         # cleanly and should not surprise the user on the next launch.
         if self._lockout:
@@ -408,8 +462,11 @@ class FocusManager(QObject):
                 "minutes": minutes,
                 "strict": self._is_strict,
                 "lockout": self._lockout,
-                "started_epoch": time.time(),
+                "started_epoch": self._focus_started_at.timestamp() if self._focus_started_at else time.time(),
                 "deadline_epoch": time.time() + minutes * 60,
+                "focus_session_id": self._focus_session_id,
+                "auto_started": self._auto_started,
+                "schedule_id": self._schedule_id,
             }
             self._repo.set_setting("focus_active_session", json.dumps(payload))
         except Exception as exc:
@@ -478,6 +535,31 @@ class FocusManager(QObject):
             self._session_total_seconds = max(1, int(float(data.get("minutes", 25)) * 60))
         except (TypeError, ValueError):
             self._session_total_seconds = max(int(remaining), 1)
+        try:
+            started_epoch = float(data.get("started_epoch", time.time() - (self._session_total_seconds - remaining)))
+            self._focus_started_at = datetime.fromtimestamp(started_epoch)
+        except (TypeError, ValueError, OSError):
+            self._focus_started_at = datetime.now()
+        self._focus_session_id = data.get("focus_session_id")
+        if self._focus_session_id is None or not self._repo.get_focus_session(int(self._focus_session_id)):
+            try:
+                self._focus_session_id = self._repo.insert_focus_session(
+                    mode=self._mode,
+                    planned_s=self._session_total_seconds,
+                    started_at=self._focus_started_at,
+                    strict=self._is_strict,
+                    lockout=self._lockout,
+                    auto_started=self._auto_started,
+                    schedule_id=self._schedule_id,
+                )
+            except Exception:
+                self._focus_session_id = None
+        self._blocked_apps_counts = {}
+        self._blocked_sites_counts = {}
+        self._interruptions = 0
+        self._block_count_last = {}
+        self._auto_started = bool(data.get("auto_started", False))
+        self._schedule_id = str(data.get("schedule_id", ""))
         self._timer.start()
         logger.info(
             "[FOCUS] Restored active session: mode=%s, remaining=%ds, lockout=%s",
@@ -498,6 +580,8 @@ class FocusManager(QObject):
             return True
 
         if self._lockout and self._seconds_remaining > 0:
+            if self._emergency_unlock_at is not None and time.monotonic() >= self._emergency_unlock_at:
+                return self._do_stop(reason="emergency_exit")
             logger.warning("[FOCUS] Stop denied: lockout session in progress.")
             return False
 
@@ -506,7 +590,7 @@ class FocusManager(QObject):
                 logger.warning("[FOCUS] Stop denied: Invalid PIN.")
                 return False
 
-        return self._do_stop()
+        return self._do_stop(reason="manual")
 
     def cancel_focus(self) -> bool:
         """Alias for stop_focus for backward compatibility and API clarity."""
@@ -520,23 +604,142 @@ class FocusManager(QObject):
         if not self._is_active:
             return True
         if self._lockout and self._seconds_remaining > 0:
+            if self._emergency_unlock_at is not None and time.monotonic() >= self._emergency_unlock_at:
+                return self._do_stop(reason="emergency_exit")
             return False
-        return self._do_stop()
+        return self._do_stop(reason="manual")
 
-    def _do_stop(self) -> bool:
-        """Internal teardown — reset state."""
+    # ------------------------------------------------------------------
+    # Safe emergency exit (hold + PIN + cooldown)
+    # ------------------------------------------------------------------
+
+    @property
+    def is_emergency_pending(self) -> bool:
+        return self._emergency_unlock_at is not None
+
+    @property
+    def emergency_unlock_remaining(self) -> int:
+        if self._emergency_unlock_at is None:
+            return 0
+        return max(0, int(round(self._emergency_unlock_at - time.monotonic())))
+
+    def request_emergency_exit(self, cooldown_minutes: int = 15) -> bool:
+        """Begin the deliberate lockout exit countdown.
+
+        The caller must already have completed the 10-second hold and PIN
+        verification. The lockout remains active for the cooldown window.
+        """
+        if not self._is_active or not self._lockout:
+            return False
+        self._emergency_unlock_at = time.monotonic() + max(1, int(cooldown_minutes)) * 60
+        logger.warning(
+            "[FOCUS] Emergency exit requested; lockout holds for %d more minutes.",
+            cooldown_minutes,
+        )
+        return True
+
+    def _do_stop(self, reason: str = "manual", completed: bool = False) -> bool:
+        """Internal teardown — persist the recap and reset state."""
+        session_id = self._focus_session_id
+        started_at = self._focus_started_at
+        planned_s = self._session_total_seconds
+        mode = self._mode
+        blocked_apps = dict(self._blocked_apps_counts)
+        blocked_sites = dict(self._blocked_sites_counts)
+        interruptions = self._interruptions
+        ended_at = datetime.now()
+        if completed:
+            actual_s = float(planned_s)
+        elif started_at:
+            actual_s = max(0.0, (ended_at - started_at).total_seconds())
+        else:
+            actual_s = float(max(0, planned_s - self._seconds_remaining))
+
+        timeline = {
+            "mode": mode,
+            "reason": reason,
+            "planned_s": planned_s,
+            "actual_s": actual_s,
+            "started_at": started_at.isoformat() if started_at else "",
+            "ended_at": ended_at.isoformat(),
+            "completed": bool(completed),
+            "lockout": self._lockout,
+            "strict": self._is_strict,
+            "blocked_apps_map": blocked_apps,
+            "blocked_sites_map": blocked_sites,
+            "interruptions": interruptions,
+        }
+
+        recap = dict(timeline)
+        if started_at:
+            try:
+                from analytics.engine import AnalyticsEngine
+
+                metrics = AnalyticsEngine().get_focus_recap_metrics(
+                    start=started_at,
+                    end=ended_at,
+                    blocked_apps=sum(blocked_apps.values()),
+                    blocked_sites=sum(blocked_sites.values()),
+                    interruptions=interruptions,
+                )
+                metrics.pop("start", None)
+                metrics.pop("end", None)
+                recap.update(metrics)
+            except Exception as exc:
+                logger.debug("[FOCUS] Recap analytics unavailable: %s", exc)
+
+        if session_id:
+            try:
+                self._repo.finish_focus_session(
+                    session_id=session_id,
+                    actual_s=actual_s,
+                    ended_at=ended_at,
+                    was_completed=completed,
+                    blocked_apps=sum(blocked_apps.values()),
+                    blocked_sites=sum(blocked_sites.values()),
+                    interruptions=interruptions,
+                    blocked_apps_json=json.dumps(blocked_apps, separators=(",", ":")),
+                    blocked_sites_json=json.dumps(blocked_sites, separators=(",", ":")),
+                    recap_json=json.dumps(self._json_safe(recap), separators=(",", ":")),
+                )
+            except Exception as exc:
+                logger.warning("[FOCUS] Could not persist recap: %s", exc)
+
         self._is_active = False
         self._is_strict = False
         self._lockout = False
         self._seconds_remaining = 0
         self._session_total_seconds = 0
+        self._focus_session_id = None
+        self._focus_started_at = None
+        self._blocked_apps_counts = {}
+        self._blocked_sites_counts = {}
+        self._interruptions = 0
+        self._block_count_last = {}
+        self._emergency_unlock_at = None
         self._timer.stop()
         self._clear_active_session()
         self._stop_lockout_watchdog()
         self._website_blocker.unblock_all()
         self.focus_state_changed.emit(False)
-        logger.info("[FOCUS] Session stopped.")
+        logger.info("[FOCUS] Session stopped (%s).", reason)
+        try:
+            self.session_recap_ready.emit(recap)
+        except Exception:
+            pass
         return True
+
+    @staticmethod
+    def _json_safe(value):
+        if isinstance(value, dict):
+            return {str(k): FocusManager._json_safe(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [FocusManager._json_safe(v) for v in value]
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
 
     # ------------------------------------------------------------------
     # Timer tick
@@ -557,11 +760,19 @@ class FocusManager(QObject):
             else:
                 self._seconds_remaining = max(0, self._seconds_remaining - 1)
 
+            if (
+                self._lockout
+                and self._emergency_unlock_at is not None
+                and time.monotonic() >= self._emergency_unlock_at
+            ):
+                self._do_stop(reason="emergency_exit")
+                return
+
             self.tick.emit(self._seconds_remaining)
             self._run_enforcement_scan()
         else:
             # Session completed naturally
-            self._do_stop()
+            self._do_stop(reason="completed", completed=True)
             self.focus_completed.emit()
             logger.info("[FOCUS] Session completed naturally.")
 
@@ -635,6 +846,7 @@ class FocusManager(QObject):
                             ProcessController.close_browser_tab(hwnd)
                             now = time.time()
                             key = decision.get("rule") or domain
+                            self._record_block("site", str(key))
                             last_time = self._last_blocked_feedback.get(key, 0.0)
                             if now - last_time >= 4.0:
                                 self._last_blocked_feedback[key] = now
@@ -822,6 +1034,20 @@ class FocusManager(QObject):
     # App blocking handler
     # ------------------------------------------------------------------
 
+    def _record_block(self, kind: str, target: str) -> None:
+        if not self._is_active or not target:
+            return
+        key = f"{kind}:{target.lower()}"
+        now = time.time()
+        if now - self._block_count_last.get(key, 0.0) < 5.0:
+            return
+        self._block_count_last[key] = now
+        self._interruptions += 1
+        if kind == "app":
+            self._blocked_apps_counts[target.lower()] = self._blocked_apps_counts.get(target.lower(), 0) + 1
+        else:
+            self._blocked_sites_counts[target.lower()] = self._blocked_sites_counts.get(target.lower(), 0) + 1
+
     def _handle_blocked_app(self, proc, p_name: str) -> None:
         try:
             if self._app_block_response == "close":
@@ -830,6 +1056,7 @@ class FocusManager(QObject):
             else:
                 logger.debug(f"[FOCUS] Restricted app in foreground: {p_name}")
 
+            self._record_block("app", p_name)
             now = time.time()
             # Suppression check (e.g. user acknowledged and clicked "Back to Focus")
             suppressed_until = self._suppressed_blocked_apps.get(p_name, 0.0)

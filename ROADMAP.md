@@ -116,9 +116,10 @@ Digital Wellbeing is engineered to run permanently in the background. Continuous
 | Milestone | Target | Focus Areas | Key Deliverables |
 | :--- | :---: | :--- | :--- |
 | **v4.1.0** | Previous | Brand & Shield | Aurora Design System, SafeBrowse, First-run onboarding, Windows Hello App Locker. |
-| **v4.2.0** | Current | Performance & Attention | Event-driven Win32 hooks, lazy UI, SQLite tuning, UIA cache, sub-path URL rules + extension bridge, flow analytics, circadian warm-up, strict lockout — delivered; see [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) and [`docs/ATTENTION_WELLNESS.md`](docs/ATTENTION_WELLNESS.md). |
-| **v4.3.0** | Q2 2027 | Connect with Phone | Local Wi-Fi QR pairing, Android companion app, cross-device Focus DND sync, unified daily rings. |
-| **v4.4.0** | Q3 2027 | Mobile Ecosystem | iOS companion app, shared app/website limits, BLE proximity lock, remote biometric approval. |
+| **v4.2.0** | Previous | Performance & Attention | Event-driven Win32 hooks, lazy UI, SQLite tuning, UIA cache, sub-path URL rules + extension bridge, flow analytics, circadian warm-up, strict lockout — see [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) and [`docs/ATTENTION_WELLNESS.md`](docs/ATTENTION_WELLNESS.md). |
+| **v4.3.0** | Current | Momentum | Session recap/history, recurring Focus schedules, weekly attention report with CSV/PDF export, safe lockout emergency exit, fragmentation nudges, rule packs, command palette, release automation. |
+| **v4.4.0** | Q2 2027 | Connect with Phone | Local Wi-Fi QR pairing, Android companion app, cross-device Focus DND sync, unified daily rings. |
+| **v4.5.0** | Q3 2027 | Mobile Ecosystem | iOS companion app, shared app/website limits, BLE proximity lock, remote biometric approval. |
 | **v5.0.0** | Q4 2027 | Deep Intelligence | On-device contextual categorizer and adaptive attention scoring. |
 
 ---

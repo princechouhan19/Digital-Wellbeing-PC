@@ -258,6 +258,7 @@ def test_lockout_denies_stop_and_persists(temp_repo):
     from protection.focus_manager import FocusManager
 
     fm = FocusManager(temp_repo)
+    fm._pin_manager.set_pin("1234")
     fm.save_mode_websites("custom", [])
     assert fm.start_focus(2, lockout=True) is True
     try:

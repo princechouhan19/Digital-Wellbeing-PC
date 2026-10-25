@@ -20,6 +20,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import unquote, urlsplit
 
@@ -206,6 +207,78 @@ class UrlRuleEngine:
             self.save(updated)
         return changed
 
+    # ── Presets & portability ───────────────────────────────────────────────
+
+    def apply_preset(self, preset_name: str) -> int:
+        preset = RULE_PRESETS.get(preset_name, [])
+        if not preset:
+            return 0
+        rules = self.load()
+        existing = {(r.pattern, r.action) for r in rules}
+        added = 0
+        for rule in preset:
+            if (rule.pattern, rule.action) in existing:
+                continue
+            rules.append(
+                UrlRule(
+                    pattern=rule.pattern,
+                    action=rule.action,
+                    label=rule.label,
+                    enabled=True,
+                    id=uuid.uuid4().hex[:12],
+                )
+            )
+            existing.add((rule.pattern, rule.action))
+            added += 1
+        if added:
+            self.save(rules)
+        return added
+
+    def export_to_file(self, path: str) -> int:
+        rules = self.load()
+        payload = {
+            "format": "digital-wellbeing-url-rules",
+            "version": 1,
+            "rules": [r.to_dict() for r in rules],
+        }
+        Path(path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return len(rules)
+
+    def import_from_file(self, path: str) -> Tuple[int, str]:
+        try:
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return 0, f"Could not read rules: {exc}"
+        items = payload.get("rules") if isinstance(payload, dict) else payload
+        if not isinstance(items, list):
+            return 0, "File does not contain a rules list."
+        rules = self.load()
+        existing = {(r.pattern, r.action) for r in rules}
+        added = 0
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            pattern = normalize_pattern(str(item.get("pattern", "")))
+            action = str(item.get("action", "")).lower()
+            if not pattern or action not in _VALID_ACTIONS:
+                continue
+            if (pattern, action) in existing:
+                continue
+            rules.append(
+                UrlRule(
+                    pattern=pattern,
+                    action=action,
+                    label=str(item.get("label", ""))[:80],
+                    enabled=bool(item.get("enabled", True)),
+                    id=uuid.uuid4().hex[:12],
+                )
+            )
+            existing.add((pattern, action))
+            added += 1
+        if added:
+            self.save(rules)
+        return added, ""
+
     # ── Evaluation ─────────────────────────────────────────────────────────
 
     @staticmethod
@@ -259,3 +332,26 @@ def default_rules() -> List[UrlRule]:
         UrlRule(pattern="reddit.com/r/all", action="block", label="Reddit r/all"),
         UrlRule(pattern="reddit.com/r/programming", action="allow", label="Reddit programming"),
     ]
+
+
+RULE_PRESETS: dict[str, List[UrlRule]] = {
+    "study": [
+        UrlRule(pattern="youtube.com/shorts", action="block", label="YouTube Shorts"),
+        UrlRule(pattern="reddit.com/r/all", action="block", label="Reddit r/all"),
+        UrlRule(pattern="reddit.com/r/programming", action="allow", label="Reddit programming"),
+        UrlRule(pattern="youtube.com/education", action="allow", label="YouTube education"),
+    ],
+    "deep_work": [
+        UrlRule(pattern="youtube.com/shorts", action="block", label="YouTube Shorts"),
+        UrlRule(pattern="reddit.com/r/all", action="block", label="Reddit r/all"),
+        UrlRule(pattern="x.com", action="block", label="X / Twitter"),
+        UrlRule(pattern="instagram.com", action="block", label="Instagram"),
+        UrlRule(pattern="tiktok.com", action="block", label="TikTok"),
+    ],
+    "evening": [
+        UrlRule(pattern="youtube.com/shorts", action="block", label="YouTube Shorts"),
+        UrlRule(pattern="tiktok.com", action="block", label="TikTok"),
+        UrlRule(pattern="instagram.com/reels", action="block", label="Instagram Reels"),
+        UrlRule(pattern="netflix.com", action="allow", label="Netflix"),
+    ],
+}

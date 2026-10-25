@@ -266,7 +266,7 @@ def main():
     if sys.platform == "win32":
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PrinceChouhan.DigitalWellbeing.Uninstaller.4.2.0")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PrinceChouhan.DigitalWellbeing.Uninstaller.4.3.0")
         except Exception:
             pass
 

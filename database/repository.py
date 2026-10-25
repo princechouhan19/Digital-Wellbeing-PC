@@ -479,6 +479,21 @@ class Repository:
             )
             return [self._row_to_session(row) for row in cur.fetchall()]
 
+    def get_sessions_between(
+        self, start: datetime, end: datetime
+    ) -> List[AppSession]:
+        with self._cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM app_sessions
+                WHERE start_time >= ? AND start_time < ?
+                  AND is_idle = 0 AND duration_s > 0
+                ORDER BY start_time
+                """,
+                (start.isoformat(), end.isoformat()),
+            )
+            return [self._row_to_session(row) for row in cur.fetchall()]
+
     def get_top_apps_for_range(
         self, start_date: date, end_date: date, limit: int = 10
     ) -> List[dict]:
@@ -1066,6 +1081,106 @@ class Repository:
                 )
         except Exception as e:
             logger.error("Failed to clean up test database data: %s", e)
+
+    # ─── Focus Sessions & Recaps ──────────────────────────────────────────────
+
+    def insert_focus_session(
+        self,
+        mode: str,
+        planned_s: float,
+        started_at: datetime,
+        strict: bool = False,
+        lockout: bool = False,
+        auto_started: bool = False,
+        schedule_id: str = "",
+    ) -> int:
+        with self._write_lock:
+            with self._cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO focus_sessions
+                        (mode, planned_s, started_at, strict, lockout,
+                         auto_started, schedule_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        mode,
+                        float(planned_s),
+                        started_at.isoformat(),
+                        int(strict),
+                        int(lockout),
+                        int(auto_started),
+                        schedule_id,
+                    ),
+                )
+                return cur.lastrowid or 0
+
+    def finish_focus_session(
+        self,
+        session_id: int,
+        actual_s: float,
+        ended_at: datetime,
+        was_completed: bool,
+        blocked_apps: int = 0,
+        blocked_sites: int = 0,
+        interruptions: int = 0,
+        blocked_apps_json: str = "{}",
+        blocked_sites_json: str = "{}",
+        recap_json: str = "{}",
+    ) -> None:
+        with self._write_lock:
+            with self._cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE focus_sessions
+                    SET actual_s=?, ended_at=?, was_completed=?,
+                        blocked_apps=?, blocked_sites=?, interruptions=?,
+                        blocked_apps_json=?, blocked_sites_json=?, recap_json=?
+                    WHERE id=?
+                    """,
+                    (
+                        float(actual_s),
+                        ended_at.isoformat(),
+                        int(was_completed),
+                        int(blocked_apps),
+                        int(blocked_sites),
+                        int(interruptions),
+                        blocked_apps_json,
+                        blocked_sites_json,
+                        recap_json,
+                        int(session_id),
+                    ),
+                )
+
+    def get_focus_sessions(
+        self,
+        limit: int = 20,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[dict]:
+        conditions = ["1=1"]
+        params: list[object] = []
+        if start_date:
+            conditions.append("started_at >= ?")
+            params.append(datetime.combine(start_date, datetime.min.time()).isoformat())
+        if end_date:
+            conditions.append("started_at <= ?")
+            params.append(datetime.combine(end_date, datetime.max.time()).isoformat())
+        params.append(int(limit))
+        sql = (
+            "SELECT * FROM focus_sessions WHERE "
+            + " AND ".join(conditions)
+            + " ORDER BY started_at DESC LIMIT ?"
+        )
+        with self._cursor() as cur:
+            cur.execute(sql, params)
+            return [dict(row) for row in cur.fetchall()]
+
+    def get_focus_session(self, session_id: int) -> Optional[dict]:
+        with self._cursor() as cur:
+            cur.execute("SELECT * FROM focus_sessions WHERE id=?", (int(session_id),))
+            row = cur.fetchone()
+            return dict(row) if row else None
 
     # ─── App Locker ───────────────────────────────────────────────────────────
 

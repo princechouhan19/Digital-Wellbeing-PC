@@ -252,6 +252,174 @@ class AnalyticsEngine:
             "count": len(blocks),
         }
 
+    # ─── Focus recap & weekly attention report ─────────────────────────────
+
+    def get_switch_count_since(self, minutes: int = 30, now: Optional[datetime] = None) -> int:
+        now = now or datetime.now()
+        start = now - timedelta(minutes=max(1, minutes))
+        return len(self._repo.get_sessions_between(start, now))
+
+    def get_focus_recap_metrics(
+        self,
+        start: datetime,
+        end: datetime,
+        blocked_apps: int = 0,
+        blocked_sites: int = 0,
+        interruptions: int = 0,
+    ) -> dict:
+        sessions = self._repo.get_sessions_between(start, end)
+        switches = len(sessions)
+        active_s = sum(max(0.0, s.duration_s) for s in sessions)
+        active_hours = max(active_s / 3600.0, 0.25)
+        index = switches / active_hours
+
+        baseline_values = []
+        for offset in range(1, 8):
+            day = end.date() - timedelta(days=offset)
+            value = self.get_focus_fragmentation(day)["fragmentation_index"]
+            if value > 0:
+                baseline_values.append(value)
+        baseline = sum(baseline_values) / len(baseline_values) if baseline_values else 0.0
+        delta_pct = ((index - baseline) / baseline * 100.0) if baseline > 0 else None
+
+        return {
+            "start": start,
+            "end": end,
+            "switches": switches,
+            "active_s": active_s,
+            "fragmentation_index": round(index, 2),
+            "baseline_index": round(baseline, 2),
+            "fragmentation_delta_pct": round(delta_pct, 1) if delta_pct is not None else None,
+            "blocked_apps": int(blocked_apps),
+            "blocked_sites": int(blocked_sites),
+            "interruptions": int(interruptions),
+            "best_next_window": self.get_best_next_focus_window(end),
+        }
+
+    def get_best_next_focus_window(
+        self,
+        now: Optional[datetime] = None,
+        horizon_hours: int = 8,
+        lookback_days: int = 14,
+    ) -> dict:
+        now = now or datetime.now()
+        hour_switches = [0] * 24
+        hour_active = [0.0] * 24
+        for offset in range(lookback_days):
+            day = now.date() - timedelta(days=offset)
+            data = self.get_focus_fragmentation(day)
+            for row in data["hourly"]:
+                hour = int(row["hour"].split(":")[0])
+                hour_switches[hour] += int(row["switches"])
+                hour_active[hour] += float(row["active_s"])
+
+        start_hour = now.hour + 1
+        candidates = []
+        for offset in range(max(1, horizon_hours - 1)):
+            hour = (start_hour + offset) % 24
+            next_hour = (hour + 1) % 24
+            switches = hour_switches[hour] + hour_switches[next_hour]
+            active_h = (hour_active[hour] + hour_active[next_hour]) / 3600.0
+            candidates.append((switches / max(active_h, 0.25), hour, switches))
+
+        if not candidates:
+            return {
+                "start_hour": start_hour % 24,
+                "end_hour": (start_hour + 2) % 24,
+                "label": "Next 2 hours",
+                "score": None,
+            }
+
+        score, hour, switches = min(candidates, key=lambda item: item[0])
+        day_label = "Today" if hour >= now.hour else "Tomorrow"
+        return {
+            "start_hour": hour,
+            "end_hour": (hour + 2) % 24,
+            "label": f"{day_label} {hour:02d}:00–{(hour + 2) % 24:02d}:00",
+            "score": round(score, 2),
+            "switches": switches,
+        }
+
+    def get_weekly_attention_report(self, end_date: Optional[date] = None) -> dict:
+        end_day = end_date or date.today()
+        start_day = end_day - timedelta(days=6)
+        days = []
+        aggregate_switches = [0] * 24
+        aggregate_active = [0.0] * 24
+        total_switches = 0
+        total_active = 0.0
+
+        for offset in range(7):
+            day = start_day + timedelta(days=offset)
+            data = self.get_focus_fragmentation(day)
+            hours = []
+            for row in data["hourly"]:
+                hour = int(row["hour"].split(":")[0])
+                switches = int(row["switches"])
+                active_s = float(row["active_s"])
+                hours.append({"switches": switches, "active_s": active_s})
+                aggregate_switches[hour] += switches
+                aggregate_active[hour] += active_s
+            total_switches += data["total_switches"]
+            total_active += sum(float(row["active_s"]) for row in data["hourly"])
+            days.append(
+                {
+                    "date": day,
+                    "label": day.strftime("%a"),
+                    "hours": hours,
+                    "index": data["fragmentation_index"],
+                    "switches": data["total_switches"],
+                }
+            )
+
+        hourly_index = []
+        for hour in range(24):
+            active_hours = aggregate_active[hour] / 3600.0
+            if aggregate_active[hour] >= 900:
+                hourly_index.append(
+                    {
+                        "hour": hour,
+                        "index": round(aggregate_switches[hour] / max(active_hours, 0.25), 2),
+                        "switches": aggregate_switches[hour],
+                    }
+                )
+        best_hour = min(hourly_index, key=lambda r: r["index"]) if hourly_index else None
+        worst_hour = max(hourly_index, key=lambda r: r["index"]) if hourly_index else None
+
+        flow = self.get_flow_analytics(days=30, end_date=end_day)
+        flow_days = {b["start"].date() for b in flow["blocks"]}
+        current_streak = 0
+        cursor = end_day
+        while cursor in flow_days:
+            current_streak += 1
+            cursor -= timedelta(days=1)
+        best_streak = 0
+        run = 0
+        previous = None
+        for day in sorted(flow_days):
+            run = run + 1 if previous and (day - previous).days == 1 else 1
+            best_streak = max(best_streak, run)
+            previous = day
+
+        active_hours_total = max(total_active / 3600.0, 0.25)
+        return {
+            "start": start_day,
+            "end": end_day,
+            "days": days,
+            "total_switches": total_switches,
+            "total_active_s": total_active,
+            "average_index": round(total_switches / active_hours_total, 2),
+            "best_hour": best_hour,
+            "worst_hour": worst_hour,
+            "flow": {
+                "total_flow_s": flow["total_flow_s"],
+                "count": flow["count"],
+                "longest": flow["longest"],
+                "current_streak": current_streak,
+                "best_streak": best_streak,
+            },
+        }
+
 
     def get_yesterday_comparison(self) -> dict:
         today = date.today()

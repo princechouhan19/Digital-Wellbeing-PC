@@ -5,11 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.3.0] — 2026-10-26
+
+The **Momentum** release — post-session recaps, recurring Focus blocks, weekly attention reporting, a safe lockout exit, live fragmentation nudges, rule packs, and a command palette.
+
+### Added
+- **Focus Session Recap** — every session now persists duration, blocked apps/sites, interruptions, fragmentation vs. a seven-day baseline, and the best next focus window. The recap dialog includes Today / Yesterday / Previous 7 days history.
+- **Recurring Focus schedules** — weekday/time/mode blocks with automatic start, mid-window joining, and duplicate-run protection. Managed from Focus → Session Protection → Schedules.
+- **Weekly Attention Report** — seven-day fragmentation heatmap, average index, flow time, current/best flow streaks, best/worst hours, plus CSV, PDF, and clipboard summary export. Available from Insights → Weekly report, `Ctrl+K`, or the command palette.
+- **Safe Lockout emergency exit** — hold for 10 seconds, confirm the PIN, then wait through a 15-minute cooldown. Lockout now requires a configured PIN.
+- **Real-time fragmentation nudge** — after 12 switches in 30 minutes, a non-intrusive one-click 10-minute Focus reset appears (90-minute cooldown, suppressed during Focus and idle).
+- **Rule packs & portability** — Study / Deep Work / Evening URL-rule presets plus JSON import/export in the Web Rules editor.
+- **Command palette & shortcuts** — `Ctrl+K` actions, `Ctrl+Shift+F` quick 25-minute Focus, `Ctrl+Shift+R` last session recap.
+- **UI primitives** — `PageScaffold`, `Card`, and `Button` in `ui/primitives.py`, with a density-aware scaffold foundation.
+- **Release automation** — `tools/bump_version.py`, optional code-signing hook (`installer/sign_artifact.ps1`), and a GitHub Actions workflow that builds/uploads the installer, uninstaller, portable zip, and checksums.
 
 ### Fixed
 - **Unified page rhythm** — every main page now uses the same `32/28/32/28` content margins and `24 px` section gap. The Focus page no longer wraps its suite in a narrow, centered `maxWidth(1180)` container; it fills the same content column as Dashboard, Insights, Settings, and the other pages.
 - **Focus card consistency** — mode, session, guardrails, and protection cards use the standard `14 px` corner radius and `20/18 px` inner padding; the Focus title now matches the `26 px` page-title scale.
+- **Responsive Focus layout** — mode cards, the session dial, and guardrail tabs fit at 1024 px; geometry regression tests cover 1024/1280/1440.
 - **Rounded controls** — standard Focus buttons/inputs/tabs now use the `10 px` radius token; primary CTAs and pills use the full pill radius. Mode cards are responsive and hide subtitles below `880 px` instead of overflowing.
 - Added `docs/UX_GUIDELINES.md` and `tests/test_ux_consistency.py` to prevent page-rhythm drift.
 

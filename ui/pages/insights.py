@@ -7,7 +7,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QFrame, QSizePolicy, QGridLayout
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QFrame, QSizePolicy, QGridLayout,
+    QPushButton,
 )
 from analytics.engine import AnalyticsEngine
 from ui.theme import ThemeManager
@@ -74,6 +75,7 @@ class InsightsPage(QWidget):
         layout.addWidget(scroll, 1)
 
         # Header Title
+        header_row = QHBoxLayout()
         title_box = QVBoxLayout()
         title_box.setSpacing(4)
         title = QLabel("Insights")
@@ -82,7 +84,14 @@ class InsightsPage(QWidget):
         subtitle.setObjectName("page_subtitle")
         title_box.addWidget(title)
         title_box.addWidget(subtitle)
-        self._inner_layout.addLayout(title_box)
+        header_row.addLayout(title_box, 1)
+        self._report_btn = QPushButton("Weekly report")
+        self._report_btn.setObjectName("secondary_pill_btn")
+        self._report_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._report_btn.setIcon(get_icon("bar_chart", color=ThemeManager.instance().color("text_sub"), size=14))
+        self._report_btn.clicked.connect(self._open_weekly_report)
+        header_row.addWidget(self._report_btn, 0, Qt.AlignmentFlag.AlignTop)
+        self._inner_layout.addLayout(header_row)
 
         # 1. YOUR DIGITAL DAY Hero Card
         self._hero_card = QFrame()
@@ -173,6 +182,14 @@ class InsightsPage(QWidget):
         self._inner_layout.addStretch()
 
         self._refresh()
+
+    def _open_weekly_report(self) -> None:
+        from ui.widgets.weekly_report_dialog import WeeklyReportDialog
+
+        dialog = WeeklyReportDialog(parent=self.window())
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
     def _clear_layout(self, layout):
         while layout.count():
@@ -408,6 +425,19 @@ class InsightsPage(QWidget):
             QLabel#flow_dot {{ color: #30D158; font-size: 9px; }}
             QLabel#flow_app {{ color: {tm.color('text_main')}; font-size: 12px; font-weight: 600; }}
             QLabel#flow_time {{ color: {tm.color('text_muted')}; font-size: 10px; font-weight: 500; }}
+            QPushButton#secondary_pill_btn {{
+                background: {tm.color('surface')};
+                border: 1px solid {tm.color('border')};
+                border-radius: 999px;
+                color: {tm.color('text_sub')};
+                padding: 7px 15px;
+                font-size: 11px;
+                font-weight: 600;
+            }}
+            QPushButton#secondary_pill_btn:hover {{
+                color: {tm.color('text_main')};
+                border-color: {tm.color('accent')};
+            }}
         """)
         self._refresh()
 

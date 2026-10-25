@@ -255,8 +255,27 @@ class MainWindow(QMainWindow):
             from protection.focus_manager import FocusManager
             manager = FocusManager.instance()
             manager.app_blocked.connect(self._show_blocked_app_dialog)
+            manager.session_recap_ready.connect(self._show_focus_recap)
             self._focus_mgr_instance = manager
         return manager
+
+    def _show_focus_recap(self, recap: dict) -> None:
+        import os
+
+        if os.environ.get("DW_TEST_MODE") == "1":
+            return
+        from PySide6.QtCore import QTimer
+        from ui.widgets.focus_recap_dialog import FocusRecapDialog
+
+        def show():
+            dialog = FocusRecapDialog(recap=recap, parent=self)
+            self._active_recap_dialog = dialog
+            dialog.finished.connect(lambda _: setattr(self, "_active_recap_dialog", None))
+            dialog.show()
+            dialog.raise_()
+            dialog.activateWindow()
+
+        QTimer.singleShot(0, show)
 
     def _warm_protection_managers(self) -> None:
         try:
@@ -439,6 +458,95 @@ class MainWindow(QMainWindow):
         
         self._alt_left_shortcut = QShortcut(QKeySequence("Alt+Left"), self)
         self._alt_left_shortcut.activated.connect(self._navigate_back)
+
+        self._palette_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
+        self._palette_shortcut.activated.connect(self._show_command_palette)
+
+        self._quick_focus_shortcut = QShortcut(QKeySequence("Ctrl+Shift+F"), self)
+        self._quick_focus_shortcut.activated.connect(self._start_quick_focus)
+
+        self._recap_shortcut = QShortcut(QKeySequence("Ctrl+Shift+R"), self)
+        self._recap_shortcut.activated.connect(self._show_last_recap)
+
+    def _show_command_palette(self) -> None:
+        from ui.widgets.command_palette import CommandPalette
+
+        def open_focus():
+            self._navigate(2)
+
+        def start_25():
+            fm = self._focus_mgr
+            if not fm.is_active:
+                fm.start_focus(25, mode=fm.current_mode)
+            self._navigate(2)
+
+        def start_deep():
+            fm = self._focus_mgr
+            if not fm.is_active:
+                fm.start_focus(50, mode="deep")
+            self._navigate(2)
+
+        def web_rules():
+            self._navigate(2)
+            page = self._ensure_page(2)
+            page._focus_timer._open_url_rules()
+
+        def schedules():
+            self._navigate(2)
+            page = self._ensure_page(2)
+            page._focus_timer._open_focus_schedules()
+
+        def weekly_report():
+            from ui.widgets.weekly_report_dialog import WeeklyReportDialog
+
+            dialog = WeeklyReportDialog(parent=self)
+            self._active_report_dialog = dialog
+            dialog.show()
+            dialog.raise_()
+
+        commands = [
+            ("Open Focus", "Mode, timer, and guardrails", open_focus),
+            ("Start 25-minute Focus", "Use the current Focus mode", start_25),
+            ("Start 50-minute Deep Focus", "Allowlist mode", start_deep),
+            ("Open Web Rules", "Sub-path browsing guardrails", web_rules),
+            ("Focus Schedules", "Recurring weekday blocks", schedules),
+            ("Weekly Attention Report", "Fragmentation heatmap, flow streaks, export", weekly_report),
+            ("Last Session Recap", "Blocked interruptions and best next window", self._show_last_recap),
+            ("Open Insights", "Attention quality and trends", lambda: self._navigate(5)),
+            ("Open Settings", "Preferences, PIN, appearance", lambda: self._navigate(8)),
+        ]
+        palette = CommandPalette(commands, self)
+        if palette.exec():
+            callback = palette.selected_callback()
+            if callback:
+                callback()
+
+    def _start_quick_focus(self) -> None:
+        fm = self._focus_mgr
+        if not fm.is_active:
+            fm.start_focus(25, mode=fm.current_mode)
+        self._navigate(2)
+
+    def _show_last_recap(self) -> None:
+        import json
+
+        from ui.widgets.focus_recap_dialog import FocusRecapDialog
+
+        sessions = self._focus_mgr._repo.get_focus_sessions(1)
+        recap = {}
+        if sessions:
+            try:
+                recap = json.loads(sessions[0].get("recap_json") or "{}")
+            except Exception:
+                recap = {}
+            recap.setdefault("actual_s", sessions[0].get("actual_s", 0))
+            recap.setdefault("blocked_apps", sessions[0].get("blocked_apps", 0))
+            recap.setdefault("blocked_sites", sessions[0].get("blocked_sites", 0))
+            recap.setdefault("interruptions", sessions[0].get("interruptions", 0))
+        dialog = FocusRecapDialog(recap=recap, parent=self)
+        self._active_recap_dialog = dialog
+        dialog.show()
+        dialog.raise_()
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.BackButton or event.button() == Qt.MouseButton.XButton1:
