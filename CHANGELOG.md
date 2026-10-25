@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.2] — 2026-10-26
+
+### Changed
+- **Focus suite split** — the setup cockpit and active Focus cockpit now live in `focus_setup_view.py` and `focus_active_view.py` as focused mixins. `FocusTimerWidget` is reduced to orchestration and state sync.
+- **External Focus theme** — the suite stylesheet moved to `ui/styles/focus.py` (`build_focus_stylesheet`), removing ~250 lines of inline QSS from the widget.
+- Added source-level regressions for the extracted modules and stylesheet.
+
 ## [4.3.1] — 2026-10-26
 
 ### Added

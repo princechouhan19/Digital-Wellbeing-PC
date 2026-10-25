@@ -1525,7 +1525,7 @@ export function SoftwareDemo() {
           <div className={`h-8 px-4 border-t ${accentBorder} ${isDark ? "bg-[#070a0e]" : "bg-slate-100"} flex items-center justify-between text-[11px] font-mono ${subText}`}>
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-dw-emerald" />
-              <span>Digital Wellbeing v4.3.1 · PySide6 Native Engine</span>
+              <span>Digital Wellbeing v4.3.2 · PySide6 Native Engine</span>
             </div>
             <span className="hidden sm:inline">Click any sidebar tab above to test features</span>
           </div>

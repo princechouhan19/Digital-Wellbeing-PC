@@ -52,6 +52,23 @@ def test_focus_page_is_not_artificially_narrow():
     assert "addWidget(self._focus_timer, 1)" in source
 
 
+def test_focus_suite_uses_extracted_views_and_theme_module():
+    widget_source = (ROOT / "ui" / "widgets" / "focus_timer.py").read_text(encoding="utf-8")
+    assert "from ui.styles.focus import build_focus_stylesheet" in widget_source
+    assert "build_focus_stylesheet(tm, mode_color, is_dark)" in widget_source
+    assert (ROOT / "ui" / "widgets" / "focus_setup_view.py").exists()
+    assert (ROOT / "ui" / "widgets" / "focus_active_view.py").exists()
+    assert "FocusSetupViewMixin" in widget_source
+    assert "FocusActiveViewMixin" in widget_source
+
+    from ui.styles.focus import build_focus_stylesheet
+    from ui.theme import ThemeManager
+
+    qss = build_focus_stylesheet(ThemeManager.instance(), "#0A84FF", True)
+    assert "QFrame#focus_section_card" in qss
+    assert "#0A84FF" in qss
+
+
 def test_ui_primitives_share_tokens_and_density():
     from PySide6.QtWidgets import QApplication
 

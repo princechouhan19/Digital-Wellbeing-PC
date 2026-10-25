@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Last Updated:** October 2026  
-**Applicable Version:** Digital Wellbeing v4.3.1 and later
+**Applicable Version:** Digital Wellbeing v4.3.2 and later
 
 Digital Wellbeing is engineered around an uncompromising principle: **your digital life is nobody's business but your own**. 
 

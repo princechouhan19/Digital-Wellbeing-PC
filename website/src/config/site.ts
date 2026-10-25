@@ -4,7 +4,7 @@ export const siteConfig = {
   tagline: "Your time. Your rules.",
   description: "Digital Wellbeing is a digital wellbeing and attention-control app for Windows that helps you understand your computer usage and actively control distractions with Focus Mode, App Timer, App Locker, SleepGuard, and Insights.",
   developer: "Prince Chouhan",
-  version: "4.3.1",
+  version: "4.3.2",
   stage: "Public Release",
   url: "https://digitalwellbeing.vercel.app",
   links: {

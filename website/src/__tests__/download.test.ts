@@ -22,22 +22,22 @@ describe('Public Release & Distribution System', () => {
     assert.equal(response.status, 307);
     assert.equal(
       response.headers.get('location'),
-      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.3.1.exe'
+      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.3.2.exe'
     );
     assert.equal(
       DEFAULT_DOWNLOAD_URL,
-      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.3.1.exe'
+      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.3.2.exe'
     );
   });
 
   it('2. /api/download respects DW_DOWNLOAD_URL environment variable override', async () => {
-    process.env.DW_DOWNLOAD_URL = 'https://custom-cdn.example.com/DigitalWellbeingSetup-4.3.1.exe';
+    process.env.DW_DOWNLOAD_URL = 'https://custom-cdn.example.com/DigitalWellbeingSetup-4.3.2.exe';
 
     const response = await downloadRoute();
     assert.equal(response.status, 307);
     assert.equal(
       response.headers.get('location'),
-      'https://custom-cdn.example.com/DigitalWellbeingSetup-4.3.1.exe'
+      'https://custom-cdn.example.com/DigitalWellbeingSetup-4.3.2.exe'
     );
   });
 
@@ -47,14 +47,14 @@ describe('Public Release & Distribution System', () => {
 
     const data = await response.json();
     assert.equal(data.project, 'Digital Wellbeing for Windows');
-    assert.equal(data.version, '4.3.1');
+    assert.equal(data.version, '4.3.2');
     assert.equal(data.stage, 'Public Release');
     assert.equal(data.architecture, 'Local-First, Zero Cloud Sync, No Telemetry');
   });
 
-  it('4. siteConfig is aligned with Public Release v4.3.1', () => {
+  it('4. siteConfig is aligned with Public Release v4.3.2', () => {
     assert.equal(siteConfig.name, 'Digital Wellbeing');
-    assert.equal(siteConfig.version, '4.3.1');
+    assert.equal(siteConfig.version, '4.3.2');
     assert.equal(siteConfig.stage, 'Public Release');
     assert.equal(
       siteConfig.links.releases,
@@ -67,7 +67,7 @@ describe('Public Release & Distribution System', () => {
     assert.equal(response.status, 307);
     assert.equal(
       response.headers.get('location'),
-      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.3.1.exe'
+      'https://github.com/princechouhan19/Digital-Wellbeing-PC/releases/latest/download/DigitalWellbeingSetup-4.3.2.exe'
     );
   });
 });
