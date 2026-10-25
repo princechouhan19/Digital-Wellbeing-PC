@@ -115,6 +115,15 @@ SPACING = {
     "xxxl": 40,
 }
 
+# Canonical page rhythm. Every routed page should use these so the header,
+# content edge, and section spacing stay aligned while navigating.
+PAGE_MARGINS = (32, 28, 32, 28)   # left, top, right, bottom
+PAGE_SECTION_SPACING = 24
+CARD_RADIUS = RADIUS["lg"]         # standard content cards
+CARD_MARGINS = (20, 18, 20, 18)    # standard card inner padding
+BUTTON_RADIUS = RADIUS["md"]       # standard button/input corner
+BUTTON_RADIUS_PILL = RADIUS["pill"]
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Motion — Apple-style timing
 # ─────────────────────────────────────────────────────────────────────────────

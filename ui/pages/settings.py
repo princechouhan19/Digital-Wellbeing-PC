@@ -53,8 +53,8 @@ class SettingsPage(QWidget):
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(36, 28, 36, 28)
-        layout.setSpacing(18)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(24)
 
         # Header Title (Clean, no permanent status banners or watermarks)
         title_box = QVBoxLayout()

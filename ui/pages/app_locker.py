@@ -119,7 +119,7 @@ class AppLockerPage(QWidget):
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(32, 22, 32, 22)
+        root.setContentsMargins(32, 28, 32, 28)
         root.setSpacing(0)
 
         # Page title
@@ -142,7 +142,7 @@ class AppLockerPage(QWidget):
         inner.setObjectName("content_area")
         self._inner_layout = QVBoxLayout(inner)
         self._inner_layout.setContentsMargins(0, 0, 4, 0)
-        self._inner_layout.setSpacing(14)
+        self._inner_layout.setSpacing(24)
         scroll.setWidget(inner)
         root.addWidget(scroll, 1)
 

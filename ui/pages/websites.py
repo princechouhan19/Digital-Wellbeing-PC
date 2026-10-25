@@ -99,7 +99,7 @@ class WebsitesPage(QWidget):
         self._content_widget = QWidget()
         self._content_layout = QVBoxLayout(self._content_widget)
         self._content_layout.setContentsMargins(32, 28, 32, 28)
-        self._content_layout.setSpacing(22)
+        self._content_layout.setSpacing(24)
         scroll.setWidget(self._content_widget)
         main_layout.addWidget(scroll)
 

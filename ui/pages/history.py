@@ -107,8 +107,8 @@ class HistoryPage(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(36, 28, 36, 28)
-        layout.setSpacing(20)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(24)
         
         title_box = QVBoxLayout()
         title_box.setSpacing(4)

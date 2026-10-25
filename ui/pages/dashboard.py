@@ -60,7 +60,7 @@ class DashboardPage(QWidget):
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(36, 22, 36, 22)
+        main_layout.setContentsMargins(32, 28, 32, 28)
         main_layout.setSpacing(0)
 
         # Header Row
@@ -103,7 +103,7 @@ class DashboardPage(QWidget):
         inner = QWidget()
         self._inner_layout = QVBoxLayout(inner)
         self._inner_layout.setContentsMargins(0, 0, 0, 0)
-        self._inner_layout.setSpacing(16)
+        self._inner_layout.setSpacing(24)
         scroll.setWidget(inner)
         main_layout.addWidget(scroll, 1)
 

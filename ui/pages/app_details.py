@@ -160,7 +160,7 @@ class AppDetailsPage(QWidget):
         
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(36, 32, 36, 32)
+        main_layout.setContentsMargins(32, 28, 32, 28)
         main_layout.setSpacing(0)
 
         # Top Bar

@@ -28,8 +28,8 @@ class SleepGuardPage(QWidget):
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(36, 28, 36, 28)
-        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(32, 28, 32, 28)
+        main_layout.setSpacing(24)
 
         # Header Title
         title_box = QVBoxLayout()
@@ -69,7 +69,7 @@ class SleepGuardPage(QWidget):
         inner = QWidget()
         inner_layout = QVBoxLayout(inner)
         inner_layout.setContentsMargins(0, 4, 0, 20)
-        inner_layout.setSpacing(20)
+        inner_layout.setSpacing(24)
         scroll.setWidget(inner)
         main_layout.addWidget(scroll, 1)
 

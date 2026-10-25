@@ -107,7 +107,7 @@ class WellbeingPage(QWidget):
 
         inner = QWidget()
         inner_layout = QVBoxLayout(inner)
-        inner_layout.setContentsMargins(36, 28, 36, 32)
+        inner_layout.setContentsMargins(32, 28, 32, 28)
         inner_layout.setSpacing(24)
         scroll.setWidget(inner)
         layout.addWidget(scroll, 1)
@@ -136,12 +136,7 @@ class WellbeingPage(QWidget):
 
         inner_layout.addLayout(header_row)
 
-        # Centered Container for Focus Cockpit
-        center_box = QWidget()
-        center_layout = QVBoxLayout(center_box)
-        center_layout.setContentsMargins(0, 0, 0, 0)
-        center_box.setMaximumWidth(1180)
-
+        # The Focus suite fills the same content column as every other page.
         self._focus_timer = FocusTimerWidget()
         self._focus_timer.focus_completed.connect(self.focus_completed.emit)
 
@@ -150,9 +145,7 @@ class WellbeingPage(QWidget):
 
         FocusManager.instance().focus_state_changed.connect(self._on_focus_state_changed)
 
-        center_layout.addWidget(self._focus_timer)
-        inner_layout.addWidget(center_box, 0, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        inner_layout.addStretch()
+        inner_layout.addWidget(self._focus_timer, 1)
 
     def _on_focus_state_changed(self, is_active: bool) -> None:
         from protection.focus_manager import FocusManager
@@ -164,10 +157,10 @@ class WellbeingPage(QWidget):
         tm = ThemeManager.instance()
         self.setStyleSheet(f"""
             QLabel#apple_page_title {{
-                font-size: 28px;
+                font-size: 26px;
                 font-weight: 700;
                 color: {tm.color('text_main')};
-                letter-spacing: -0.6px;
+                letter-spacing: -0.5px;
                 font-family: "Inter Display", "Inter", "Segoe UI", sans-serif;
             }}
             QLabel#apple_page_subtitle {{

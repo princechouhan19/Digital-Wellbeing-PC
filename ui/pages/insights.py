@@ -68,7 +68,7 @@ class InsightsPage(QWidget):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         inner = QWidget()
         self._inner_layout = QVBoxLayout(inner)
-        self._inner_layout.setContentsMargins(36, 28, 36, 32)
+        self._inner_layout.setContentsMargins(32, 28, 32, 28)
         self._inner_layout.setSpacing(24)
         scroll.setWidget(inner)
         layout.addWidget(scroll, 1)

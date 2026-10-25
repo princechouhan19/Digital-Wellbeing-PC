@@ -239,19 +239,19 @@ class FocusModeCard(QFrame):
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 10, 14, 10)
-        layout.setSpacing(12)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
 
         # Squircle Icon Container
         self.icon_frame = QFrame()
-        self.icon_frame.setFixedSize(38, 38)
+        self.icon_frame.setFixedSize(34, 34)
         self.icon_frame.setObjectName("mode_icon_frame")
         icon_layout = QVBoxLayout(self.icon_frame)
         icon_layout.setContentsMargins(0, 0, 0, 0)
         icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.icon_lbl = QLabel()
-        self.icon_lbl.setFixedSize(20, 20)
+        self.icon_lbl.setFixedSize(18, 18)
         self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_layout.addWidget(self.icon_lbl)
         layout.addWidget(self.icon_frame)
@@ -289,7 +289,7 @@ class FocusModeCard(QFrame):
         r, g, b = q_acc.red(), q_acc.green(), q_acc.blue()
 
         icon_color = accent_color if self._is_selected else tm.color("text_sub")
-        self.icon_lbl.setPixmap(get_pixmap(self.icon_name, color=icon_color, size=20))
+        self.icon_lbl.setPixmap(get_pixmap(self.icon_name, color=icon_color, size=18))
 
         if self._is_selected:
             bg = f"rgba({r}, {g}, {b}, 0.14)" if is_dark else f"rgba({r}, {g}, {b}, 0.12)"
@@ -306,7 +306,7 @@ class FocusModeCard(QFrame):
             QFrame#focus_mode_card {{
                 background-color: {bg};
                 border: {border};
-                border-radius: 12px;
+                border-radius: {ds.CARD_RADIUS}px;
             }}
             QFrame#focus_mode_card:hover {{
                 background-color: {f'rgba({r}, {g}, {b}, 0.18)' if self._is_selected else tm.color('card_hover')};
@@ -959,7 +959,7 @@ class FocusTimerWidget(QFrame):
         # Five mode cards fit side-by-side on wide layouts; on narrower
         # windows the subtitles are hidden so the cards never force horizontal
         # overflow in the page's scroll area.
-        compact = event.size().width() < 1060
+        compact = event.size().width() < 880
         for card in getattr(self, "_mode_cards", {}).values():
             card.sub_lbl.setVisible(not compact)
         super().resizeEvent(event)
@@ -992,13 +992,13 @@ class FocusTimerWidget(QFrame):
     def _build_inactive_view(self) -> None:
         layout = QVBoxLayout(self._inactive_view)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(ds.PAGE_SECTION_SPACING)
 
         # ── 1. Mode selection card ─────────────────────────────────────────
         mode_card = QFrame()
         mode_card.setObjectName("focus_section_card")
         mode_layout = QVBoxLayout(mode_card)
-        mode_layout.setContentsMargins(22, 18, 22, 18)
+        mode_layout.setContentsMargins(*ds.CARD_MARGINS)
         mode_layout.setSpacing(12)
 
         mode_header = QHBoxLayout()
@@ -1026,14 +1026,14 @@ class FocusTimerWidget(QFrame):
 
         # ── 2. Session + guardrails row ────────────────────────────────────
         body_row = QHBoxLayout()
-        body_row.setSpacing(16)
+        body_row.setSpacing(ds.SPACING["lg"])
 
         # Left: timer / start
         session_card = QFrame()
         session_card.setObjectName("focus_section_card")
         session_card.setMinimumWidth(340)
         session_layout = QVBoxLayout(session_card)
-        session_layout.setContentsMargins(22, 18, 22, 18)
+        session_layout.setContentsMargins(*ds.CARD_MARGINS)
         session_layout.setSpacing(12)
 
         session_eyebrow = QLabel("SESSION")
@@ -1095,7 +1095,7 @@ class FocusTimerWidget(QFrame):
         guardrails_card = QFrame()
         guardrails_card.setObjectName("focus_section_card")
         guard_layout = QVBoxLayout(guardrails_card)
-        guard_layout.setContentsMargins(22, 18, 22, 16)
+        guard_layout.setContentsMargins(*ds.CARD_MARGINS)
         guard_layout.setSpacing(10)
 
         guard_header = QHBoxLayout()
@@ -1267,7 +1267,7 @@ class FocusTimerWidget(QFrame):
         protection_card = QFrame()
         protection_card.setObjectName("focus_section_card")
         protect_layout = QVBoxLayout(protection_card)
-        protect_layout.setContentsMargins(22, 16, 22, 16)
+        protect_layout.setContentsMargins(*ds.CARD_MARGINS)
         protect_layout.setSpacing(12)
 
         protect_header = QLabel("SESSION PROTECTION")
@@ -1359,8 +1359,10 @@ class FocusTimerWidget(QFrame):
 
     def _build_active_view(self) -> None:
         layout = QVBoxLayout(self._active_view)
-        layout.setContentsMargins(36, 32, 36, 32)
-        layout.setSpacing(20)
+        layout.setContentsMargins(
+            ds.SPACING["xl"], ds.SPACING["lg"], ds.SPACING["xl"], ds.SPACING["lg"]
+        )
+        layout.setSpacing(ds.SPACING["lg"])
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Top Badge: FOCUS ACTIVE (Vector Badge)
@@ -1489,7 +1491,7 @@ class FocusTimerWidget(QFrame):
             QFrame#focus_section_card {{
                 background-color: {tm.color('surface')};
                 border: 1px solid {tm.color('border')};
-                border-radius: 18px;
+                border-radius: {ds.CARD_RADIUS}px;
             }}
             QFrame#apple_inset_card {{
                 background-color: {tm.color('surface_secondary')};
@@ -1560,7 +1562,7 @@ class FocusTimerWidget(QFrame):
             QPushButton#guardrail_tab {{
                 background: transparent;
                 border: 1px solid transparent;
-                border-radius: 9px;
+                border-radius: {ds.BUTTON_RADIUS}px;
                 color: {tm.color('text_sub')};
                 font-size: 12px;
                 font-weight: 600;
@@ -1587,12 +1589,12 @@ class FocusTimerWidget(QFrame):
             QFrame#segmented_capsule {{
                 background-color: {tm.color('surface')};
                 border: 1px solid {tm.color('border')};
-                border-radius: 11px;
+                border-radius: {ds.RADIUS['md']}px;
             }}
             QPushButton#preset_chip {{
                 background: transparent;
                 border: none;
-                border-radius: 8px;
+                border-radius: {ds.BUTTON_RADIUS}px;
                 color: {tm.color('text_sub')};
                 font-size: 12px;
                 font-weight: 600;
@@ -1611,7 +1613,7 @@ class FocusTimerWidget(QFrame):
             QPushButton#stepper_btn {{
                 background: {tm.color('surface')};
                 border: 1px solid {tm.color('border')};
-                border-radius: 9px;
+                border-radius: {ds.BUTTON_RADIUS}px;
                 color: {tm.color('text_sub')};
                 font-size: 12px;
                 font-weight: 600;
@@ -1627,7 +1629,7 @@ class FocusTimerWidget(QFrame):
             QPushButton#action_pill_btn {{
                 background-color: rgba(10, 132, 255, 0.12);
                 border: 1px solid rgba(10, 132, 255, 0.28);
-                border-radius: 8px;
+                border-radius: {ds.BUTTON_RADIUS}px;
                 color: #0A84FF;
                 font-size: 11px;
                 font-weight: 700;
@@ -1639,7 +1641,7 @@ class FocusTimerWidget(QFrame):
             QPushButton#quick_add_chip {{
                 background-color: {tm.color('surface')};
                 border: 1px solid {tm.color('border')};
-                border-radius: 7px;
+                border-radius: {ds.BUTTON_RADIUS}px;
                 color: {tm.color('text_sub')};
                 font-size: 11px;
                 font-weight: 600;
@@ -1653,7 +1655,7 @@ class FocusTimerWidget(QFrame):
             QLineEdit#site_search_input {{
                 background-color: {tm.color('surface')};
                 border: 1px solid {tm.color('border')};
-                border-radius: 8px;
+                border-radius: {ds.BUTTON_RADIUS}px;
                 color: {tm.color('text_main')};
                 font-size: 11px;
                 padding: 4px 8px;
@@ -1675,7 +1677,7 @@ class FocusTimerWidget(QFrame):
             QPushButton#primary_start_btn {{
                 background-color: {mode_color};
                 border: none;
-                border-radius: 23px;
+                border-radius: {ds.BUTTON_RADIUS_PILL}px;
                 color: #FFFFFF;
                 font-size: 14px;
                 font-weight: 700;
@@ -1688,7 +1690,7 @@ class FocusTimerWidget(QFrame):
             QPushButton#secondary_pill_btn {{
                 background-color: {tm.color('surface')};
                 border: 1px solid {tm.color('border')};
-                border-radius: 23px;
+                border-radius: {ds.BUTTON_RADIUS_PILL}px;
                 color: {tm.color('text_sub')};
                 font-size: 13px;
                 font-weight: 600;
@@ -1725,7 +1727,7 @@ class FocusTimerWidget(QFrame):
             QPushButton#active_stop_btn {{
                 background: rgba(255, 69, 58, 0.12);
                 border: 1px solid rgba(255, 69, 58, 0.38);
-                border-radius: 23px;
+                border-radius: {ds.BUTTON_RADIUS_PILL}px;
                 color: #FF453A;
                 font-size: 13px;
                 font-weight: 700;

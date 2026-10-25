@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Unified page rhythm** — every main page now uses the same `32/28/32/28` content margins and `24 px` section gap. The Focus page no longer wraps its suite in a narrow, centered `maxWidth(1180)` container; it fills the same content column as Dashboard, Insights, Settings, and the other pages.
+- **Focus card consistency** — mode, session, guardrails, and protection cards use the standard `14 px` corner radius and `20/18 px` inner padding; the Focus title now matches the `26 px` page-title scale.
+- **Rounded controls** — standard Focus buttons/inputs/tabs now use the `10 px` radius token; primary CTAs and pills use the full pill radius. Mode cards are responsive and hide subtitles below `880 px` instead of overflowing.
+- Added `docs/UX_GUIDELINES.md` and `tests/test_ux_consistency.py` to prevent page-rhythm drift.
+
 ## [4.2.0] — 2026-10-23
 
 The **Attention** release — event-driven performance work, granular web rules, flow analytics, circadian display warm-up, strict lockout, and a redesigned Focus page.

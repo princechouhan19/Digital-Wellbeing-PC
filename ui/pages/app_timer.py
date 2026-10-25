@@ -866,7 +866,7 @@ class AppTimerPage(QWidget):
         inner = QWidget()
         inner.setObjectName("app_timer_inner")
         self._inner_layout = QVBoxLayout(inner)
-        self._inner_layout.setContentsMargins(36, 28, 36, 32)
+        self._inner_layout.setContentsMargins(32, 28, 32, 28)
         self._inner_layout.setSpacing(24)
         scroll.setWidget(inner)
         root.addWidget(scroll, 1)
