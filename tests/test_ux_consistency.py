@@ -50,3 +50,34 @@ def test_focus_page_is_not_artificially_narrow():
     assert "setMaximumWidth(1180)" not in source
     assert "AlignHCenter | Qt.AlignmentFlag.AlignTop" not in source
     assert "addWidget(self._focus_timer, 1)" in source
+
+
+def test_ui_primitives_share_tokens_and_density():
+    from PySide6.QtWidgets import QApplication
+
+    from ui.primitives import Button, Card, PageScaffold
+
+    app = QApplication.instance() or QApplication([])
+    page = PageScaffold("Title", "Subtitle")
+    try:
+        margins = page.content_layout.contentsMargins()
+        assert (margins.left(), margins.top(), margins.right(), margins.bottom()) == ds.PAGE_MARGINS
+        page.set_density(True)
+        margins = page.content_layout.contentsMargins()
+        assert (margins.left(), margins.top(), margins.right(), margins.bottom()) == (24, 20, 24, 20)
+        assert page.content_layout.spacing() == 18
+    finally:
+        page.deleteLater()
+
+    card = Card()
+    try:
+        margins = card.body.contentsMargins()
+        assert (margins.left(), margins.top(), margins.right(), margins.bottom()) == ds.CARD_MARGINS
+    finally:
+        card.deleteLater()
+
+    button = Button("Go", "primary")
+    try:
+        assert button.objectName() == "primary_pill_btn"
+    finally:
+        button.deleteLater()

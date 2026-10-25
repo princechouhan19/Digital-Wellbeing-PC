@@ -33,7 +33,7 @@ Computers are powerful tools, but modern applications and websites are engineere
 ## 2. Installation & First-Time Setup
 
 ### Running the Installer
-1. Download `DigitalWellbeingSetup-4.3.0.exe` from the official website or releases page.
+1. Download `DigitalWellbeingSetup-4.3.1.exe` from the official website or releases page.
 2. Launch the installer. Follow the setup wizard prompts.
 3. Once completed, Digital Wellbeing will launch automatically and add a shortcut to your Start Menu and Desktop.
 

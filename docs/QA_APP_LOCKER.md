@@ -1,7 +1,7 @@
 # Digital Wellbeing App Locker — Manual QA Checklist
 
 ## Pre-Test Setup
-- [ ] Install `dist/DigitalWellbeingSetup-4.3.0.exe` (or build/run from source)
+- [ ] Install `dist/DigitalWellbeingSetup-4.3.1.exe` (or build/run from source)
 - [ ] Launch Digital Wellbeing from Start Menu / Desktop shortcut
 - [ ] Ensure a Digital Wellbeing PIN is set (Settings → Privacy & Security → PIN)
 

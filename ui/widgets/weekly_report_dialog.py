@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date
 from typing import List, Optional
 
-from PySide6.QtCore import QRectF, QSizeF, Qt
+from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPageSize, QPainter, QPdfWriter, QTextDocument
 from PySide6.QtWidgets import (
     QApplication,
@@ -26,7 +26,6 @@ from PySide6.QtWidgets import (
 
 from analytics.engine import AnalyticsEngine
 from tracker.categorizer import display_name as friendly_name
-from ui.icons import get_pixmap
 from ui.primitives import Card
 from ui.theme import ThemeManager
 

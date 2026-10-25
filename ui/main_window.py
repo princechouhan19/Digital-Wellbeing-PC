@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from core.constants import APP_NAME, APP_VERSION
 from tracker.manager import TrackingManager
 from tracker.sleepguard import SleepGuardController
+from ui import design_system as ds
 from ui.widgets.animated_stacked_widget import AnimatedStackedWidget
 
 
@@ -90,6 +91,7 @@ class MainWindow(QMainWindow):
         from settings.manager import SettingsManager
         self._sm = SettingsManager()
         self._onboarding_active = False
+        self._apply_density()
 
         # Trigger initial Home page load without blocking UI layout
         QTimer.singleShot(0, self._refresh_current_page)
@@ -378,6 +380,7 @@ class MainWindow(QMainWindow):
 
         self._pages[index] = page
         self._pages_by_attr[self._PAGE_ATTRS[index]] = page
+        self._apply_density_to_page(page)
 
         if index not in self._SELF_REFRESHING_PAGES and hasattr(page, "on_data_changed"):
             try:
@@ -636,7 +639,27 @@ class MainWindow(QMainWindow):
         self._anim.start()
 
     def _on_settings_changed(self) -> None:
+        self._apply_density()
         self.refresh_all_pages()
+
+    def _apply_density(self) -> None:
+        for page in self._pages.values():
+            self._apply_density_to_page(page)
+
+    @staticmethod
+    def _apply_density_to_page(page) -> None:
+        from PySide6.QtWidgets import QVBoxLayout
+        from settings.manager import SettingsManager
+
+        compact = SettingsManager().ui_density == "compact"
+        margins = (24, 20, 24, 20) if compact else ds.PAGE_MARGINS
+        spacing = 18 if compact else ds.PAGE_SECTION_SPACING
+        for layout in page.findChildren(QVBoxLayout):
+            m = layout.contentsMargins()
+            if (m.left(), m.top(), m.right(), m.bottom()) == tuple(ds.PAGE_MARGINS):
+                layout.setContentsMargins(*margins)
+            if layout.spacing() in (18, ds.PAGE_SECTION_SPACING):
+                layout.setSpacing(spacing)
 
     def refresh_all_pages(self) -> None:
         from core.logger import logger

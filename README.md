@@ -8,14 +8,14 @@
 
 Digital Wellbeing tracks your screen time, protects your attention, and filters the web — all locally, with an Apple-grade interface inspired by macOS Sequoia.
 
-[![Release](https://img.shields.io/badge/Release-v4.3.0--Momentum-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
+[![Release](https://img.shields.io/badge/Release-v4.3.1--Momentum-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-30D158.svg?style=flat-square)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%20%28Qt%29-BF5AF2.svg?style=flat-square)](https://www.qt.io/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20x64-007AFF.svg?style=flat-square)](https://www.microsoft.com/windows)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-30D158.svg?style=flat-square)](PRIVACY.md)
 [![License](https://img.shields.io/badge/License-MIT-FF9F0A.svg?style=flat-square)](LICENSE)
 
-[**Download Installer (v4.3.0)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
+[**Download Installer (v4.3.1)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
 
 </div>
 
@@ -207,7 +207,7 @@ For full architectural details, consult the [Architecture Documentation](docs/AR
 ### Standard Windows Installer (Recommended)
 Download and run the installer from the [Releases page](https://digitalwellbeing.vercel.app):
 ```text
-DigitalWellbeingSetup-4.3.0.exe
+DigitalWellbeingSetup-4.3.1.exe
 ```
 
 ### Running from Source

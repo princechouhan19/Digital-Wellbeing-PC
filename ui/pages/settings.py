@@ -185,6 +185,32 @@ class SettingsPage(QWidget):
         tc_layout.addLayout(theme_btn_layout)
         app_layout.addWidget(theme_card)
 
+        # UI density (page rhythm; applies to every page)
+        density_card = QFrame()
+        density_card.setObjectName("settings_card")
+        density_layout = QHBoxLayout(density_card)
+        density_layout.setContentsMargins(20, 16, 20, 16)
+        density_layout.setSpacing(16)
+        density_text = QVBoxLayout()
+        density_text.setSpacing(2)
+        density_title = QLabel("Interface Density")
+        density_title.setObjectName("setting_label")
+        density_desc = QLabel("Comfortable spacing or a tighter, information-dense layout.")
+        density_desc.setObjectName("setting_desc")
+        density_desc.setWordWrap(True)
+        density_text.addWidget(density_title)
+        density_text.addWidget(density_desc)
+        density_layout.addLayout(density_text, 1)
+        self._density_combo = QComboBox()
+        self._density_combo.addItem("Comfortable", "comfortable")
+        self._density_combo.addItem("Compact", "compact")
+        idx = self._density_combo.findData(self._sm.ui_density)
+        self._density_combo.setCurrentIndex(max(0, idx))
+        self._density_combo.setFixedWidth(150)
+        self._density_combo.currentIndexChanged.connect(self._on_density_changed)
+        density_layout.addWidget(self._density_combo)
+        app_layout.addWidget(density_card)
+
         # Sound Feedback (haptics-lite)
         self._sound_check, sound_row = self._create_toggle_row(
             "Interaction Sounds",
@@ -681,6 +707,11 @@ class SettingsPage(QWidget):
         self._update_theme_btn_styles()
         self._sm.theme = theme_val
         self.theme_changed_req.emit(theme_val)
+
+    def _on_density_changed(self, index: int) -> None:
+        value = self._density_combo.itemData(index) or "comfortable"
+        self._sm.ui_density = value
+        self.settings_changed.emit()
 
     def _on_sound_feedback_changed(self, checked: bool) -> None:
         self._sm.set("sound_feedback", "true" if checked else "false")

@@ -143,7 +143,6 @@ class EmergencyExitDialog(QDialog):
             self._request_pin()
 
     def _request_pin(self) -> None:
-        from protection.pin import PINManager
         from ui.widgets.pin_dialog import PinDialog
 
         if not self._fm._pin_manager.is_enabled():

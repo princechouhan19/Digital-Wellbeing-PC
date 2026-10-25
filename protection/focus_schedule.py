@@ -16,7 +16,7 @@ import json
 import math
 import uuid
 from dataclasses import dataclass, field
-from datetime import date, datetime, time as dt_time, timedelta
+from datetime import datetime, time as dt_time, timedelta
 from typing import List, Optional
 
 from PySide6.QtCore import QObject, QTimer, Signal

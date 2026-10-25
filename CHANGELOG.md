@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.1] — 2026-10-26
+
+### Added
+- **UI density setting** — Appearance → Interface Density (Comfortable / Compact). Compact mode tightens page margins to `24/20` and section spacing to `18 px` across already-open and newly opened pages.
+- **PageScaffold / Card / Button primitives** adopted by the recap and report surfaces.
+
+### Fixed
+- Responsive Focus layout now fits at 1024 px; geometry tests cover 1024/1280/1440.
+- Release automation: `tools/bump_version.py`, optional `installer/sign_artifact.ps1`, and the GitHub Actions release workflow.
+
 ## [4.3.0] — 2026-10-26
 
 The **Momentum** release — post-session recaps, recurring Focus blocks, weekly attention reporting, a safe lockout exit, live fragmentation nudges, rule packs, and a command palette.

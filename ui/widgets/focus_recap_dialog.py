@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
 )
 
 from database.repository import Repository
-from ui.icons import get_pixmap
 from ui.primitives import Card
 from ui.theme import ThemeManager
 
