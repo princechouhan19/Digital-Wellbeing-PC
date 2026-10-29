@@ -210,6 +210,7 @@ class DashboardPage(QWidget):
         self._start_focus_btn = FluentButton("Start Focus Session", primary=True)
         self._start_focus_btn.set_icon_name("play", size=13, color="#FFFFFF")
         self._start_focus_btn.setMinimumHeight(38)
+        self._start_focus_btn.setStyleSheet(self._start_focus_btn.styleSheet() + " QPushButton { border-radius: 12px; }")
         self._start_focus_btn.clicked.connect(self._on_start_focus_clicked)
         focus_btn_row.addWidget(self._start_focus_btn)
         focus_layout.addLayout(focus_btn_row)

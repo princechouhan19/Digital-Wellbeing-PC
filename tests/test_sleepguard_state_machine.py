@@ -1,19 +1,19 @@
 """
-tests/test_sleepguard_state_machine.py -- SleepGuard v2.5 state machine tests.
+tests/test_sleepguard_state_machine.py -- SleepGuard v2.6 state machine tests.
 
-Tests A-N (18 sub-tests) covering:
+Tests A-N covering:
 A  Normal inactivity -> WARNING
-B  Media at threshold -> MEDIA_GRACE (not WARNING)
-C  Media grace expires -> WARNING
+B  Media/lecture at threshold -> MEDIA_HOLD (never warns while active)
+C  Media stops -> MEDIA_GRACE -> WARNING after grace
 D  Media does NOT reset the idle clock
-E  Grace cannot repeat in same idle cycle
+E  Grace cannot repeat in the same idle cycle
 F  User activity during grace -> MONITORING
 G  Warning countdown carries configured seconds
 H  cancel_warning() returns to MONITORING
 I  Countdown zero -> execute_power_action (mocked)
 J  Test Warning: is_test=True, no power action ever
 K  Media state change cannot dismiss active warning dialog
-L  Fullscreen + media -> finite grace, still warns
+L  Media active never powers off; warning resumes only after media ends
 M  Startup grace: no trigger in first 30s
 N  Existing safety behaviours preserved (5 sub-tests)
 
@@ -100,35 +100,42 @@ class TestSleepGuardStateMachine(unittest.TestCase):
         ctrl._test_patcher.stop()
 
     # B -----------------------------------------------------------------------
-    def test_B_media_active_enters_grace(self):
+    def test_B_media_active_enters_hold(self):
         from tracker.sleepguard import _SGState
+        warnings = []
         ctrl, _ = _make_controller(idle_fn=lambda: 70.0, playing_fn=lambda: True)
-        ctrl._media_grace_used = False
+        ctrl.shutdown_warning_triggered.connect(lambda s, a: warnings.append((s, a)))
         with ctrl._state_lock:
             ctrl._state = _SGState.INACTIVE
-        if ctrl._media_engine.is_playing and not ctrl._media_grace_used:
-            ctrl._grace_start = time.monotonic()
-            with ctrl._state_lock:
-                ctrl._state = _SGState.MEDIA_GRACE
-                ctrl._media_grace_used = True
-        self.assertEqual(ctrl.current_state, _SGState.MEDIA_GRACE)
-        self.assertTrue(ctrl._media_grace_used)
+        ctrl._advance_state(70.0, 60.0, 60.0, False)
+        self.assertEqual(ctrl.current_state, _SGState.MEDIA_HOLD)
+        self.assertEqual(warnings, [], "Media hold must not show a sleep warning")
         ctrl._test_patcher.stop()
 
     # C -----------------------------------------------------------------------
-    def test_C_grace_expires_then_warning(self):
+    def test_C_media_stops_then_grace_then_warning(self):
         from tracker.sleepguard import _SGState
         warnings = []
-        ctrl, _ = _make_controller(idle_fn=lambda: 70.0, playing_fn=lambda: True, media_grace_minutes=1)
+        media = {"playing": True}
+        ctrl, _ = _make_controller(
+            idle_fn=lambda: 70.0, playing_fn=lambda: media["playing"], media_grace_minutes=1
+        )
         ctrl.shutdown_warning_triggered.connect(lambda s, a: warnings.append((s, a)))
         with ctrl._state_lock:
-            ctrl._state = _SGState.MEDIA_GRACE
+            ctrl._state = _SGState.MEDIA_HOLD
             ctrl._media_grace_used = True
+        ctrl._advance_state(70.0, 60.0, 60.0, False)
+        self.assertEqual(ctrl.current_state, _SGState.MEDIA_HOLD)
+
+        media["playing"] = False
+        ctrl._advance_state(70.0, 60.0, 60.0, False)
+        self.assertEqual(ctrl.current_state, _SGState.MEDIA_GRACE)
+        self.assertEqual(warnings, [])
+
         ctrl._grace_start = time.monotonic() - 120.0
-        with patch("tracker.sleepguard.get_idle_seconds", return_value=70.0):
-            if (time.monotonic() - ctrl._grace_start) >= 60.0:
-                ctrl._emit_warning(60.0, 70.0, False)
-        self.assertGreaterEqual(len(warnings), 1, "Warning must fire after grace expires")
+        ctrl._advance_state(70.0, 60.0, 60.0, False)
+        self.assertEqual(ctrl.current_state, _SGState.WARNING)
+        self.assertGreaterEqual(len(warnings), 1, "Warning must fire after post-media grace")
         ctrl._test_patcher.stop()
 
     # D -----------------------------------------------------------------------
@@ -244,20 +251,37 @@ class TestSleepGuardStateMachine(unittest.TestCase):
         d.close()
 
     # L -----------------------------------------------------------------------
-    def test_L_fullscreen_media_no_permanent_disable(self):
+    def test_L_media_active_never_powers_off(self):
         from tracker.sleepguard import _SGState
         warnings = []
-        ctrl, _ = _make_controller(idle_fn=lambda: 200.0, playing_fn=lambda: True, media_grace_minutes=1)
+        media = {"playing": True}
+        ctrl, _ = _make_controller(
+            idle_fn=lambda: 200.0, playing_fn=lambda: media["playing"], media_grace_minutes=1
+        )
         ctrl.shutdown_warning_triggered.connect(lambda s, a: warnings.append((s, a)))
         with ctrl._state_lock:
-            ctrl._state = _SGState.MEDIA_GRACE
-            ctrl._media_grace_used = True
+            ctrl._state = _SGState.MONITORING
+        ctrl._advance_state(200.0, 60.0, 60.0, False)
+        self.assertEqual(ctrl.current_state, _SGState.MEDIA_HOLD)
+        ctrl._advance_state(200.0, 60.0, 60.0, False)
+        self.assertEqual(warnings, [], "Media must hold indefinitely while still active")
+        self.assertEqual(ctrl.current_state, _SGState.MEDIA_HOLD)
+
+        media["playing"] = False
+        ctrl._advance_state(200.0, 60.0, 60.0, False)
+        self.assertEqual(ctrl.current_state, _SGState.MEDIA_GRACE)
         ctrl._grace_start = time.monotonic() - 120.0
+        ctrl._advance_state(200.0, 60.0, 60.0, False)
+        self.assertGreater(len(warnings), 0, "Sleep warning resumes after media ends and grace expires")
+        ctrl._test_patcher.stop()
+
+    def test_L2_media_hold_blocks_power_action(self):
+        ctrl, executor = _make_controller(idle_fn=lambda: 200.0, playing_fn=lambda: True)
         with patch("tracker.sleepguard.get_idle_seconds", return_value=200.0):
-            if (time.monotonic() - ctrl._grace_start) >= 60.0:
-                ctrl._emit_warning(60.0, 200.0, False)
-        self.assertGreater(len(warnings), 0,
-            "Must warn even when media/fullscreen is active - grace is finite")
+            result = ctrl.execute_power_action("lock")
+        self.assertFalse(result)
+        self.assertEqual(ctrl.current_state.value, "media_hold")
+        executor.execute_action.assert_not_called()
         ctrl._test_patcher.stop()
 
     # M -----------------------------------------------------------------------

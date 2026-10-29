@@ -1,6 +1,6 @@
 # Digital Wellbeing for Windows — User Guide
 
-Welcome to **Digital Wellbeing for Windows** (v4.3 "Momentum"). This guide covers everything you need to know to take back control of your screen time, eliminate digital distractions, protect sensitive applications, and browse safely.
+Welcome to **Digital Wellbeing for Windows** (v4.4.0). This guide covers everything you need to know to take back control of your screen time, eliminate digital distractions, manage focused tasks with our ambient dynamic island, protect sensitive applications, and browse safely.
 
 ---
 
@@ -8,15 +8,19 @@ Welcome to **Digital Wellbeing for Windows** (v4.3 "Momentum"). This guide cover
 
 1. [Introduction & Core Philosophy](#1-introduction--core-philosophy)
 2. [Installation & First-Time Setup](#2-installation--first-time-setup)
-3. [The Aurora Interface](#3-the-aurora-interface)
-4. [Dashboard & Screen Time Analytics](#4-dashboard--screen-time-analytics)
-5. [App & Website Timers](#5-app--website-timers)
-6. [Focus Mode](#6-focus-mode)
-7. [App Locker & Windows Hello](#7-app-locker--windows-hello)
-8. [SafeBrowse Content Shield](#8-safebrowse-content-shield)
-9. [SleepGuard](#9-sleepguard)
-10. [Data Backup, Export & Privacy](#10-data-backup-export--privacy)
-11. [Troubleshooting & FAQ](#11-troubleshooting--faq)
+3. [The Aurora Interface & Navigation](#3-the-aurora-interface--navigation)
+4. [Smart To-Do List Integration](#4-smart-to-do-list-integration)
+5. [Ambient Desktop Dynamic Notch](#5-ambient-desktop-dynamic-notch)
+6. [Dashboard & Screen Time Analytics](#6-dashboard--screen-time-analytics)
+7. [Focus Mode & Attention Cockpit](#7-focus-mode--attention-cockpit)
+8. [SleepGuard with Media & Lecture Awareness](#8-sleepguard-with-media--lecture-awareness)
+9. [Parental Controls & Doomscrolling Shield](#9-parental-controls--doomscrolling-shield)
+10. [App & Website Timers](#10-app--website-timers)
+11. [App Locker & Windows Hello](#11-app-locker--windows-hello)
+12. [SafeBrowse Content Shield](#12-safebrowse-content-shield)
+13. [Session Logs & System Diagnostics](#13-session-logs--system-diagnostics)
+14. [Data Backup, Export & Privacy](#14-data-backup-export--privacy)
+15. [Troubleshooting & FAQ](#15-troubleshooting--faq)
 
 ---
 
@@ -27,13 +31,14 @@ Computers are powerful tools, but modern applications and websites are engineere
 - **100% Local-First:** Your usage data never leaves your computer. No accounts, no cloud servers, and no tracking cookies.
 - **System-Wide & Browser-Agnostic:** Protection works across all modern browsers (Chrome, Edge, Brave, Firefox, Opera, Vivaldi) and desktop software.
 - **Apple-Grade Aesthetic:** Built with the Aurora design system, featuring fluid animations, Apple system colors, and clean typography.
+- **Non-Intrusive Ambience:** Features an ambient top-screen dynamic notch inspired by macOS Dynamic Island and Nectar.
 
 ---
 
 ## 2. Installation & First-Time Setup
 
 ### Running the Installer
-1. Download `DigitalWellbeingSetup-4.3.2.exe` from the official website or releases page.
+1. Download `DigitalWellbeingSetup-4.4.0.exe` from the official website or releases page.
 2. Launch the installer. Follow the setup wizard prompts.
 3. Once completed, Digital Wellbeing will launch automatically and add a shortcut to your Start Menu and Desktop.
 
@@ -48,53 +53,58 @@ When launching Digital Wellbeing for the first time, an intuitive 5-step onboard
 
 ---
 
-## 3. The Aurora Interface
+## 3. The Aurora Interface & Navigation
 
 The interface is structured around a streamlined sidebar navigation:
 
 - **Dashboard:** Your daily usage snapshot, activity ring, top apps, and timeline.
-- **Activity:** Deep dive into hourly, daily, and category-level usage trends.
-- **Focus:** Initiate timed, distraction-free work or study sessions.
+- **Tasks:** Smart process-linked to-do list with time tracking and one-click Focus.
+- **Activity:** Granular hourly and category breakdown with interactive `‹` `[Date]` `›` calendar navigation.
+- **Focus:** Initiate timed, distraction-free work or study sessions with rounded cockpit controls.
 - **App Locker:** Protect individual applications with Windows Hello biometrics or a PIN.
 - **App Timers:** Enforce daily usage quotas on specific software.
-- **Websites:** View browser domain usage and configure per-website time limits.
-- **Insights:** Productivity analysis, weekly comparisons, and habit trends.
-- **SleepGuard:** Nighttime workstation lock and sleep assistance.
-- **Settings:** Customize appearance, interaction sounds, updates, and data backup.
+- **Websites:** View browser domain usage and limits with historical date navigation.
+- **Insights:** Interactive weekly, monthly, and yearly habit analytics and trend comparisons.
+- **SleepGuard:** Redesigned bedtime hero with intelligent media/lecture detection.
+- **Settings:** Parental controls, doomscrolling shield, productivity targets, theme, and data backups.
+- **Session Logs:** Professional diagnostics panel with live WinEvent metrics and zero emojis.
 
 ---
 
-## 4. Dashboard & Screen Time Analytics
+## 4. Smart To-Do List Integration
+
+The **Tasks** page brings Getting Things Done (GTD) principles directly into Digital Wellbeing:
+
+- **Target Application Linking:** Link specific executables (such as `code.exe`, `cursor.exe`, `figma.exe`, `word.exe`) to your task.
+- **Active Time Calibration:** Digital Wellbeing automatically measures how many seconds you spend actively working inside those specific tools vs. your estimated task duration.
+- **One-Click Focus:** Click **Focus** on any task item to instantly engage Focus Mode configured to keep you immersed in that task's tools.
+- **Priority & Status:** Assign priorities (*Low*, *Medium*, *High*, *Urgent*) and update status (*Pending*, *In Progress*, *Completed*).
+
+---
+
+## 5. Ambient Desktop Dynamic Notch
+
+Digital Wellbeing features a floating, physics-animated screen-edge notch overlay inspired by [kua8/Nectar](https://github.com/kua8/Nectar):
+
+- **Compact Resting Pill:** A sleek `260x32px` pill anchors seamlessly at the top edge of your primary screen. It displays the live Focus timer, active task name, and a pulsating reactive status dot.
+- **Spring Expand-on-Hover:** Hovering over the notch smoothly expands it into an interactive command cockpit (`440x200px`) showing detailed session progress and target tools.
+- **Fullscreen & Media Pass-Through:** The notch automatically stays unobtrusive and passes through input when playing fullscreen videos or games.
+
+---
+
+## 6. Dashboard & Screen Time Analytics
 
 ### Key Metrics
 - **Total Screen Time:** Total active time spent working on foreground applications today.
 - **Active Time vs. Idle Time:** Digital Wellbeing automatically pauses tracking when you step away from your keyboard and mouse for more than 5 minutes.
 - **Top Applications:** Ranked list of applications by usage duration.
 - **Category Donut Ring:** Interactive visual breakdown of time divided among Browsers, Productivity, Programming, Entertainment, Gaming, Communication, and System tools.
+- **Interactive Date Navigation:** In both Activity and Websites pages, click `‹` and `›` to explore past days without tedious date pickers.
+- **Period Insights:** In the Insights page, switch effortlessly between Weekly, Monthly, and Yearly views with automatic delta comparisons (`VS PREVIOUS PERIOD`) and peak day highlights.
 
 ---
 
-## 5. App & Website Timers
-
-Prevent excessive usage of time-sink applications and websites by configuring daily limits:
-
-### Setting an App Limit
-1. Navigate to **App Timers** in the sidebar.
-2. Click **+ Add App Timer**.
-3. Select an active application from the process picker or browse to its `.exe` file.
-4. Set your daily quota (e.g., 1 hour 30 minutes).
-5. Choose whether to receive a gentle warning notification when 80% of your time is spent.
-
-### Setting a Website Limit
-1. Navigate to **Websites** in the sidebar.
-2. Click **+ Add Website Limit**.
-3. Enter the root domain name (e.g., `reddit.com` or `youtube.com`).
-4. Set your daily allowance.
-5. When the limit is reached, Digital Wellbeing will alert you and help you close or redirect the tab.
-
----
-
-## 6. Focus Mode
+## 7. Focus Mode & Attention Cockpit
 
 Focus Mode eliminates interruptions when you need deep concentration.
 
@@ -108,13 +118,57 @@ Focus Mode eliminates interruptions when you need deep concentration.
 ### Starting a Session
 1. Navigate to **Focus** in the sidebar.
 2. Choose your preferred profile and duration (e.g., 25 min Pomodoro, 50 min, or custom).
-3. Click **Start Focus**.
+3. Click the pill-rounded **Start Focus** button.
 4. If website blocking is enabled, Windows may display a single UAC prompt to update your hosts file.
-5. While active, distracting applications are automatically minimized or closed.
+5. While active, distracting applications are automatically minimized or closed, and unauthorized tabs are redirected.
 
 ---
 
-## 7. App Locker & Windows Hello
+## 8. SleepGuard with Media & Lecture Awareness
+
+SleepGuard promotes healthy sleep hygiene and prevents PC burnout through a modernized hero card layout:
+
+- **Bedtime Schedule:** Configure your target bedtime (e.g., 11:00 PM).
+- **Intelligent Media Detection:** SleepGuard monitors active media players (VLC, MPV, MPC-HC, PotPlayer, Plex, Kodi) and browser streaming (YouTube, Netflix, Prime Video, Disney+). When you are watching video, SleepGuard avoids false-positive bedtime prompts.
+- **Lecture & Study Protection:** Protects educational sessions on Coursera, edX, Udemy, Khan Academy, PDF textbooks, and note-taking apps (OneNote, Obsidian, Notion).
+- **Inactivity Warning:** If you remain inactive near bedtime outside of media/lecture viewing, SleepGuard prompts a gentle reminder.
+- **Automatic PC Sleep:** If the reminder is unanswered, SleepGuard safely locks your workstation or sleeps the PC.
+- **Circadian Display Warm-Up:** Gradually warms display gamma over 90 minutes before bedtime.
+
+---
+
+## 9. Parental Controls & Doomscrolling Shield
+
+Configure powerful attention guards in **Settings → Parental Controls**:
+
+- **Block Short-Form Doomscrolling:** One-click blocking of YouTube Shorts (`youtube.com/shorts`), Instagram Reels (`instagram.com/reels`), and TikTok to curb mindless vertical scrolling.
+- **Battle Royale & Gaming Blocker:** Restrict high-intensity games like Free Fire, PUBG, BGMI, Valorant, CS2, Fortnite, and Roblox.
+- **Custom Content Blacklist:** Add arbitrary keywords, domains, or games to enforce strict household or study limits.
+- **Productivity Defaults:** Configure daily maximum screen time thresholds and auto-engage Focus Mode on Windows startup.
+
+---
+
+## 10. App & Website Timers
+
+Prevent excessive usage of time-sink applications and websites by configuring daily limits:
+
+### Setting an App Limit
+1. Navigate to **App Timers** in the sidebar.
+2. Click **+ Add App Timer**.
+3. Select an active application from the process picker or browse to its `.exe` file.
+4. Set your daily quota (e.g., 1 hour 30 minutes).
+5. Choose whether to receive a gentle warning notification when 80% of your time is spent.
+
+### Setting a Website Limit
+1. Navigate to **Websites** in the sidebar.
+2. Click **+ Add Website Limit**.
+3. Enter the root domain name (e.g., `reddit.com` or `x.com`).
+4. Set your daily allowance.
+5. When the limit is reached, Digital Wellbeing will alert you and help you close or redirect the tab.
+
+---
+
+## 11. App Locker & Windows Hello
 
 App Locker prevents unauthorized access to sensitive software (financial apps, private browsers, messaging tools).
 
@@ -132,7 +186,7 @@ App Locker prevents unauthorized access to sensitive software (financial apps, p
 
 ---
 
-## 8. SafeBrowse Content Shield
+## 12. SafeBrowse Content Shield
 
 SafeBrowse provides system-level adult content blocking across all browsers (including Private / Incognito windows) and desktop applications.
 
@@ -149,17 +203,16 @@ SafeBrowse provides system-level adult content blocking across all browsers (inc
 
 ---
 
-## 9. SleepGuard
+## 13. Session Logs & System Diagnostics
 
-SleepGuard promotes healthy sleep hygiene and prevents PC burnout.
-
-- **Bedtime Schedule:** Configure your target bedtime (e.g., 11:00 PM).
-- **Inactivity Warning:** If you remain inactive near or after your bedtime (such as falling asleep during a late-night video), SleepGuard prompts you with a gentle reminder.
-- **Automatic PC Sleep:** If the prompt is unanswered, SleepGuard automatically locks your workstation or puts the computer to sleep to conserve energy and reduce morning screen exhaustion.
+For power users and troubleshooting:
+- Navigate to **Session Logs** in the sidebar.
+- Inspect real-time **System Diagnostics** including WinEvent hook status, background event wakeups, flush ticks, and memory utilization.
+- Search and filter local log output in an emoji-free, technical format.
 
 ---
 
-## 10. Data Backup, Export & Privacy
+## 14. Data Backup, Export & Privacy
 
 Your data is yours. Digital Wellbeing makes data ownership straightforward:
 
@@ -175,13 +228,16 @@ Your data is yours. Digital Wellbeing makes data ownership straightforward:
 
 ---
 
-## 11. Troubleshooting & FAQ
+## 15. Troubleshooting & FAQ
 
 **Q: Does Digital Wellbeing slow down my PC?**  
-*A:* No. Digital Wellbeing uses ultra-efficient Win32 hooks and polling that typically consumes less than 0.5% CPU and around 40–80 MB of RAM.
+*A:* No. Digital Wellbeing uses ultra-efficient Win32 hooks and event coalescing that typically consumes less than 0.2% CPU and around 40–80 MB of RAM.
 
 **Q: Does SafeBrowse work in Incognito / Private browsing?**  
 *A:* Yes. Because SafeBrowse operates at the Windows DNS resolution layer, it works identically across normal windows, private/incognito tabs, and all installed browsers.
 
+**Q: Why doesn't SleepGuard turn off my screen while watching YouTube or VLC?**  
+*A:* Digital Wellbeing v4.4.0 features intelligent media awareness that automatically detects active video streams and players, suppressing sleep triggers during playback.
+
 **Q: How do I completely uninstall Digital Wellbeing?**  
-*A:* Uninstall normally via **Windows Settings → Apps → Installed Apps**. Prior to uninstalling, toggle off SafeBrowse in Settings so your original Windows hosts file is cleanly restored.
+*A:* Run the uninstaller via **Windows Settings → Apps → Installed Apps** or use `Uninstall Digital Wellbeing.exe`. Prior to uninstalling, toggle off SafeBrowse in Settings so your original Windows hosts file is cleanly restored.

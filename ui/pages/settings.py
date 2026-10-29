@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMessageBox,
     QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
     QListWidget, QListWidgetItem, QStackedWidget, QSizePolicy, QLineEdit,
-    QProgressBar
+    QProgressBar, QCheckBox, QInputDialog
 )
 
 from core.logger import logger
@@ -359,7 +359,15 @@ class SettingsPage(QWidget):
         prot_layout.addStretch()
         categories.append(("Security", "App Locker, SafeBrowse, Windows Hello"))
         self._stack.addWidget(self._wrap_scroll(prot_page))
-        
+
+        # 5b. Parental controls
+        categories.append(("Parental Controls", "Short-form and content blocking"))
+        self._stack.addWidget(self._wrap_scroll(self._build_parental_page()))
+
+        # 5c. Productivity
+        categories.append(("Productivity", "Focus defaults and attention nudges"))
+        self._stack.addWidget(self._wrap_scroll(self._build_productivity_page()))
+
         # 6. Data Management
         data_page = QWidget()
         data_layout = QVBoxLayout(data_page)
@@ -593,6 +601,231 @@ class SettingsPage(QWidget):
             self._sidebar.addItem(item)
             
         self._sidebar.setCurrentRow(0)
+
+    def _build_parental_page(self) -> QWidget:
+        from protection.content_guard import ContentGuard, PRESET_LABELS
+        guard = ContentGuard.instance()
+        self._content_guard = guard
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 12, 12)
+        layout.setSpacing(14)
+
+        layout.addWidget(self._create_section_title("Parental controls"))
+
+        # Master enable toggle
+        self._pc_enabled, row = self._create_toggle_row(
+            "Enable content rules", "Apply these rules to supported browser activity."
+        )
+        self._pc_enabled.setChecked(guard.enabled)
+        layout.addWidget(row)
+
+        # ── Platform-specific short-form blocks ──────────────────────────────
+        layout.addWidget(self._create_section_title("Platform short-form blocks"))
+
+        self._pc_shorts, row = self._create_toggle_row(
+            "Block YouTube Shorts",
+            "Prevent YouTube Shorts feed from loading in any browser"
+        )
+        self._pc_shorts.setChecked(self._sm.get_bool("pc_block_yt_shorts", False))
+        layout.addWidget(row)
+
+        self._pc_reels, row = self._create_toggle_row(
+            "Block Instagram Reels",
+            "Restrict Instagram Reels and explore feed"
+        )
+        self._pc_reels.setChecked(self._sm.get_bool("pc_block_ig_reels", False))
+        layout.addWidget(row)
+
+        self._pc_tiktok, row = self._create_toggle_row(
+            "Block TikTok",
+            "Block TikTok entirely across all browsers"
+        )
+        self._pc_tiktok.setChecked(self._sm.get_bool("pc_block_tiktok", False))
+        layout.addWidget(row)
+
+        # Master "block all at once" short-form toggle
+        self._pc_shortform, row = self._create_toggle_row(
+            "Block all short-form feeds",
+            "Block YouTube Shorts, Instagram Reels, TikTok, Facebook Reels, and Spotlight — all at once."
+        )
+        self._pc_shortform.setChecked(guard.shortform_enabled)
+        layout.addWidget(row)
+
+        # ── Content category presets ─────────────────────────────────────────
+        layout.addWidget(self._create_section_title("Content category presets"))
+
+        preset_card = QFrame()
+        preset_card.setObjectName("settings_card")
+        pl = QVBoxLayout(preset_card)
+        pl.setContentsMargins(18, 16, 18, 16)
+        pl.setSpacing(10)
+
+        preset_title_lbl = QLabel("Content categories")
+        preset_title_lbl.setObjectName("setting_label")
+        preset_desc_lbl = QLabel(
+            "Enable predefined blocklists to restrict categories of content across all browsers."
+        )
+        preset_desc_lbl.setObjectName("setting_desc")
+        preset_desc_lbl.setWordWrap(True)
+        pl.addWidget(preset_title_lbl)
+        pl.addWidget(preset_desc_lbl)
+
+        self._pc_preset_checks = {}
+
+        # Built-in presets from PRESET_LABELS (e.g. gaming, adult, social media)
+        effective_labels: dict = dict(PRESET_LABELS)
+
+        # Ensure key gaming-related presets exist even if absent in PRESET_LABELS
+        gaming_defaults = {
+            "gaming_esports": "Gaming & Esports (Free Fire, PUBG, BGMI, CS:GO, Valorant)",
+            "adult_content":  "Adult Content",
+            "social_addiction": "Social Media Addiction",
+        }
+        for k, v in gaming_defaults.items():
+            effective_labels.setdefault(k, v)
+
+        for key, text in effective_labels.items():
+            check = QCheckBox(text)
+            check.setObjectName("setting_label")
+            check.setChecked(key in guard.presets)
+            self._pc_preset_checks[key] = check
+            pl.addWidget(check)
+
+        layout.addWidget(preset_card)
+
+        # ── Custom blocked sites ─────────────────────────────────────────────
+        layout.addWidget(self._create_section_title("Custom blocked sites"))
+
+        custom = QFrame()
+        custom.setObjectName("settings_card")
+        cl = QVBoxLayout(custom)
+        cl.setContentsMargins(18, 14, 18, 14)
+        cl.setSpacing(10)
+
+        header = QHBoxLayout()
+        cust_title = QLabel("Custom blocked sites")
+        cust_title.setObjectName("setting_label")
+        header.addWidget(cust_title)
+        header.addStretch()
+        add = QPushButton("Add site or path")
+        add.setObjectName("secondary_action_btn")
+        add.clicked.connect(self._add_custom_guard_rule)
+        header.addWidget(add)
+        cl.addLayout(header)
+
+        self._pc_custom_list = QListWidget()
+        self._pc_custom_list.setMaximumHeight(150)
+        for value in guard.custom_items:
+            self._pc_custom_list.addItem(value)
+        cl.addWidget(self._pc_custom_list)
+
+        remove = QPushButton("Remove selected")
+        remove.setObjectName("secondary_action_btn")
+        remove.clicked.connect(self._remove_custom_guard_rule)
+        cl.addWidget(remove, 0, Qt.AlignmentFlag.AlignRight)
+
+        layout.addWidget(custom)
+        layout.addStretch()
+        return page
+
+    def _add_custom_guard_rule(self) -> None:
+        from protection.content_guard import ContentGuard
+        value, ok = QInputDialog.getText(self, "Add blocked site", "Domain or path (for example, example.com or youtube.com/shorts):")
+        if ok and value.strip() and ContentGuard.instance().add_custom(value.strip()):
+            self._pc_custom_list.addItem(value.strip())
+
+    def _remove_custom_guard_rule(self) -> None:
+        from protection.content_guard import ContentGuard
+        item = self._pc_custom_list.currentItem()
+        if item:
+            ContentGuard.instance().remove_custom(item.text())
+            self._pc_custom_list.takeItem(self._pc_custom_list.row(item))
+
+    def _build_productivity_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 12, 12)
+        layout.setSpacing(14)
+
+        layout.addWidget(self._create_section_title("Productivity"))
+
+        # ── Description card ─────────────────────────────────────────────────
+        desc_card = QFrame()
+        desc_card.setObjectName("settings_card")
+        desc_l = QVBoxLayout(desc_card)
+        desc_l.setContentsMargins(20, 18, 20, 18)
+        desc_l.setSpacing(6)
+        desc_card_title = QLabel("Stay focused, work smarter")
+        desc_card_title.setObjectName("setting_label")
+        desc_card_body = QLabel(
+            "The Productivity section lets you set daily screen time goals, automatically enter Focus "
+            "Mode on launch, and receive gentle reminders to take breaks and return to your current "
+            "focus session. All preferences are stored locally and never shared."
+        )
+        desc_card_body.setObjectName("setting_desc")
+        desc_card_body.setWordWrap(True)
+        desc_l.addWidget(desc_card_title)
+        desc_l.addWidget(desc_card_body)
+        layout.addWidget(desc_card)
+
+        # ── Screen time goal ─────────────────────────────────────────────────
+        layout.addWidget(self._create_section_title("Daily goals"))
+
+        goal_row, self._prod_screen_goal_spin = self._create_spin_row(
+            "Screen Time Goal",
+            "Set a daily screen time goal to work towards (in hours)",
+            1, 12, " h"
+        )
+        self._prod_screen_goal_spin.setValue(self._sm.get_int("prod_screen_goal_hours", 6))
+        layout.addWidget(goal_row)
+
+        # ── Session defaults ─────────────────────────────────────────────────
+        layout.addWidget(self._create_section_title("Session defaults"))
+
+        self._prod_startup_focus, row = self._create_toggle_row(
+            "Focus Mode on Startup",
+            "Automatically start a focus session when Digital Wellbeing launches"
+        )
+        self._prod_startup_focus.setChecked(self._sm.get_bool("prod_startup_focus", False))
+        layout.addWidget(row)
+
+        self._prod_nudge, row = self._create_toggle_row(
+            "Attention reminders",
+            "Offer a quick return to your current focus session after prolonged distractions."
+        )
+        self._prod_nudge.setChecked(self._sm.get_bool("attention_nudge_enabled", True))
+        layout.addWidget(row)
+
+        self._prod_break, row = self._create_toggle_row(
+            "Focus break reminders",
+            "Show a gentle reminder between longer focus sessions."
+        )
+        self._prod_break.setChecked(self._sm.get_bool("focus_break_reminders", False))
+        layout.addWidget(row)
+
+        # ── Coming soon ──────────────────────────────────────────────────────
+        layout.addWidget(self._create_section_title("Scheduling"))
+
+        coming_card = QFrame()
+        coming_card.setObjectName("settings_card")
+        coming_l = QVBoxLayout(coming_card)
+        coming_l.setContentsMargins(20, 16, 20, 16)
+        coming_l.setSpacing(4)
+        coming_lbl = QLabel("Work Hours")
+        coming_lbl.setObjectName("setting_label")
+        coming_desc = QLabel(
+            "Coming soon — Define your working hours so Digital Wellbeing can tailor focus "
+            "sessions and break reminders to your schedule."
+        )
+        coming_desc.setObjectName("setting_desc")
+        coming_desc.setWordWrap(True)
+        coming_l.addWidget(coming_lbl)
+        coming_l.addWidget(coming_desc)
+        layout.addWidget(coming_card)
+
+        layout.addStretch()
+        return page
 
     def _wrap_scroll(self, widget: QWidget) -> QScrollArea:
         scroll = QScrollArea()
@@ -962,6 +1195,26 @@ class SettingsPage(QWidget):
         self._auto_update_check.setChecked(self._sm.auto_update_enabled)
         self._notify_update_check.setChecked(self._sm.notify_updates)
 
+        # Parental Controls & Productivity loading
+        if hasattr(self, "_pc_enabled"):
+            self._pc_enabled.setChecked(self._sm.get_bool("parental_controls_enabled", False))
+        if hasattr(self, "_pc_shorts"):
+            self._pc_shorts.setChecked(self._sm.get_bool("pc_block_yt_shorts", False))
+        if hasattr(self, "_pc_reels"):
+            self._pc_reels.setChecked(self._sm.get_bool("pc_block_ig_reels", False))
+        if hasattr(self, "_pc_tiktok"):
+            self._pc_tiktok.setChecked(self._sm.get_bool("pc_block_tiktok", False))
+        if hasattr(self, "_pc_shortform"):
+            self._pc_shortform.setChecked(self._sm.get_bool("shortform_blocking_enabled", True))
+        if hasattr(self, "_prod_nudge"):
+            self._prod_nudge.setChecked(self._sm.get_bool("attention_nudge_enabled", True))
+        if hasattr(self, "_prod_break"):
+            self._prod_break.setChecked(self._sm.get_bool("focus_break_reminders", False))
+        if hasattr(self, "_prod_startup_focus"):
+            self._prod_startup_focus.setChecked(self._sm.get_bool("prod_startup_focus", False))
+        if hasattr(self, "_prod_screen_goal_spin"):
+            self._prod_screen_goal_spin.setValue(self._sm.get_int("prod_screen_goal_hours", 6))
+
         self._on_sg_mode_changed()
 
     def _on_export_csv(self) -> None:
@@ -1045,6 +1298,21 @@ class SettingsPage(QWidget):
         self._sm.display_name = self._display_name_edit.text().strip()
         self._sm.debug_tracking = self._debug_tracking_check.isChecked()
         self._sm.set_int("daily_limit_minutes", self._limit_spin.value())
+
+        self._sm.set_bool("parental_controls_enabled", self._pc_enabled.isChecked())
+        self._sm.set_bool("shortform_blocking_enabled", self._pc_shortform.isChecked())
+        self._sm.set_bool("pc_block_yt_shorts", self._pc_shorts.isChecked())
+        self._sm.set_bool("pc_block_ig_reels", self._pc_reels.isChecked())
+        self._sm.set_bool("pc_block_tiktok", self._pc_tiktok.isChecked())
+        import json
+        self._sm.set("content_guard_presets", json.dumps([key for key, check in self._pc_preset_checks.items() if check.isChecked()]))
+        self._content_guard.invalidate()
+        self._sm.set_bool("attention_nudge_enabled", self._prod_nudge.isChecked())
+        self._sm.set_bool("focus_break_reminders", self._prod_break.isChecked())
+        if hasattr(self, "_prod_notch"):
+            self._sm.set_bool("ambient_notch_enabled", self._prod_notch.isChecked())
+        self._sm.set_int("prod_screen_goal_hours", self._prod_screen_goal_spin.value())
+        self._sm.set_bool("prod_startup_focus", self._prod_startup_focus.isChecked())
 
         self._sm.sleepguard_enabled = self._sg_enable_check.isChecked()
         act_val = self._sg_action_combo.currentData()

@@ -207,7 +207,7 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
             QPushButton#primary_start_btn {{
                 background-color: {mode_color};
                 border: none;
-                border-radius: {ds.BUTTON_RADIUS_PILL}px;
+                border-radius: 999px;
                 color: #FFFFFF;
                 font-size: 14px;
                 font-weight: 700;

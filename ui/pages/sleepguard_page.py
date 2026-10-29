@@ -1,18 +1,37 @@
 """
-sleepguard_page.py — Premium SleepGuard Power & Inactivity Management UI.
-Redesigned with calm obsidian aesthetic, clear arming banner, media awareness indicators,
-and precise inactivity configuration.
+sleepguard_page.py — Media-aware SleepGuard control surface.
+
+The page separates three concerns:
+1. current protection and activity state;
+2. what happens when the user is away;
+3. what happens while media, lectures, or notes are open.
+
+Playback never permanently disables SleepGuard: it holds power actions while
+active, then applies a short post-media grace before the warning.
 """
 
 from __future__ import annotations
+
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QHBoxLayout, QLabel,
-    QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
+
+from tracker.idle import get_idle_seconds
 from tracker.sleepguard import SleepGuardController
+from ui import design_system as ds
+from ui.icons import get_pixmap
+from ui.theme import ThemeManager
 from ui.widgets.fluent import ToggleSwitch
 
 
@@ -22,391 +41,406 @@ class SleepGuardPage(QWidget):
         self._sleepguard = sleepguard
         self._setup_ui()
 
-        from ui.theme import ThemeManager
         ThemeManager.instance().theme_changed.connect(self._apply_theme)
         self._apply_theme(ThemeManager.instance().is_dark)
+        self.on_data_changed()
+
+        if self._sleepguard:
+            self._sleepguard.media_state_changed.connect(lambda _info: self.on_data_changed())
+            self._sleepguard.sleepguard_status_changed.connect(lambda _enabled: self.on_data_changed())
+
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setInterval(2000)
+        self._refresh_timer.timeout.connect(self.on_data_changed)
+        self._refresh_timer.start()
+
+    # ── UI construction ───────────────────────────────────────────────────
 
     def _setup_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(32, 28, 32, 28)
-        main_layout.setSpacing(24)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(*ds.PAGE_MARGINS)
+        root.setSpacing(ds.PAGE_SECTION_SPACING)
 
-        # Header Title
-        title_box = QVBoxLayout()
-        title_box.setSpacing(6)
-
-        pill_row = QHBoxLayout()
-        pill = QLabel("● SYSTEM SLEEPGUARD")
-        pill.setObjectName("section_pill")
-        pill.setStyleSheet("""
-            color: #38BDF8;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 1.2px;
-            background: rgba(100, 210, 255, 0.12);
-            border: 1px solid rgba(100, 210, 255, 0.30);
-            border-radius: 12px;
-            padding: 3px 10px;
-        """)
-        pill_row.addWidget(pill)
-        pill_row.addStretch()
-        title_box.addLayout(pill_row)
-
-        title = QLabel("SleepGuard Protection")
+        # ── Page header ───────────────────────────────────────────────────
+        header = QHBoxLayout()
+        text = QVBoxLayout()
+        text.setSpacing(3)
+        eyebrow = QLabel("MEDIA-AWARE PROTECTION")
+        eyebrow.setObjectName("sg_eyebrow")
+        title = QLabel("SleepGuard")
         title.setObjectName("page_title")
-        subtitle = QLabel("Monitors system inactivity to safely transition power state during bedtime and protect sleep habits.")
+        subtitle = QLabel(
+            "Power protection that distinguishes real inactivity from watching, "
+            "lectures, and late-night reading."
+        )
         subtitle.setObjectName("page_subtitle")
-        title_box.addWidget(title)
-        title_box.addWidget(subtitle)
-        main_layout.addLayout(title_box)
+        subtitle.setWordWrap(True)
+        text.addWidget(eyebrow)
+        text.addWidget(title)
+        text.addWidget(subtitle)
+        header.addLayout(text, 1)
 
-        # Scroll Area
+        # Status pill badges
+        self._action_chip = QLabel("Lock")
+        self._action_chip.setObjectName("sg_chip")
+        self._threshold_chip = QLabel("30 min idle")
+        self._threshold_chip.setObjectName("sg_chip")
+        header.addWidget(self._action_chip, 0, Qt.AlignmentFlag.AlignTop)
+        header.addWidget(self._threshold_chip, 0, Qt.AlignmentFlag.AlignTop)
+        root.addLayout(header)
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
         inner = QWidget()
-        inner_layout = QVBoxLayout(inner)
-        inner_layout.setContentsMargins(0, 4, 0, 20)
-        inner_layout.setSpacing(24)
+        self._inner_layout = QVBoxLayout(inner)
+        self._inner_layout.setContentsMargins(0, 0, 0, 16)
+        self._inner_layout.setSpacing(ds.PAGE_SECTION_SPACING)
         scroll.setWidget(inner)
-        main_layout.addWidget(scroll, 1)
+        root.addWidget(scroll, 1)
 
-        # 1. Hero Status Card
-        self._status_card = QFrame()
-        self._status_card.setObjectName("status_card")
-        status_l = QHBoxLayout(self._status_card)
-        status_l.setContentsMargins(24, 20, 24, 20)
-        status_l.setSpacing(20)
+        self._build_hero()
+        self._build_activity_row()
+        self._build_config_row()
+        self._build_safety_card()
 
-        status_text_col = QVBoxLayout()
-        status_text_col.setSpacing(4)
+        from ui.widgets.circadian_section import CircadianSection
 
-        self._status_heading = QLabel("SleepGuard armed")
-        self._status_heading.setObjectName("status_heading")
-        
-        self._status_desc = QLabel("Automatic power transitions on extended inactivity are armed.")
-        self._status_desc.setObjectName("status_desc")
+        self._circadian_section = CircadianSection()
+        self._inner_layout.addWidget(self._circadian_section)
+        self._inner_layout.addStretch()
+
+    def _card(self, title: str, subtitle: str = "") -> tuple[QFrame, QVBoxLayout]:
+        card = QFrame()
+        card.setObjectName("sg_card")
+        body = QVBoxLayout(card)
+        body.setContentsMargins(*ds.CARD_MARGINS)
+        body.setSpacing(12)
+        heading = QLabel(title)
+        heading.setObjectName("sg_card_title")
+        body.addWidget(heading)
+        if subtitle:
+            desc = QLabel(subtitle)
+            desc.setObjectName("sg_card_desc")
+            desc.setWordWrap(True)
+            body.addWidget(desc)
+        return card, body
+
+    def _build_hero(self) -> None:
+        # Section eyebrow above the hero card
+        section_eyebrow = QLabel("SLEEP PROTECTION")
+        section_eyebrow.setObjectName("sg_section_eyebrow")
+        self._inner_layout.addWidget(section_eyebrow)
+
+        self._hero = QFrame()
+        self._hero.setObjectName("sg_hero")
+        self._hero.setProperty("state", "on")
+        layout = QHBoxLayout(self._hero)
+        layout.setContentsMargins(28, 26, 28, 26)
+        layout.setSpacing(24)
+
+        # ── Left: status text block ───────────────────────────────────────
+        left = QVBoxLayout()
+        left.setSpacing(6)
+
+        self._status_kicker = QLabel("PROTECTION ACTIVE")
+        self._status_kicker.setObjectName("sg_kicker")
+
+        self._status_heading = QLabel("SleepGuard is watching for real inactivity")
+        self._status_heading.setObjectName("sg_hero_title")
+        self._status_heading.setWordWrap(True)
+
+        self._status_desc = QLabel(
+            "Intelligent power protection with real-time media awareness"
+        )
+        self._status_desc.setObjectName("sg_hero_subtitle")
         self._status_desc.setWordWrap(True)
 
-        status_text_col.addWidget(self._status_heading)
-        status_text_col.addWidget(self._status_desc)
-        status_l.addLayout(status_text_col, 1)
+        self._status_detail = QLabel(
+            "Playback, lectures, and notes hold power actions. "
+            "A short grace period runs after they end before any warning."
+        )
+        self._status_detail.setObjectName("sg_hero_desc")
+        self._status_detail.setWordWrap(True)
+
+        left.addWidget(self._status_kicker)
+        left.addWidget(self._status_heading)
+        left.addWidget(self._status_desc)
+        left.addSpacing(4)
+        left.addWidget(self._status_detail)
+
+        # Status chips row
+        status_row = QHBoxLayout()
+        status_row.setSpacing(8)
+        self._state_chip = QLabel("Monitoring")
+        self._state_chip.setObjectName("sg_state_chip")
+        self._guard_chip = QLabel("Media guard ready")
+        self._guard_chip.setObjectName("sg_state_chip")
+        status_row.addWidget(self._state_chip)
+        status_row.addWidget(self._guard_chip)
+        status_row.addStretch()
+        left.addSpacing(6)
+        left.addLayout(status_row)
+
+        layout.addLayout(left, 1)
+
+        # ── Right: toggle ─────────────────────────────────────────────────
+        toggle_col = QVBoxLayout()
+        toggle_col.setSpacing(0)
+        toggle_col.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+
+        toggle_row = QHBoxLayout()
+        toggle_row.setSpacing(10)
+        toggle_row.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        toggle_label = QLabel("Protection")
+        toggle_label.setObjectName("sg_toggle_label")
+        toggle_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         self._sg_check = ToggleSwitch()
         if self._sleepguard:
             self._sg_check.setChecked(self._sleepguard.is_enabled)
         self._sg_check.toggled.connect(self._on_sg_toggle)
-        status_l.addWidget(self._sg_check, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        inner_layout.addWidget(self._status_card)
+        toggle_row.addWidget(toggle_label)
+        toggle_row.addWidget(self._sg_check)
+        toggle_col.addLayout(toggle_row)
 
-        # 2. Main Content Grid (Two columns)
-        content_row = QHBoxLayout()
-        content_row.setSpacing(20)
+        layout.addLayout(toggle_col, 0)
+        self._inner_layout.addWidget(self._hero)
 
-        # Left Column: Configuration Card
-        config_card = QFrame()
-        config_card.setObjectName("v2_card")
-        config_l = QVBoxLayout(config_card)
-        config_l.setContentsMargins(24, 22, 24, 22)
-        config_l.setSpacing(18)
+    def _build_activity_row(self) -> None:
+        row = QHBoxLayout()
+        row.setSpacing(16)
 
-        cfg_hdr = QLabel("Power & timeout configuration")
-        cfg_hdr.setObjectName("section_header")
-        config_l.addWidget(cfg_hdr)
+        # ── Current activity card ─────────────────────────────────────────
+        activity_card, activity_body = self._card("Current activity")
+        activity_body.addSpacing(2)
 
-        # Action Dropdown Row
-        act_row = QHBoxLayout()
-        act_col = QVBoxLayout()
-        act_col.setSpacing(2)
-        act_lbl = QLabel("Inactivity Power Action")
-        act_lbl.setObjectName("setting_label")
-        act_desc = QLabel("Action executed when idle timer countdown completes")
-        act_desc.setObjectName("setting_desc")
-        act_col.addWidget(act_lbl)
-        act_col.addWidget(act_desc)
-        act_row.addLayout(act_col, 1)
+        # Status indicator row with dot
+        indicator_row = QHBoxLayout()
+        indicator_row.setSpacing(10)
+        indicator_row.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self._media_dot = QLabel()
+        self._media_dot.setObjectName("sg_media_dot")
+        self._media_dot.setFixedSize(10, 10)
+        self._media_label = QLabel("No active media or lecture sessions")
+        self._media_label.setObjectName("sg_media_value")
+        self._media_label.setWordWrap(True)
+        indicator_row.addWidget(self._media_dot, 0, Qt.AlignmentFlag.AlignVCenter)
+        indicator_row.addWidget(self._media_label, 1)
+        activity_body.addLayout(indicator_row)
 
+        self._media_detail = QLabel("Power actions are permitted after the idle threshold.")
+        self._media_detail.setObjectName("sg_media_detail")
+        self._media_detail.setWordWrap(True)
+        activity_body.addWidget(self._media_detail)
+
+        meta_row = QHBoxLayout()
+        meta_row.setSpacing(18)
+        self._idle_value = QLabel("Idle 0m")
+        self._idle_value.setObjectName("sg_meta_value")
+        self._state_value = QLabel("Monitoring")
+        self._state_value.setObjectName("sg_meta_value")
+        meta_row.addWidget(self._idle_value)
+        meta_row.addWidget(self._state_value)
+        meta_row.addStretch()
+        activity_body.addLayout(meta_row)
+        activity_body.addStretch()
+        row.addWidget(activity_card, 1)
+
+        # ── Media guard explainer card ────────────────────────────────────
+        guard_card, guard_body = self._card(
+            "How the media guard works",
+            "Holds are re-evaluated every second — not a permanent override.",
+        )
+        checks = [
+            (
+                "video",
+                "Playback holds power actions",
+                "YouTube, Netflix, VLC, and browser media keep SleepGuard in a hold state.",
+            ),
+            (
+                "book",
+                "Lectures and notes count",
+                "OneNote, PDF readers, slide decks, course pages, and study notes pause the idle timer.",
+            ),
+            (
+                "clock",
+                "Grace period after media ends",
+                "Once playback stops, a configurable grace period runs before the cancelable warning.",
+            ),
+        ]
+        for icon_name, heading, body_text in checks:
+            item = QHBoxLayout()
+            item.setSpacing(12)
+            item.setAlignment(Qt.AlignmentFlag.AlignTop)
+            icon = QLabel()
+            icon.setPixmap(get_pixmap(icon_name, ThemeManager.instance().color("accent"), 15))
+            icon.setFixedSize(18, 18)
+            item.addWidget(icon)
+            text_col = QVBoxLayout()
+            text_col.setSpacing(2)
+            h = QLabel(heading)
+            h.setObjectName("sg_check_title")
+            b = QLabel(body_text)
+            b.setObjectName("sg_check_body")
+            b.setWordWrap(True)
+            text_col.addWidget(h)
+            text_col.addWidget(b)
+            item.addLayout(text_col, 1)
+            guard_body.addLayout(item)
+        guard_body.addStretch()
+        row.addWidget(guard_card, 1)
+        self._inner_layout.addLayout(row)
+
+    def _build_config_row(self) -> None:
+        row = QHBoxLayout()
+        row.setSpacing(16)
+
+        # ── Away config card ──────────────────────────────────────────────
+        away_card, away_body = self._card(
+            "When you are away",
+            "Base inactivity threshold and the power action to execute.",
+        )
+        action_row = QHBoxLayout()
+        action_text = QVBoxLayout()
+        action_text.setSpacing(2)
+        action_label = QLabel("Power action")
+        action_label.setObjectName("sg_field_label")
+        action_desc = QLabel("Runs only after the cancelable warning.")
+        action_desc.setObjectName("sg_field_desc")
+        action_text.addWidget(action_label)
+        action_text.addWidget(action_desc)
+        action_row.addLayout(action_text, 1)
         self._action_combo = QComboBox()
-        self._action_combo.addItem("Lock Computer", "lock")
+        self._action_combo.addItem("Lock computer", "lock")
         self._action_combo.addItem("Sleep", "sleep")
         self._action_combo.addItem("Hibernate", "hibernate")
-        self._action_combo.addItem("Shut Down", "shutdown")
-        self._action_combo.addItem("Cancel Action", "cancel")
-        self._action_combo.setFixedWidth(160)
+        self._action_combo.addItem("Shut down", "shutdown")
+        self._action_combo.addItem("Cancel action", "cancel")
+        self._action_combo.setFixedWidth(150)
         self._action_combo.currentIndexChanged.connect(self._on_action_changed)
-        act_row.addWidget(self._action_combo)
-        config_l.addLayout(act_row)
+        action_row.addWidget(self._action_combo)
+        away_body.addLayout(action_row)
 
-        line1 = QFrame()
-        line1.setObjectName("card_divider")
-        line1.setFixedHeight(1)
-        config_l.addWidget(line1)
-
-        # Timeout Row
-        out_row = QHBoxLayout()
-        out_col = QVBoxLayout()
-        out_col.setSpacing(2)
-        out_lbl = QLabel("Inactivity Threshold")
-        out_lbl.setObjectName("setting_label")
-        out_desc = QLabel("Consecutive minutes of zero input before countdown")
-        out_desc.setObjectName("setting_desc")
-        out_col.addWidget(out_lbl)
-        out_col.addWidget(out_desc)
-        out_row.addLayout(out_col, 1)
-
+        away_body.addWidget(self._divider())
+        timeout_row = QHBoxLayout()
+        timeout_text = QVBoxLayout()
+        timeout_text.setSpacing(2)
+        timeout_label = QLabel("Idle threshold")
+        timeout_label.setObjectName("sg_field_label")
+        timeout_desc = QLabel("Consecutive minutes without keyboard or mouse input.")
+        timeout_desc.setObjectName("sg_field_desc")
+        timeout_text.addWidget(timeout_label)
+        timeout_text.addWidget(timeout_desc)
+        timeout_row.addLayout(timeout_text, 1)
         self._timeout_spin = QSpinBox()
         self._timeout_spin.setRange(5, 120)
         self._timeout_spin.setSuffix(" min")
         self._timeout_spin.setFixedWidth(110)
-        self._timeout_spin.setValue(30)
         self._timeout_spin.valueChanged.connect(self._on_timeout_changed)
-        out_row.addWidget(self._timeout_spin)
-        config_l.addLayout(out_row)
+        timeout_row.addWidget(self._timeout_spin)
+        away_body.addLayout(timeout_row)
+        away_body.addLayout(self._presets([15, 30, 45, 60], self._timeout_spin))
+        away_body.addStretch()
+        row.addWidget(away_card, 1)
 
-        line2 = QFrame()
-        line2.setObjectName("card_divider")
-        line2.setFixedHeight(1)
-        config_l.addWidget(line2)
-
-        # Media Grace Period Row
+        # ── Media config card ─────────────────────────────────────────────
+        media_card, media_body = self._card(
+            "When media is playing",
+            "A hold keeps the PC awake while media, lectures, or notes are active.",
+        )
         grace_row = QHBoxLayout()
-        grace_col = QVBoxLayout()
-        grace_col.setSpacing(2)
-        grace_lbl = QLabel("Media Grace Period")
-        grace_lbl.setObjectName("setting_label")
-        grace_desc = QLabel("Additional time before warning when audio/video is detected")
-        grace_desc.setObjectName("setting_desc")
-        grace_col.addWidget(grace_lbl)
-        grace_col.addWidget(grace_desc)
-        grace_row.addLayout(grace_col, 1)
-
+        grace_text = QVBoxLayout()
+        grace_text.setSpacing(2)
+        grace_label = QLabel("Post-media grace")
+        grace_label.setObjectName("sg_field_label")
+        grace_desc = QLabel("Extra time after playback stops before the warning appears.")
+        grace_desc.setObjectName("sg_field_desc")
+        grace_text.addWidget(grace_label)
+        grace_text.addWidget(grace_desc)
+        grace_row.addLayout(grace_text, 1)
         self._grace_spin = QSpinBox()
         self._grace_spin.setRange(1, 30)
         self._grace_spin.setSuffix(" min")
         self._grace_spin.setFixedWidth(110)
-        self._grace_spin.setValue(5)
         self._grace_spin.valueChanged.connect(self._on_grace_changed)
         grace_row.addWidget(self._grace_spin)
-        config_l.addLayout(grace_row)
+        media_body.addLayout(grace_row)
+        media_body.addLayout(self._presets([2, 5, 10], self._grace_spin))
 
-        # Grace Quick Presets
-        grace_preset_row = QHBoxLayout()
-        grace_preset_row.setSpacing(8)
-        grace_preset_lbl = QLabel("Quick Presets:")
-        grace_preset_lbl.setObjectName("setting_desc")
-        grace_preset_row.addWidget(grace_preset_lbl)
-        for minutes in [2, 5, 10]:
-            btn = QPushButton(f"{minutes}m")
-            btn.setObjectName("preset_btn")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.clicked.connect(lambda _, m=minutes: self._grace_spin.setValue(m))
-            grace_preset_row.addWidget(btn)
-        grace_preset_row.addStretch()
-        config_l.addLayout(grace_preset_row)
+        media_body.addWidget(self._divider())
+        self._media_policy = QLabel(
+            "While media is active, no power action is executed — even after the idle "
+            "threshold. Monitoring resumes automatically when the media session ends."
+        )
+        self._media_policy.setObjectName("sg_policy")
+        self._media_policy.setWordWrap(True)
+        media_body.addWidget(self._media_policy)
+        media_body.addStretch()
+        row.addWidget(media_card, 1)
+        self._inner_layout.addLayout(row)
 
-        line2b = QFrame()
-        line2b.setObjectName("card_divider")
-        line2b.setFixedHeight(1)
-        config_l.addWidget(line2b)
+    def _build_safety_card(self) -> None:
+        card, body = self._card("Warning and safety")
 
-        preset_row = QHBoxLayout()
-        preset_row.setSpacing(8)
-        preset_lbl = QLabel("Quick Presets:")
-        preset_lbl.setObjectName("setting_desc")
-        preset_row.addWidget(preset_lbl)
+        desc = self._label(
+            "Any mouse movement or keypress during the 60-second warning cancels the action. "
+            "SleepGuard also holds off for the first 30 seconds after launch to avoid "
+            "triggering on startup.",
+            "sg_card_desc",
+        )
+        body.addWidget(desc)
 
-        for minutes in [15, 30, 45, 60]:
-            btn = QPushButton(f"{minutes}m")
-            btn.setObjectName("preset_btn")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.clicked.connect(lambda _, m=minutes: self._timeout_spin.setValue(m))
-            preset_row.addWidget(btn)
-        preset_row.addStretch()
-        config_l.addLayout(preset_row)
+        body.addWidget(self._divider())
 
-        line2 = QFrame()
-        line2.setObjectName("card_divider")
-        line2.setFixedHeight(1)
-        config_l.addWidget(line2)
-
-        # Test Action Row
         test_row = QHBoxLayout()
-        test_col = QVBoxLayout()
-        test_col.setSpacing(2)
-        test_lbl = QLabel("Test Countdown Warning")
-        test_lbl.setObjectName("setting_label")
-        test_desc = QLabel("Displays the 60-second cancelable dialog to preview the experience")
-        test_desc.setObjectName("setting_desc")
-        test_col.addWidget(test_lbl)
-        test_col.addWidget(test_desc)
-        test_row.addLayout(test_col, 1)
-
-        self._test_btn = QPushButton("Test Warning")
-        self._test_btn.setObjectName("test_action_btn")
+        test_text = QVBoxLayout()
+        test_text.setSpacing(2)
+        test_text.addWidget(self._label("Preview the warning", "sg_field_label"))
+        test_text.addWidget(
+            self._label(
+                "Open the cancelable 60-second dialog without affecting the idle timer.",
+                "sg_field_desc",
+            )
+        )
+        test_row.addLayout(test_text, 1)
+        self._test_btn = QPushButton("Test warning")
+        self._test_btn.setObjectName("sg_test_btn")
         self._test_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._test_btn.clicked.connect(self._on_test_warning)
         test_row.addWidget(self._test_btn)
-        config_l.addLayout(test_row)
+        body.addLayout(test_row)
+        self._inner_layout.addWidget(card)
 
-        config_l.addStretch()
-        content_row.addWidget(config_card, 3)
+    def _label(self, text: str, object_name: str) -> QLabel:
+        label = QLabel(text)
+        label.setObjectName(object_name)
+        label.setWordWrap(True)
+        return label
 
-        # Right Column: Safety & Awareness Card
-        safety_card = QFrame()
-        safety_card.setObjectName("v2_card")
-        safety_l = QVBoxLayout(safety_card)
-        safety_l.setContentsMargins(24, 22, 24, 22)
-        safety_l.setSpacing(16)
+    def _divider(self) -> QFrame:
+        line = QFrame()
+        line.setObjectName("sg_divider")
+        line.setFixedHeight(1)
+        return line
 
-        safe_hdr = QLabel("SAFETY & AWARENESS CHECKS")
-        safe_hdr.setObjectName("section_header")
-        safety_l.addWidget(safe_hdr)
+    def _presets(self, minutes: list[int], target: QSpinBox) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        row.addWidget(self._label("Presets", "sg_field_desc"))
+        for value in minutes:
+            btn = QPushButton(f"{value}m")
+            btn.setObjectName("sg_preset_btn")
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(lambda _=False, m=value: target.setValue(m))
+            row.addWidget(btn)
+        row.addStretch()
+        return row
 
-        # Media status banner
-        self._media_lbl = QLabel("Media Playback Detection: Idle / Not playing")
-        self._media_lbl.setObjectName("media_lbl")
-        self._media_lbl.setWordWrap(True)
-        safety_l.addWidget(self._media_lbl)
-
-        # Safety Rules explanation
-        from ui.icons import get_pixmap
-        checks = [
-            ("video", "Media Grace Period", "When inactivity is detected while audio or video plays, SleepGuard grants one additional grace period before warning. Media never disables SleepGuard permanently."),
-            ("monitor", "Fullscreen Awareness", "Prevents unwanted power interruptions during presentations or gaming sessions."),
-            ("power", "Cancellation Grace", "Any mouse movement or keypress during the 60-second warning countdown immediately aborts the power action."),
-            ("moon", "Startup Grace Period", "SleepGuard remains dormant for the first 30 seconds after the application starts.")
-        ]
-
-        for icon_name, check_title, check_body in checks:
-            item_row = QHBoxLayout()
-            item_row.setSpacing(12)
-            item_row.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-            ico_lbl = QLabel()
-            ico_lbl.setPixmap(get_pixmap(icon_name, "#0A84FF", 16))
-            ico_lbl.setFixedSize(20, 20)
-            ico_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            item_row.addWidget(ico_lbl)
-
-            text_col = QVBoxLayout()
-            text_col.setSpacing(2)
-            h = QLabel(check_title)
-            h.setObjectName("safety_item_title")
-            b = QLabel(check_body)
-            b.setObjectName("safety_item_body")
-            b.setWordWrap(True)
-            text_col.addWidget(h)
-            text_col.addWidget(b)
-            item_row.addLayout(text_col, 1)
-
-            safety_l.addLayout(item_row)
-
-        safety_l.addStretch()
-        content_row.addWidget(safety_card, 2)
-
-        inner_layout.addLayout(content_row)
-
-        # 3. Circadian display warm-up (linked to the bedtime window above)
-        from ui.widgets.circadian_section import CircadianSection
-
-        self._circadian_section = CircadianSection()
-        inner_layout.addWidget(self._circadian_section)
-
-    def _apply_theme(self, is_dark: bool) -> None:
-        from ui.theme import ThemeManager
-        tm = ThemeManager.instance()
-        title_col = tm.color("text_main")
-        sub_col = tm.color("text_sub")
-        card_bg = tm.color("surface_elevated") if not is_dark else "#1E1E20"
-        border_col = tm.color("border")
-        divider_col = "rgba(0, 0, 0, 0.06)" if not is_dark else "rgba(255, 255, 255, 0.06)"
-        media_bg = "rgba(0, 0, 0, 0.03)" if not is_dark else "rgba(255, 255, 255, 0.03)"
-        preset_bg = "rgba(0, 0, 0, 0.04)" if not is_dark else "rgba(255, 255, 255, 0.04)"
-        input_bg = tm.color("input_bg")
-        input_border = tm.color("input_border")
-        accent = tm.color("accent")
-
-        self.setStyleSheet(f"""
-            QLabel#page_title {{ font-size: 26px; font-weight: 700; color: {title_col}; letter-spacing: -0.5px; }}
-            QLabel#page_subtitle {{ font-size: 14px; font-weight: 500; color: {sub_col}; }}
-            QLabel#section_header {{ font-size: 11px; font-weight: 700; color: {accent}; letter-spacing: 1.5px; text-transform: uppercase; }}
-            QLabel#setting_label {{ font-weight: 700; color: {title_col}; font-size: 14px; }}
-            QLabel#setting_desc {{ color: {sub_col}; font-size: 12px; }}
-            QLabel#media_lbl {{
-                background: {media_bg};
-                border: 1px solid {border_col};
-                border-radius: 8px;
-                padding: 10px 14px;
-                color: {sub_col};
-                font-size: 12px;
-                font-weight: 600;
-            }}
-            QLabel#safety_item_title {{
-                color: {title_col};
-                font-size: 13px;
-                font-weight: 700;
-            }}
-            QLabel#safety_item_body {{
-                color: {sub_col};
-                font-size: 12px;
-                line-height: 1.4;
-            }}
-            QFrame#v2_card {{
-                background-color: {card_bg};
-                border: 1px solid {border_col};
-                border-radius: 14px;
-            }}
-            QFrame#card_divider {{
-                background: {divider_col};
-            }}
-            QPushButton#preset_btn {{
-                background: {preset_bg};
-                color: {sub_col};
-                border: 1px solid {border_col};
-                border-radius: 6px;
-                padding: 4px 12px;
-                font-size: 12px;
-                font-weight: 600;
-            }}
-            QPushButton#preset_btn:hover {{
-                background: rgba(10, 132, 255, 0.14);
-                color: {accent};
-                border-color: rgba(10, 132, 255, 0.35);
-            }}
-            QPushButton#test_action_btn {{
-                background: rgba(255, 159, 10, 0.10);
-                color: #FF9F0A;
-                border: 1px solid rgba(255, 159, 10, 0.30);
-                border-radius: 8px;
-                padding: 8px 18px;
-                font-size: 13px;
-                font-weight: 700;
-            }}
-            QPushButton#test_action_btn:hover {{
-                background: rgba(255, 159, 10, 0.18);
-                border-color: rgba(255, 159, 10, 0.45);
-            }}
-            QComboBox, QSpinBox {{
-                background-color: {input_bg};
-                border: 1px solid {input_border};
-                border-radius: 8px;
-                padding: 6px 10px;
-                color: {title_col};
-                font-size: 13px;
-                font-weight: 600;
-            }}
-            QComboBox:hover, QSpinBox:hover {{
-                border: 1px solid {accent};
-            }}
-            QComboBox::drop-down, QSpinBox::up-button, QSpinBox::down-button {{
-                border: none;
-                background: transparent;
-            }}
-        """)
-        self.on_data_changed()
+    # ── state / settings ──────────────────────────────────────────────────
 
     def _on_sg_toggle(self, checked: bool) -> None:
         if self._sleepguard:
@@ -433,16 +467,12 @@ class SleepGuardPage(QWidget):
         from core.logger import logger
         from ui.widgets.countdown_dialog import ShutdownCountdownDialog
 
-        # Determine configured action
         action = "lock"
-        if hasattr(self, "_action_combo") and self._action_combo.currentData():
+        if self._action_combo.currentData():
             action = self._action_combo.currentData()
-        elif self._sleepguard and hasattr(self._sleepguard, "_settings"):
+        elif self._sleepguard:
             action = getattr(self._sleepguard._settings, "sleepguard_action", "lock")
 
-        logger.info("[SLEEPGUARD_PAGE] Opening Test Warning preview dialog (action='%s')", action)
-
-        # Close existing test dialog if one is already active
         if getattr(self, "_test_dialog", None) is not None:
             try:
                 self._test_dialog.close()
@@ -450,7 +480,6 @@ class SleepGuardPage(QWidget):
                 pass
             self._test_dialog = None
 
-        # Instantiate dedicated test preview dialog with full 60-second countdown
         parent_window = self.window() if (self.window() and self.window() is not self) else None
         dialog = ShutdownCountdownDialog(
             countdown_seconds=60,
@@ -460,112 +489,272 @@ class SleepGuardPage(QWidget):
         )
         self._test_dialog = dialog
         dialog.finished.connect(lambda: setattr(self, "_test_dialog", None))
-
-        # Start countdown immediately and show non-blocking on the Qt event loop
         dialog.start_countdown()
         dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
-        logger.info("[SLEEPGUARD_PAGE] Test Warning dialog shown immediately (is_test=True, countdown=60s).")
+        logger.info("[SLEEPGUARD_PAGE] Test warning preview opened.")
 
     def on_data_changed(self) -> None:
-        enabled = self._sleepguard.is_enabled if self._sleepguard else False
-        act = self._sleepguard._settings.sleepguard_action if self._sleepguard else "lock"
-        timeout_m = self._sleepguard._settings.idle_timeout_minutes if self._sleepguard else 30
+        sg = self._sleepguard
+        enabled = sg.is_enabled if sg else False
+        action = getattr(getattr(sg, "_settings", None), "sleepguard_action", "lock") if sg else "lock"
+        timeout_m = getattr(getattr(sg, "_settings", None), "idle_timeout_minutes", 30) if sg else 30
+        grace_m = getattr(getattr(sg, "_settings", None), "media_grace_minutes", 5) if sg else 5
 
-        act_title = act.title()
+        self._hero.setProperty("state", "on" if enabled else "off")
+        self._hero.style().unpolish(self._hero)
+        self._hero.style().polish(self._hero)
 
         if enabled:
-            self._status_card.setStyleSheet("""
-                QFrame#status_card {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #061A14, stop:0.5 #0B221A, stop:1 #0A1B16);
-                    border: 1px solid rgba(10, 132, 255, 0.35);
-                    border-radius: 14px;
-                }
-                QLabel#status_heading {
-                    color: #0A84FF;
-                    font-size: 15px;
-                    font-weight: 700;
-                    letter-spacing: 0.8px;
-                }
-                QLabel#status_desc {
-                    color: #A1A1A6;
-                    font-size: 13px;
-                }
-            """)
-            self._status_heading.setText("● SLEEPGUARD ARMED & MONITORING")
-            self._status_desc.setText(
-                f"Your PC will automatically execute '{act_title}' after {timeout_m} minutes of uninterrupted inactivity."
+            self._status_kicker.setText("PROTECTION ACTIVE")
+            self._status_heading.setText("SleepGuard is watching for real inactivity")
+            self._status_detail.setText(
+                f"After {timeout_m} minutes without input, SleepGuard warns before "
+                f"'{action.title()}'. Playback, lectures, and notes hold the timer."
             )
+            self._state_chip.setText("Monitoring")
+            self._state_chip.setProperty("state", "active")
         else:
-            self._status_card.setStyleSheet("""
-                QFrame#status_card {
-                    background: #1E1E20;
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                    border-radius: 14px;
-                }
-                QLabel#status_heading {
-                    color: #6E6E73;
-                    font-size: 16px;
-                    font-weight: 700;
-                    letter-spacing: 0.5px;
-                }
-                QLabel#status_desc {
-                    color: #6E6E73;
-                    font-size: 13px;
-                }
-            """)
-            self._status_heading.setText("○ SLEEPGUARD STANDBY / DISABLED")
-            self._status_desc.setText(
-                "Automatic power transitions on extended inactivity are currently disabled. Toggle to arm."
+            self._status_kicker.setText("PROTECTION PAUSED")
+            self._status_heading.setText("SleepGuard is not enforcing power actions")
+            self._status_detail.setText(
+                "Protection is paused. Enable it to resume media-aware inactivity handling."
             )
+            self._state_chip.setText("Paused")
+            self._state_chip.setProperty("state", "paused")
 
-        if self._sleepguard:
+        self._state_chip.style().unpolish(self._state_chip)
+        self._state_chip.style().polish(self._state_chip)
+
+        if sg:
             self._sg_check.blockSignals(True)
-            self._sg_check.setChecked(self._sleepguard.is_enabled)
+            self._sg_check.setChecked(enabled)
             self._sg_check.blockSignals(False)
-
-            idx = self._action_combo.findData(act)
+            idx = self._action_combo.findData(action)
             if idx >= 0:
                 self._action_combo.blockSignals(True)
                 self._action_combo.setCurrentIndex(idx)
                 self._action_combo.blockSignals(False)
-
             self._timeout_spin.blockSignals(True)
             self._timeout_spin.setValue(timeout_m)
             self._timeout_spin.blockSignals(False)
-
-            grace_m = getattr(self._sleepguard._settings, "media_grace_minutes", 5) if (self._sleepguard and hasattr(self._sleepguard, "_settings")) else 5
             self._grace_spin.blockSignals(True)
             self._grace_spin.setValue(grace_m)
             self._grace_spin.blockSignals(False)
 
-            media = self._sleepguard.current_media
-            if media and media.is_playing:
-                self._media_lbl.setText(
-                    f"\u25cf Media Playback Active: {media.display_name}\n"
-                    "SleepGuard continues monitoring inactivity while media plays "
-                    "and allows one short grace period before warning."
+        guard_active = bool(sg and sg.media_guard_active)
+        self._guard_chip.setText("Holding power action" if guard_active else "Media guard ready")
+        self._guard_chip.setProperty("state", "hold" if guard_active else "ready")
+        self._guard_chip.style().unpolish(self._guard_chip)
+        self._guard_chip.style().polish(self._guard_chip)
+
+        # Media dot indicator
+        self._media_dot.setProperty("active", "true" if guard_active else "false")
+        self._media_dot.style().unpolish(self._media_dot)
+        self._media_dot.style().polish(self._media_dot)
+
+        if sg:
+            label = sg.media_guard_label
+            self._media_label.setText(label)
+            if guard_active:
+                self._media_detail.setText(
+                    "Power actions are suppressed while this session is active."
                 )
-                self._media_lbl.setStyleSheet("""
-                    background-color: rgba(10, 132, 255, 0.12);
-                    color: #0A84FF;
-                    border: 1px solid rgba(10, 132, 255, 0.32);
-                    border-radius: 10px;
-                    font-size: 12px;
-                    font-weight: 700;
-                    padding: 12px 16px;
-                """)
             else:
-                self._media_lbl.setText("○ Media Playback Detection: Idle / Not playing")
-                self._media_lbl.setStyleSheet("""
-                    background-color: rgba(255, 255, 255, 0.03);
-                    color: #A1A1A6;
-                    border: 1px solid rgba(255, 255, 255, 0.07);
-                    border-radius: 10px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    padding: 12px 16px;
-                """)
+                self._media_detail.setText(
+                    f"No active hold. After {grace_m} min of post-media grace, the warning may appear."
+                )
+            state = sg.current_state.value.replace("_", " ").title()
+            self._state_value.setText(state)
+            idle_s = get_idle_seconds()
+            if idle_s < 5:
+                self._idle_value.setText("Active now")
+            else:
+                self._idle_value.setText(f"Idle {int(idle_s // 60)}m {int(idle_s % 60):02d}s")
+        else:
+            self._media_label.setText("SleepGuard controller not connected")
+            self._media_detail.setText("Open Settings to configure protection.")
+            self._state_value.setText("Unavailable")
+            self._idle_value.setText("—")
+
+        self._action_chip.setText(action.title())
+        self._threshold_chip.setText(f"{timeout_m} min idle")
+
+    # ── theme ─────────────────────────────────────────────────────────────
+
+    def _apply_theme(self, is_dark: bool) -> None:
+        tm = ThemeManager.instance()
+        text = tm.color("text_main")
+        sub = tm.color("text_sub")
+        muted = tm.color("text_muted")
+        border = tm.color("border")
+        accent = tm.color("accent")
+
+        # Semantic chip colours
+        green_bg   = "rgba(52,199,89,0.14)"   if is_dark else "rgba(52,199,89,0.10)"
+        green_fg   = "#34C759"                 if is_dark else "#1E8742"
+        green_bd   = "rgba(52,199,89,0.35)"   if is_dark else "rgba(52,199,89,0.30)"
+        amber_bg   = "rgba(255,159,10,0.14)"  if is_dark else "rgba(255,149,0,0.10)"
+        amber_fg   = "#FF9F0A"                 if is_dark else "#B85E00"
+        amber_bd   = "rgba(255,159,10,0.35)"  if is_dark else "rgba(255,149,0,0.30)"
+
+        self.setStyleSheet(f"""
+            /* ── Page header ─────────────────────────────────────────────── */
+            QLabel#page_title      {{ font-size: 26px; font-weight: 700; color: {text}; letter-spacing: -0.5px; }}
+            QLabel#page_subtitle   {{ font-size: 13px; color: {sub}; }}
+            QLabel#sg_eyebrow      {{ color: {tm.color('accent_tint_text')}; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; }}
+
+            /* Pill badges in header */
+            QLabel#sg_chip {{
+                background: {tm.color('surface')};
+                border: 1px solid {border};
+                border-radius: 999px;
+                color: {sub};
+                padding: 5px 13px;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.3px;
+            }}
+
+            /* ── Section eyebrow ─────────────────────────────────────────── */
+            QLabel#sg_section_eyebrow {{
+                color: {muted};
+                font-size: 9px;
+                font-weight: 700;
+                letter-spacing: 1.8px;
+                margin-bottom: 2px;
+            }}
+
+            /* ── Hero card ───────────────────────────────────────────────── */
+            QFrame#sg_hero {{
+                background: {tm.color('surface_elevated')};
+                border: 1px solid {border};
+                border-radius: 18px;
+            }}
+            QFrame#sg_hero[state="on"]  {{ border-color: {tm.color('accent_tint_border')}; }}
+            QFrame#sg_hero[state="off"] {{ border-color: {border}; }}
+
+            QLabel#sg_kicker {{
+                color: {accent};
+                font-size: 9px;
+                font-weight: 700;
+                letter-spacing: 1.6px;
+            }}
+            QLabel#sg_hero_title {{
+                color: {text};
+                font-size: 22px;
+                font-weight: 700;
+                letter-spacing: -0.3px;
+            }}
+            QLabel#sg_hero_subtitle {{
+                color: {sub};
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QLabel#sg_hero_desc  {{ color: {muted}; font-size: 11px; }}
+            QLabel#sg_toggle_label {{
+                color: {sub};
+                font-size: 11px;
+                font-weight: 600;
+            }}
+
+            /* Status chips inside hero */
+            QLabel#sg_state_chip {{
+                background: {tm.color('surface_secondary')};
+                border: 1px solid {border};
+                border-radius: 999px;
+                color: {muted};
+                padding: 4px 12px;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.2px;
+            }}
+            QLabel#sg_state_chip[state="active"] {{
+                color: {green_fg};
+                border-color: {green_bd};
+                background: {green_bg};
+            }}
+            QLabel#sg_state_chip[state="hold"] {{
+                color: {amber_fg};
+                border-color: {amber_bd};
+                background: {amber_bg};
+            }}
+            QLabel#sg_state_chip[state="paused"] {{
+                color: {muted};
+                border-color: {border};
+                background: {tm.color('surface_secondary')};
+            }}
+
+            /* ── Content cards ───────────────────────────────────────────── */
+            QFrame#sg_card {{
+                background: {tm.color('surface')};
+                border: 1px solid {border};
+                border-radius: 14px;
+            }}
+            QLabel#sg_card_title {{ color: {text}; font-size: 14px; font-weight: 700; }}
+            QLabel#sg_card_desc  {{ color: {sub}; font-size: 11px; }}
+
+            /* ── Activity card ───────────────────────────────────────────── */
+            QLabel#sg_media_dot {{
+                border-radius: 5px;
+                background: {muted};
+            }}
+            QLabel#sg_media_dot[active="true"] {{
+                background: {green_fg};
+            }}
+            QLabel#sg_media_value  {{ color: {text}; font-size: 15px; font-weight: 700; }}
+            QLabel#sg_media_detail {{ color: {sub}; font-size: 11px; }}
+            QLabel#sg_meta_value   {{ color: {muted}; font-size: 10px; font-weight: 600; }}
+
+            /* ── Media guard explainer ───────────────────────────────────── */
+            QLabel#sg_check_title {{ color: {text}; font-size: 12px; font-weight: 700; }}
+            QLabel#sg_check_body  {{ color: {sub}; font-size: 11px; }}
+
+            /* ── Config fields ───────────────────────────────────────────── */
+            QLabel#sg_field_label {{ color: {text}; font-size: 12px; font-weight: 700; }}
+            QLabel#sg_field_desc  {{ color: {muted}; font-size: 10px; }}
+            QLabel#sg_policy {{
+                color: {sub};
+                background: {tm.color('surface_secondary')};
+                border: 1px solid {border};
+                border-radius: 10px;
+                padding: 10px 14px;
+                font-size: 11px;
+            }}
+            QFrame#sg_divider {{ background: {border}; }}
+
+            QPushButton#sg_preset_btn {{
+                background: transparent;
+                border: 1px solid {border};
+                border-radius: 999px;
+                color: {sub};
+                padding: 4px 10px;
+                font-size: 10px;
+                font-weight: 600;
+            }}
+            QPushButton#sg_preset_btn:hover {{ color: {text}; border-color: {accent}; }}
+
+            QPushButton#sg_test_btn {{
+                background: {tm.color('accent_tint_bg')};
+                border: 1px solid {tm.color('accent_tint_border')};
+                border-radius: 10px;
+                color: {tm.color('accent_tint_text')};
+                padding: 8px 18px;
+                font-size: 11px;
+                font-weight: 700;
+            }}
+            QPushButton#sg_test_btn:hover {{ background: {tm.color('accent_tint_border')}; }}
+
+            QComboBox, QSpinBox {{
+                background: {tm.color('input_bg')};
+                border: 1px solid {tm.color('input_border')};
+                border-radius: 9px;
+                padding: 6px 9px;
+                color: {text};
+                font-size: 11px;
+                font-weight: 600;
+            }}
+            QComboBox:hover, QSpinBox:hover {{ border-color: {accent}; }}
+        """)

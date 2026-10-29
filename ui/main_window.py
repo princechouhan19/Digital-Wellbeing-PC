@@ -57,10 +57,11 @@ class MainWindow(QMainWindow):
         10: "_screen_time_details_page",
         11: "_app_details_page",
         12: "_websites_page",
+        13: "_tasks_page",
     }
     # These pages populate themselves in __init__; calling on_data_changed()
     # immediately after construction would double their initial queries.
-    _SELF_REFRESHING_PAGES = frozenset({0, 1, 5, 9, 12})
+    _SELF_REFRESHING_PAGES = frozenset({0, 1, 5, 9, 12, 13})
 
     def __init__(self, tracker: TrackingManager, sleepguard: Optional[SleepGuardController] = None, protection_manager=None, parent=None) -> None:
         super().__init__(parent)
@@ -93,6 +94,10 @@ class MainWindow(QMainWindow):
         self._onboarding_active = False
         self._apply_density()
 
+        # Initialize Ambient Desktop Notch (Nectar style)
+        self._ambient_notch = None
+        QTimer.singleShot(500, self._init_ambient_notch)
+
         # Trigger initial Home page load without blocking UI layout
         QTimer.singleShot(0, self._refresh_current_page)
         QTimer.singleShot(350, self._check_first_run_onboarding)
@@ -101,6 +106,25 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if hasattr(self, "_sm") and not self._sm.onboarding_completed:
             QTimer.singleShot(350, self._check_first_run_onboarding)
+
+    def _init_ambient_notch(self) -> None:
+        try:
+            if not self._sm.get_bool("ambient_notch_enabled", True):
+                return
+            if getattr(self, "_ambient_notch", None) is None:
+                from ui.widgets.ambient_notch import AmbientNotch
+                self._ambient_notch = AmbientNotch()
+                self._ambient_notch.show()
+                # Connect task completion back to tasks page refresh if loaded
+                self._ambient_notch.task_completed.connect(self._on_notch_task_completed)
+        except Exception as e:
+            from core.logger import logger
+            logger.warning("Failed to initialize AmbientNotch: %s", e)
+
+    def _on_notch_task_completed(self, task_id: int) -> None:
+        tasks_page = self.get_loaded_page("_tasks_page")
+        if tasks_page and hasattr(tasks_page, "refresh"):
+            tasks_page.refresh()
 
     def _check_first_run_onboarding(self) -> None:
         """Launch the first-run onboarding wizard once, on the visible main window."""
@@ -333,6 +357,9 @@ class MainWindow(QMainWindow):
         if index == 12:
             from ui.pages.websites import WebsitesPage
             return WebsitesPage(protection_manager=self._protection_manager)
+        if index == 13:
+            from ui.pages.tasks import TasksPage
+            return TasksPage(protection_manager=self._protection_manager)
         raise IndexError(f"Unknown page index {index}")
 
     def _wire_page(self, index: int, page: QWidget) -> None:
@@ -448,6 +475,10 @@ class MainWindow(QMainWindow):
     @property
     def _websites_page(self) -> QWidget:
         return self._ensure_page(12)
+
+    @property
+    def _tasks_page(self) -> QWidget:
+        return self._ensure_page(13)
 
     def _setup_shortcuts(self) -> None:
         self._dev_shortcut = QShortcut(QKeySequence("Ctrl+Shift+D"), self)
@@ -817,10 +848,12 @@ class MainWindow(QMainWindow):
         nav_layout.addSpacing(10)
         nav_layout.addWidget(_make_section_hdr("CONTROL"))
         self._focus_btn = _make_nav_btn("Focus", "focus", 2)
+        self._tasks_btn = _make_nav_btn("Smart Tasks", "sparkles", 13)
         self._timer_btn = _make_nav_btn("App Timer", "clock", 4)
         self._locker_btn = _make_nav_btn("App Locker", "lock", 3)
         self._sleepguard_btn = _make_nav_btn("SleepGuard", "sleepguard", 6)
         nav_layout.addWidget(self._focus_btn)
+        nav_layout.addWidget(self._tasks_btn)
         nav_layout.addWidget(self._timer_btn)
         nav_layout.addWidget(self._locker_btn)
         nav_layout.addWidget(self._sleepguard_btn)
@@ -856,6 +889,7 @@ class MainWindow(QMainWindow):
             8: self._settings_btn,
             9: self._debug_btn,
             12: self._websites_btn,
+            13: self._tasks_btn,
         }
 
         # Compatible list of nav buttons
@@ -864,6 +898,7 @@ class MainWindow(QMainWindow):
             self._activity_btn,
             self._websites_btn,
             self._focus_btn,
+            self._tasks_btn,
             self._locker_btn,
             self._timer_btn,
             self._insights_btn,

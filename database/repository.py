@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import sys
 import threading
@@ -1237,4 +1238,137 @@ class Repository:
         except Exception as e:
             logger.error("clear_locked_apps failed: %s", e)
             return False
+
+    # ─── Smart Tasks ─────────────────────────────────────────────────────────
+
+    def get_smart_tasks(self, status: Optional[str] = None) -> List[dict]:
+        """Fetch all tasks optionally filtered by status."""
+        try:
+            with self._cursor() as cur:
+                if status:
+                    cur.execute(
+                        "SELECT * FROM smart_tasks WHERE status = ? ORDER BY priority ASC, created_at DESC",
+                        (status,),
+                    )
+                else:
+                    cur.execute(
+                        "SELECT * FROM smart_tasks ORDER BY CASE status WHEN 'in_progress' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END, priority ASC, created_at DESC"
+                    )
+                rows = cur.fetchall()
+                tasks = []
+                for r in rows:
+                    t = dict(r)
+                    try:
+                        t["target_processes"] = json.loads(t.get("target_processes") or "[]")
+                    except Exception:
+                        t["target_processes"] = []
+                    try:
+                        t["target_domains"] = json.loads(t.get("target_domains") or "[]")
+                    except Exception:
+                        t["target_domains"] = []
+                    tasks.append(t)
+                return tasks
+        except Exception as e:
+            logger.error("get_smart_tasks failed: %s", e)
+            return []
+
+    def get_smart_task(self, task_id: int) -> Optional[dict]:
+        """Fetch a single task by ID."""
+        try:
+            with self._cursor() as cur:
+                cur.execute("SELECT * FROM smart_tasks WHERE id = ?", (int(task_id),))
+                row = cur.fetchone()
+                if not row:
+                    return None
+                t = dict(row)
+                try:
+                    t["target_processes"] = json.loads(t.get("target_processes") or "[]")
+                except Exception:
+                    t["target_processes"] = []
+                try:
+                    t["target_domains"] = json.loads(t.get("target_domains") or "[]")
+                except Exception:
+                    t["target_domains"] = []
+                return t
+        except Exception as e:
+            logger.error("get_smart_task failed: %s", e)
+            return None
+
+    def add_smart_task(
+        self,
+        title: str,
+        description: str = "",
+        priority: int = 2,
+        estimated_minutes: int = 25,
+        target_processes: Optional[List[str]] = None,
+        target_domains: Optional[List[str]] = None,
+        due_date: Optional[str] = None,
+    ) -> int:
+        """Insert a new smart task and return its ID."""
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            procs_json = json.dumps(target_processes or [])
+            doms_json = json.dumps(target_domains or [])
+            with self._cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO smart_tasks (
+                        title, description, priority, estimated_minutes,
+                        actual_active_s, status, target_processes,
+                        target_domains, due_date, created_at
+                    ) VALUES (?, ?, ?, ?, 0.0, 'pending', ?, ?, ?, ?)
+                    """,
+                    (
+                        title.strip(),
+                        description.strip(),
+                        int(priority),
+                        int(estimated_minutes),
+                        procs_json,
+                        doms_json,
+                        due_date,
+                        now_iso,
+                    ),
+                )
+                return int(cur.lastrowid or 0)
+        except Exception as e:
+            logger.error("add_smart_task failed: %s", e)
+            return 0
+
+    def update_smart_task_status(self, task_id: int, status: str) -> bool:
+        """Update task status ('pending', 'in_progress', 'completed')."""
+        try:
+            completed_at = datetime.now(timezone.utc).isoformat() if status == "completed" else None
+            with self._cursor() as cur:
+                cur.execute(
+                    "UPDATE smart_tasks SET status = ?, completed_at = coalesce(?, completed_at) WHERE id = ?",
+                    (status, completed_at, int(task_id)),
+                )
+            return True
+        except Exception as e:
+            logger.error("update_smart_task_status failed: %s", e)
+            return False
+
+    def add_smart_task_active_time(self, task_id: int, duration_s: float) -> bool:
+        """Accumulate active time spent on a task."""
+        try:
+            with self._cursor() as cur:
+                cur.execute(
+                    "UPDATE smart_tasks SET actual_active_s = actual_active_s + ? WHERE id = ?",
+                    (float(duration_s), int(task_id)),
+                )
+            return True
+        except Exception as e:
+            logger.error("add_smart_task_active_time failed: %s", e)
+            return False
+
+    def delete_smart_task(self, task_id: int) -> bool:
+        """Delete a smart task by ID."""
+        try:
+            with self._cursor() as cur:
+                cur.execute("DELETE FROM smart_tasks WHERE id = ?", (int(task_id),))
+            return True
+        except Exception as e:
+            logger.error("delete_smart_task failed: %s", e)
+            return False
+
 

@@ -8,14 +8,14 @@
 
 Digital Wellbeing tracks your screen time, protects your attention, and filters the web — all locally, with an Apple-grade interface inspired by macOS Sequoia.
 
-[![Release](https://img.shields.io/badge/Release-v4.3.2--Momentum-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
+[![Release](https://img.shields.io/badge/Release-v4.4.0-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-30D158.svg?style=flat-square)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%20%28Qt%29-BF5AF2.svg?style=flat-square)](https://www.qt.io/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20x64-007AFF.svg?style=flat-square)](https://www.microsoft.com/windows)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-30D158.svg?style=flat-square)](PRIVACY.md)
 [![License](https://img.shields.io/badge/License-MIT-FF9F0A.svg?style=flat-square)](LICENSE)
 
-[**Download Installer (v4.3.2)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
+[**Download Installer (v4.4.0)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
 
 </div>
 
@@ -33,59 +33,100 @@ Tracking runs quietly in the background with negligible CPU footprint; the **Aur
 
 ## Screenshots & Interface Showcase
 
-### Dashboard — Activity Rings & Real-time Trends
+### Desktop Dynamic Notch & Smart Tasks
 
-| Dark Mode Dashboard | Light Mode Dashboard |
+| Smart To-Do List & Process Linking | Ambient Dynamic Desktop Notch |
 | :---: | :---: |
-| <img src="docs/screenshots/dark_dashboard.png" alt="Dark Mode Dashboard" width="100%" /> | <img src="docs/screenshots/light_dashboard.png" alt="Light Mode Dashboard" width="100%" /> |
-| *Real-time category donut ring, top metrics, hourly curve & timeline* | *Light theme appearance with crisp typography and Apple HIG palette* |
+| <img src="docs/screenshots/dark_tasks.png" alt="Smart Tasks" width="100%" /> | <img src="docs/screenshots/ambient_notch.png" alt="Ambient Desktop Notch" width="100%" /> |
+| *Smart task queue directly linked to target apps, duration budgets, and one-click Focus* | *Nectar-inspired screen-edge dynamic pill with spring expand-on-hover & live focus timing* |
 
 ---
 
-### Attention Protection & Security
+### Dashboard & Focus Cockpit
 
-| Focus Mode & Distraction Blocker | App Locker & Windows Hello |
+| Real-time Activity Rings | Focus Mode & Attention Blocker |
 | :---: | :---: |
-| <img src="docs/screenshots/dark_focus.png" alt="Focus Mode" width="100%" /> | <img src="docs/screenshots/dark_app_locker.png" alt="App Locker" width="100%" /> |
-| *Preset allowlists (Study, Work, Deep Focus) with tab-level URL closing* | *Biometric face/fingerprint authentication via native Windows Hello* |
+| <img src="docs/screenshots/dark_dashboard.png" alt="Dark Mode Dashboard" width="100%" /> | <img src="docs/screenshots/dark_focus.png" alt="Focus Mode" width="100%" /> |
+| *Real-time category donut ring, top metrics, hourly curve & timeline* | *Pill-rounded cockpit, preset allowlists, tab-level URL closing, and safe lockout* |
 
 ---
 
-### Boundaries & Content Filtering
+### Deep Analytics & Historical Navigation
 
-| Unified App & Website Timers | SafeBrowse Content Shield |
+| Interactive Period Insights | Activity Trends with Date Navigation |
 | :---: | :---: |
-| <img src="docs/screenshots/dark_app_timer.png" alt="App Timers" width="100%" /> | <img src="docs/screenshots/safebrowse_dark.png" alt="SafeBrowse Shield" width="100%" /> |
-| *Per-application & per-domain daily quotas with gentle 80% warnings* | *DNS-level adult content filter powered by StevenBlack open-source hosts* |
+| <img src="docs/screenshots/dark_insights.png" alt="Insights" width="100%" /> | <img src="docs/screenshots/dark_activity.png" alt="Activity Trends" width="100%" /> |
+| *Weekly, monthly, and yearly switcher with automated period comparisons and trend scoring* | *Hourly application logs with interactive ‹ [Date] › historical day navigation* |
 
 ---
 
-### Deep Analytics & SleepGuard
+### SleepGuard & Website History
 
-| Activity Trends & Hourly Breakdown | Insights & Productivity Analytics |
+| Redesigned SleepGuard Bedtime Hero | Websites Tracker with Date Navigation |
 | :---: | :---: |
-| <img src="docs/screenshots/dark_activity.png" alt="Activity Trends" width="100%" /> | <img src="docs/screenshots/dark_insights.png" alt="Insights" width="100%" /> |
-| *Granular hourly application logs and category distributions* | *Weekly habit trends, productivity scoring, and focus metrics* |
+| <img src="docs/screenshots/dark_sleepguard.png" alt="SleepGuard" width="100%" /> | <img src="docs/screenshots/dark_websites.png" alt="Websites Tracker" width="100%" /> |
+| *Modern hero layout with live media/lecture detection preventing unwanted bedtime sleep* | *Domain-level web tracking with interactive ‹ [Date] › historical browsing controls* |
 
 ---
 
-### Wellbeing & Onboarding
+### Parental Controls & Diagnostics
 
-| SleepGuard Bedtime Protection | 5-Step First-Run Onboarding |
+| Parental Controls & Productivity Settings | Session Logs & Live System Diagnostics |
 | :---: | :---: |
-| <img src="docs/screenshots/dark_sleepguard.png" alt="SleepGuard" width="100%" /> | <img src="docs/screenshots/onboarding_dark.png" alt="Onboarding Wizard" width="100%" /> |
-| *Detects late-night inactivity and safely locks or sleeps the PC* | *Interactive first-run welcome personalizing goals and theme in 60s* |
+| <img src="docs/screenshots/dark_settings.png" alt="Settings" width="100%" /> | <img src="docs/screenshots/dark_session_logs.png" alt="Session Logs" width="100%" /> |
+| *Block short-form doomscrolling (YT Shorts, Reels, TikTok) and esports/gaming (BGMI, Free Fire)* | *Professional system diagnostics panel monitoring event hooks, ticks, and memory with zero emojis* |
+
+---
+
+### Security & Boundaries
+
+| App Locker & Windows Hello | SafeBrowse Content Shield |
+| :---: | :---: |
+| <img src="docs/screenshots/dark_app_locker.png" alt="App Locker" width="100%" /> | <img src="docs/screenshots/safebrowse_dark.png" alt="SafeBrowse Shield" width="100%" /> |
+| *Biometric face/fingerprint authentication via native Windows Hello* | *DNS-level adult content filter powered by StevenBlack open-source hosts* |
 
 ---
 
 ## Key Features
 
-### 1. Aurora Design System
+### 1. Smart To-Do List Integration
+- **Process-Linked Task Management**: Bind tasks directly to desktop applications (`code.exe`, `cursor.exe`, `figma.exe`, `word.exe`).
+- **Active Time Calibration**: Digital Wellbeing tracks real active foreground seconds inside linked applications, accurately comparing actual work time against estimated task durations.
+- **One-Click Focus**: Hit the focus action on any task to instantly initiate an attention-locked Focus session centered around that task's tools.
+- **Priority & Status Tracking**: Categorize tasks by priority (*Low*, *Medium*, *High*, *Urgent*) and progress (*Pending*, *In Progress*, *Completed*).
+
+### 2. Ambient Desktop Dynamic Notch (Nectar-Inspired)
+- **Fluid Screen-Edge Pill**: Inspired by [Nectar](https://github.com/kua8/Nectar) / macOS Dynamic Island, a minimalist floating pill (`260x32px`) rests seamlessly at the top edge of your primary screen.
+- **Spring Expand-on-Hover**: Hovering smoothly expands the island into an interactive command cockpit (`440x200px`) using Apple-style spring animations.
+- **Live Focus & Task Visibility**: Features live session countdowns, active task titles, target tool tags, and a pulsing status dot.
+- **Unobtrusive Media Awareness**: Automatically passes mouse events and hides during fullscreen video playback and games.
+
+### 3. Intelligent SleepGuard with Media & Lecture Awareness
+- **Hero Card Redesign**: Complete UI visual overhaul with semantic status indicators, circadian warmth controls, and instant safety test modals.
+- **Media Player & Video Detection**: Avoids false-positive sleep triggers while enjoying movies or videos in VLC, MPV, MPC, PotPlayer, Plex, or streaming platforms (YouTube, Netflix, Prime Video).
+- **Lecture & Study Protection**: Detects online lectures (Coursera, edX, Udemy, Khan Academy), PDF viewers (Acrobat, Sumatra), and note-taking suites (OneNote, Obsidian, Notion) so study sessions are never interrupted.
+- **Circadian Display Warm-Up**: Reversible per-monitor gamma ramps shift color temperature toward warm targets before bedtime.
+
+### 4. Parental Controls & Doomscrolling Guard
+- **Anti-Doomscrolling Shield**: One-click toggles block addicting short-form feeds including YouTube Shorts (`youtube.com/shorts`), Instagram Reels (`instagram.com/reels`), and TikTok.
+- **Battle Royale & Gaming Blocker**: Restrict high-distraction games including Free Fire, PUBG, BGMI, Valorant, CS2, Fortnite, and Roblox.
+- **Custom Content Blocker**: Easily blacklist arbitrary distracting domains, games, or keywords.
+- **Productivity Defaults**: Enforce daily screen time targets and automatically engage Focus on system startup.
+
+### 5. Interactive Period Insights & Historical Navigation
+- **Interactive Period Analytics**: Switch smoothly between Weekly, Monthly, and Yearly aggregates with automatic period-over-period comparisons (`VS PREVIOUS PERIOD`, `PEAK DAY`, and productivity trend scores).
+- **Historical Date Browsing**: Intuitive `‹` `[Date]` `›` calendar controls on both the **Activity** and **Websites** pages enable easy retrospective analysis of past days.
+
+### 6. Clean Session Diagnostics & Dev Logs
+- **Professional System Diagnostics**: Overhauled Dev Logs page into a clean "Session Logs" surface displaying live WinEvent hook latency, wakeup events, database flush ticks, and memory metrics.
+- **Strict Copywriting**: Zero emojis and concise technical diagnostics for clean operational debugging.
+
+### 7. Aurora Design System
 - Built to Apple Human Interface Guidelines (HIG) standards: SF-metric typography (bundled Inter & Inter Display), refined materials, fluid spring animations, and Apple system color tokens (`#0A84FF` / `#007AFF`).
 - Seamless support for Dark Mode, Light Mode, and automatic Windows System appearance matching.
 - Haptics-lite sound feedback utilizing native Windows system audio cues.
 
-### 2. Intelligent Screen Time Tracking
+### 8. Intelligent Screen Time Tracking
 - Real-time foreground application tracking (process binary, path, and window title) driven by `SetWinEventHook` foreground/title notifications instead of a 500 ms polling loop.
 - Wraparound-safe idle detection via `GetLastInputInfo`.
 - Cached UI Automation fallback for active browser tab domain extraction across **Chrome**, **Edge**, **Brave**, **Firefox**, **Opera**, and **Vivaldi**.
@@ -93,49 +134,38 @@ Tracking runs quietly in the background with negligible CPU footprint; the **Aur
 - Detection of native Win32 power management events (Lock, Unlock, Sleep, Resume, Shutdown).
 - Lazy Qt page construction keeps cold startup around 0.2 s; see [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) for measured numbers.
 
-### 3. SafeBrowse Content Shield
+### 9. SafeBrowse Content Shield
 - System-wide adult content filter blocking over 100,000+ adult and malicious domains at the DNS resolution layer.
 - Powered by open-source, community-curated blocklists (**StevenBlack/hosts**, MIT License).
 - Ships with an offline seed list enabling immediate filtering from first launch.
 - Automatic weekly background synchronization with dedicated, atomic hosts-file management (`# DW-SAFEBROWSE`).
 - **Zero packet sniffing or local VPNs:** Functions safely in every browser, normal and private/incognito windows alike.
 
-### 4. Focus Mode & Distraction Blocker
-- Curated presets: *Study*, *Work*, *Movie*, *Deep Focus*, and *Custom*, in a redesigned page with separate mode, session, guardrails, and protection cards.
+### 10. Focus Mode & Distraction Blocker
+- Curated presets: *Study*, *Work*, *Movie*, *Deep Focus*, and *Custom*, with modernized pill-rounded action buttons (`999px`).
 - Strict **Allowlist Mode** (only approved applications run) or **Blocklist Mode** (restricts distracting apps).
-- **Granular sub-path rules** — block `youtube.com/shorts` or `reddit.com/r/all` while allowing `reddit.com/r/programming`. Enforced by an optional loopback-only browser extension bridge; domain blocking still works without it.
-- **Rule packs & portability** — Study / Deep Work / Evening presets plus JSON import/export.
-- Browser tab URL enforcement: automatically closes unauthorized browser tabs during active focus.
+- **Granular sub-path rules** — block `youtube.com/shorts` or `reddit.com/r/all` while allowing `reddit.com/r/programming`.
 - **Recurring Focus schedules** — weekday/time/mode blocks auto-start, and join the remaining block if you open the app late.
-- **Session recap** — after every session see blocked interruptions, fragmentation vs. your baseline, and the best next focus window, with Today/Yesterday/7-day history.
-- **Strict Lockout**: optional non-cancelable sessions with a persisted deadline and best-effort relaunch watchdog. A deliberate **10-second hold + PIN + 15-minute cooldown** emergency exit remains available. The UI clearly states that administrator/Safe Mode termination cannot be prevented.
-- Temporary DNS domain blocking via an isolated hosts section (`# DIGITAL WELLBEING BLOCK`).
+- **Session recap** — after every session see blocked interruptions, fragmentation vs. your baseline, and the best next focus window.
+- **Strict Lockout**: optional non-cancelable sessions with a persisted deadline and emergency exit cooldown.
 
-### 5. Attention Quality
-- **Focus Fragmentation Index** — switches per active hour, charted across the day so fragmented periods are visible.
+### 11. Attention Quality & Flow Analytics
+- **Focus Fragmentation Index** — switches per active hour charted across the day.
 - **Flow Continuity Tracker** — highlights sustained 45+ minute productive runs in programming, writing, and study tools.
 - **Weekly attention report** — 7×24 heatmap, flow streaks, best/worst hours, CSV/PDF export, and clipboard summary.
 - **Real-time nudge** — after 12 switches in 30 minutes, a one-click 10-minute Focus reset appears.
 - **Command palette** — `Ctrl+K` for navigation, Focus starts, rules, schedules, and the weekly report.
 
-### 6. App Locker with Windows Hello
-- Protect sensitive applications (communication suites, banking, private browsers) behind biometric authentication.
+### 12. App Locker with Windows Hello
+- Protect sensitive applications behind biometric authentication.
 - Direct integration with native Windows Hello via WinRT (`UserConsentVerifier`) for instant facial or fingerprint unlock.
 - Salted PBKDF2 / SHA-256 local PIN fallback when biometric hardware is unavailable.
 - Configurable authentication frequencies: *Every Launch*, *5 Minutes*, *15 Minutes*, or *Until Application Closes*.
 
-### 7. Unified App & Website Timers
+### 13. Unified App & Website Timers
 - Configure daily usage quotas for specific software or web domains.
 - Non-intrusive toast notifications when approaching limits (80% warning threshold).
 - Graceful countdown dialogs and hard lockouts when daily time expires.
-
-### 8. SleepGuard
-- Late-night inactivity and burnout detection.
-- Prompts gentle rest reminders and automatically locks the workstation or sleeps the PC if you doze off.
-- **Circadian display warm-up** — reversible per-monitor gamma ramps gradually shift the display from 6500 K to a warm target over the 90 minutes before bedtime, then restore daylight at wake.
-
-### 9. First-Run Onboarding
-- A five-step welcome wizard introducing theme selection, daily goals, and SafeBrowse activation in under 60 seconds.
 
 ---
 
@@ -146,7 +176,8 @@ Digital Wellbeing follows a clean, decoupled architecture:
 ```mermaid
 flowchart TD
     subgraph UI ["Aurora UI Layer (PySide6)"]
-        MW["MainWindow & Sidebar (12 Pages)"]
+        MW["MainWindow & Sidebar (13 Pages)"]
+        NOTCH["Ambient Desktop Notch (Nectar Dynamic Island)"]
         OB["Onboarding Flow (5 Steps)"]
         DS["Aurora Design System & Theme Engine"]
         CW["Custom Widgets & PyQtGraph"]
@@ -207,7 +238,7 @@ For full architectural details, consult the [Architecture Documentation](docs/AR
 ### Standard Windows Installer (Recommended)
 Download and run the installer from the [Releases page](https://digitalwellbeing.vercel.app):
 ```text
-DigitalWellbeingSetup-4.3.2.exe
+DigitalWellbeingSetup-4.4.0.exe
 ```
 
 ### Running from Source
@@ -297,10 +328,12 @@ digital-wellbeing/
 │   ├── idle.py                  # User idle detection via GetLastInputInfo
 │   ├── browser_domain.py        # Active browser tab domain extraction (UI Automation)
 │   ├── categorizer.py           # Process-to-category classification engine
+│   ├── media_awareness.py       # Active video player, lecture & note application detector
 │   ├── sleepguard.py            # Inactivity and late-night rest detector
 │   └── manager.py               # Background TrackingManager coordinator thread
 ├── protection/                  # Focus, limits, SafeBrowse, and access control
 │   ├── focus_manager.py         # Focus session management and allowlist/blocklist rules
+│   ├── content_guard.py         # Doomscrolling & gaming content blocker
 │   ├── app_locker.py            # Biometric & PIN app protection guard
 │   ├── content_blocker.py       # SafeBrowse adult content hosts manager
 │   ├── windows_hello.py         # WinRT UserConsentVerifier biometric integration
@@ -315,8 +348,8 @@ digital-wellbeing/
 │   ├── design_system.py         # Aurora design system tokens, fonts, and metrics
 │   ├── theme.py                 # Dynamic dark/light QSS stylesheets
 │   ├── onboarding.py            # 5-step interactive onboarding experience
-│   ├── pages/                   # 12 application pages (Dashboard, Activity, Focus, etc.)
-│   └── widgets/                 # Reusable Aurora widgets (Charts, Rings, Cards, Dialogs)
+│   ├── pages/                   # 13 application pages (Dashboard, Tasks, Focus, etc.)
+│   └── widgets/                 # Reusable Aurora widgets (Ambient Notch, Rings, Cards)
 ├── notifications/               # Native Windows toast notifications
 │   └── notifier.py              # WinRT / Windows toast notification dispatcher
 └── utils/                       # System helpers, autostart, updater, elevation

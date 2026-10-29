@@ -53,6 +53,7 @@ class WebsitesPage(QWidget):
         self._repo = Repository()
         self._engine = AnalyticsEngine()
         self._time_range: int = 1  # 1 = Today, 7 = 7 Days, 30 = 30 Days
+        self._anchor_date: date = date.today()
         self._selected_browser: str = "*"  # "*" means all browsers combined
         self._search_query: str = ""
         self._cached_websites: list[dict] = []
@@ -83,7 +84,7 @@ class WebsitesPage(QWidget):
         self.refresh()
 
     def _on_live_tick(self) -> None:
-        if self.isVisible():
+        if self.isVisible() and self._anchor_date == date.today():
             self.refresh(is_live=True)
 
     def _setup_ui(self) -> None:
@@ -110,7 +111,7 @@ class WebsitesPage(QWidget):
 
         title = QLabel("Web Activity")
         title.setObjectName("page_title")
-        subtitle = QLabel("Cross-browser website time tracking aggregated across all your browsers.")
+        subtitle = QLabel("Cross-browser website time tracking. Use the date arrows to review earlier periods.")
         subtitle.setObjectName("page_subtitle")
 
         hdr_box.addWidget(title)
@@ -168,6 +169,34 @@ class WebsitesPage(QWidget):
         range_box.addWidget(self._btn_7d)
         range_box.addWidget(self._btn_30d)
         filter_layout.addLayout(range_box)
+
+        # Historical date navigation  ‹ prev · label · next ›
+        nav_box = QHBoxLayout()
+        nav_box.setSpacing(4)
+
+        self._btn_prev = QPushButton("‹")
+        self._btn_prev.setObjectName("date_nav_btn")
+        self._btn_prev.setFixedSize(32, 32)
+        self._btn_prev.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_prev.setToolTip("Previous period")
+        self._btn_prev.clicked.connect(lambda: self._shift_period(-1))
+        nav_box.addWidget(self._btn_prev)
+
+        self._date_label = QLabel("Today")
+        self._date_label.setObjectName("date_nav_label")
+        self._date_label.setMinimumWidth(148)
+        self._date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        nav_box.addWidget(self._date_label)
+
+        self._btn_next = QPushButton("›")
+        self._btn_next.setObjectName("date_nav_btn")
+        self._btn_next.setFixedSize(32, 32)
+        self._btn_next.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_next.setToolTip("Next period")
+        self._btn_next.clicked.connect(lambda: self._shift_period(1))
+        nav_box.addWidget(self._btn_next)
+
+        filter_layout.addLayout(nav_box)
 
         # Browser Dropdown
         self._browser_combo = QComboBox()
@@ -263,7 +292,38 @@ class WebsitesPage(QWidget):
 
     def _on_range_changed(self, range_id: int) -> None:
         self._time_range = range_id
+        if range_id == 1:
+            self._anchor_date = date.today()
         self.refresh()
+
+    def _shift_period(self, direction: int) -> None:
+        step = timedelta(days=max(1, self._time_range))
+        target = self._anchor_date + step * direction
+        today = date.today()
+        if target > today:
+            target = today
+        if target == self._anchor_date:
+            return
+        self._anchor_date = target
+        self.refresh()
+
+    def _update_date_controls(self) -> None:
+        today = date.today()
+        if self._time_range == 1:
+            if self._anchor_date == today:
+                text = "Today"
+            elif self._anchor_date == today - timedelta(days=1):
+                text = "Yesterday"
+            else:
+                text = self._anchor_date.strftime("%a, %b %d")
+        else:
+            start = self._anchor_date - timedelta(days=self._time_range - 1)
+            text = f"{start.strftime('%b %d')} – {self._anchor_date.strftime('%b %d')}"
+        self._date_label.setText(text)
+        self._btn_next.setEnabled(self._anchor_date < today)
+        self._btn_next.setToolTip(
+            "Next period" if self._anchor_date < today else "Already viewing the latest period"
+        )
 
     def _on_browser_filter_changed(self, index: int) -> None:
         self._selected_browser = self._browser_combo.currentData() or "*"
@@ -274,8 +334,10 @@ class WebsitesPage(QWidget):
         self._render_website_rows()
 
     def refresh(self, is_live: bool = False) -> None:
-        end_d = date.today()
+        end_d = min(self._anchor_date, date.today())
+        self._anchor_date = end_d
         start_d = end_d - timedelta(days=self._time_range - 1)
+        self._update_date_controls()
 
         # Update distinct browsers combo (without breaking current selection)
         distinct_browsers = self._engine.get_distinct_browsers_for_range(start_d, end_d)
@@ -540,5 +602,32 @@ class WebsitesPage(QWidget):
                 background-color: {accent};
                 color: white;
                 border-color: {accent};
+            }}
+            QPushButton#date_nav_btn {{
+                background-color: {input_bg};
+                border: 1px solid {input_border};
+                border-radius: 8px;
+                padding: 0px 4px;
+                font-size: 18px;
+                font-weight: 400;
+                color: {text_sub};
+            }}
+            QPushButton#date_nav_btn:hover {{
+                background-color: {tm.color('card_hover')};
+                border-color: {accent};
+                color: {text_main};
+            }}
+            QPushButton#date_nav_btn:disabled {{
+                color: {tm.color('text_muted')};
+                border-color: {input_border};
+            }}
+            QLabel#date_nav_label {{
+                color: {text_main};
+                font-size: 13px;
+                font-weight: 700;
+                padding: 4px 8px;
+                background-color: {input_bg};
+                border: 1px solid {input_border};
+                border-radius: 8px;
             }}
         """)

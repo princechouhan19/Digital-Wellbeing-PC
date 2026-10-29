@@ -99,7 +99,7 @@ class ActivityPage(QWidget):
         hdr_box.addWidget(subtitle)
         self._content_layout.addLayout(hdr_box)
 
-        # 1. Time Range Toggles
+        # 1. Time Range Toggles + Date Navigation
         self._range_group = QButtonGroup(self)
         range_layout = QHBoxLayout()
         range_layout.setSpacing(0)
@@ -124,6 +124,36 @@ class ActivityPage(QWidget):
         range_layout.addWidget(self._btn_today)
         range_layout.addWidget(self._btn_7d)
         range_layout.addWidget(self._btn_30d)
+
+        range_layout.addSpacing(16)
+
+        # Date shift buttons ‹ date ›
+        self._btn_prev = QPushButton("‹")
+        self._btn_prev.setObjectName("date_nav_btn")
+        self._btn_prev.setFixedSize(32, 32)
+        self._btn_prev.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_prev.setToolTip("Previous date/period")
+        self._btn_prev.clicked.connect(lambda: self._shift_period(-1))
+        range_layout.addWidget(self._btn_prev)
+
+        range_layout.addSpacing(4)
+
+        self._date_label = QLabel("Today")
+        self._date_label.setObjectName("date_nav_label")
+        self._date_label.setMinimumWidth(148)
+        self._date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        range_layout.addWidget(self._date_label)
+
+        range_layout.addSpacing(4)
+
+        self._btn_next = QPushButton("›")
+        self._btn_next.setObjectName("date_nav_btn")
+        self._btn_next.setFixedSize(32, 32)
+        self._btn_next.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_next.setToolTip("Next date/period")
+        self._btn_next.clicked.connect(lambda: self._shift_period(1))
+        range_layout.addWidget(self._btn_next)
+
         range_layout.addStretch()
         
         self._range_group.idClicked.connect(self._on_range_changed)
@@ -333,11 +363,69 @@ class ActivityPage(QWidget):
                 font-weight: 700;
                 border: 1px solid {tm.color('accent')};
             }}
+
+            QPushButton#date_nav_btn {{
+                background-color: {tm.color('surface')};
+                border: 1px solid {tm.color('border')};
+                border-radius: 8px;
+                padding: 0px 4px;
+                font-size: 18px;
+                font-weight: 400;
+                color: {tm.color('text_sub')};
+            }}
+            QPushButton#date_nav_btn:hover {{
+                background-color: {tm.color('card_hover')};
+                border-color: {tm.color('accent')};
+                color: {tm.color('text_main')};
+            }}
+            QPushButton#date_nav_btn:disabled {{
+                color: {tm.color('text_muted')};
+                border-color: {tm.color('border')};
+                opacity: 0.4;
+            }}
+            QLabel#date_nav_label {{
+                color: {tm.color('text_main')};
+                font-size: 13px;
+                font-weight: 700;
+                padding: 4px 10px;
+                background-color: {tm.color('surface')};
+                border: 1px solid {tm.color('border')};
+                border-radius: 8px;
+            }}
         """)
         
         self._refresh()
 
+    def _shift_period(self, direction: int) -> None:
+        step = timedelta(days=max(1, self._time_range))
+        target = self._chart_end_date + step * direction
+        today = date.today()
+        if target > today:
+            target = today
+        if target == self._chart_end_date:
+            return
+        self._chart_end_date = target
+        self._refresh()
+
+    def _update_date_controls(self) -> None:
+        today = date.today()
+        if self._time_range == 1:
+            if self._chart_end_date == today:
+                text = "Today"
+            elif self._chart_end_date == today - timedelta(days=1):
+                text = "Yesterday"
+            else:
+                text = self._chart_end_date.strftime("%a, %b %d")
+        else:
+            start = self._chart_end_date - timedelta(days=self._time_range - 1)
+            text = f"{start.strftime('%b %d')} – {self._chart_end_date.strftime('%b %d')}"
+        if hasattr(self, "_date_label"):
+            self._date_label.setText(text)
+        if hasattr(self, "_btn_next"):
+            self._btn_next.setEnabled(self._chart_end_date < today)
+
     def _refresh(self) -> None:
+        self._update_date_controls()
         if self._main_stack.currentIndex() == 0:
             self._update_chart()
 

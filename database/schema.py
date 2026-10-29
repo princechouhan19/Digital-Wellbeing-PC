@@ -102,6 +102,23 @@ CREATE TABLE IF NOT EXISTS focus_sessions (
 );
 """
 
+CREATE_SMART_TASKS = """
+CREATE TABLE IF NOT EXISTS smart_tasks (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    title               TEXT    NOT NULL,
+    description         TEXT    DEFAULT '',
+    priority            INTEGER DEFAULT 2,
+    estimated_minutes   INTEGER DEFAULT 25,
+    actual_active_s     REAL    DEFAULT 0.0,
+    status              TEXT    DEFAULT 'pending',
+    target_processes    TEXT    DEFAULT '[]',
+    target_domains      TEXT    DEFAULT '[]',
+    due_date            TEXT,
+    created_at          TEXT    NOT NULL,
+    completed_at        TEXT
+);
+"""
+
 
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_sessions_start      ON app_sessions(start_time);",
@@ -122,6 +139,8 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_website_domain_start ON website_sessions(domain, start_time);",
     "CREATE INDEX IF NOT EXISTS idx_website_browser_start ON website_sessions(browser_process, start_time);",
     "CREATE INDEX IF NOT EXISTS idx_focus_sessions_start ON focus_sessions(started_at);",
+    "CREATE INDEX IF NOT EXISTS idx_smart_tasks_status   ON smart_tasks(status);",
+    "CREATE INDEX IF NOT EXISTS idx_smart_tasks_created  ON smart_tasks(created_at);",
 ]
 
 MIGRATE_ADD_EXE_PATH = """
@@ -165,6 +184,7 @@ ALL_DDL = [
     CREATE_WEBSITE_SESSIONS,
     CREATE_APP_LOCKER_APPS,
     CREATE_FOCUS_SESSIONS,
+    CREATE_SMART_TASKS,
     *CREATE_INDEXES,
 ]
 

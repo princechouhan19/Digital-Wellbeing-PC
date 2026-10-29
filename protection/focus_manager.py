@@ -290,10 +290,28 @@ class FocusManager(QObject):
         """Return the Focus policy decision for a full browser URL.
 
         This is the decision function used by the loopback extension bridge and
-        by foreground enforcement. Sub-path rules are evaluated only while a
-        Focus session is active; when inactive everything is allowed.
+        by foreground enforcement. Persistent parental/productivity guard rules
+        are evaluated first; Focus sub-path rules apply only while a session is
+        active.
         """
         from protection.url_rules import UrlRuleEngine, domain_of
+
+        try:
+            from protection.content_guard import ContentGuard
+
+            guard_decision = ContentGuard.instance().evaluate(url)
+            if guard_decision.blocked:
+                return {
+                    "action": "block",
+                    "reason": guard_decision.reason,
+                    "rule": guard_decision.rule,
+                    "domain": domain_of(url),
+                    "focus_active": self._is_active,
+                    "mode": self._mode,
+                    "guard": guard_decision.category or "parental",
+                }
+        except Exception as exc:
+            logger.debug("[FOCUS] Content guard check failed: %s", exc)
 
         if not self._is_active:
             return {

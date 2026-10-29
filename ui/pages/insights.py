@@ -15,6 +15,13 @@ from ui.theme import ThemeManager
 from ui.icons import get_icon
 from tracker.categorizer import display_name as get_friendly_name
 
+# Maps period key → (icon emoji, human label, position tag)
+_PERIOD_META = {
+    "week":  ("📅", "Weekly",  "left"),
+    "month": ("🗓️", "Monthly", "mid"),
+    "year":  ("📆", "Yearly",  "right"),
+}
+
 
 class InsightHighlightCard(QFrame):
     """Clean frosted card for key metrics on the Insights page."""
@@ -93,6 +100,60 @@ class InsightsPage(QWidget):
         header_row.addWidget(self._report_btn, 0, Qt.AlignmentFlag.AlignTop)
         self._inner_layout.addLayout(header_row)
 
+        period_row = QHBoxLayout()
+        period_row.setSpacing(0)
+
+        # Left side: label + live date-range subtitle
+        period_label_col = QVBoxLayout()
+        period_label_col.setSpacing(2)
+        self._period_label = QLabel("Reporting period")
+        self._period_label.setObjectName("period_section_label")
+        self._period_range_lbl = QLabel("")
+        self._period_range_lbl.setObjectName("period_range_label")
+        period_label_col.addWidget(self._period_label)
+        period_label_col.addWidget(self._period_range_lbl)
+        period_row.addLayout(period_label_col)
+        period_row.addStretch()
+
+        # Segmented control container
+        seg_container = QWidget()
+        seg_container.setObjectName("seg_control")
+        seg_layout = QHBoxLayout(seg_container)
+        seg_layout.setContentsMargins(0, 0, 0, 0)
+        seg_layout.setSpacing(0)
+
+        self._period_buttons = {}
+        positions = [("week", "Weekly", "period_btn_left"),
+                     ("month", "Monthly", "period_btn_mid"),
+                     ("year", "Yearly", "period_btn_right")]
+        for value, label, obj_name in positions:
+            button = QPushButton(label)
+            button.setCheckable(True)
+            button.setObjectName(obj_name)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.clicked.connect(lambda _checked=False, v=value: self._set_period(v))
+            self._period_buttons[value] = button
+            seg_layout.addWidget(button)
+
+        self._period_buttons["week"].setChecked(True)
+        period_row.addWidget(seg_container)
+        self._inner_layout.addLayout(period_row)
+        self._period = "week"
+
+        # ── Comparison mini-cards row ──────────────────────────────────────────
+        self._comparison_row = QHBoxLayout()
+        self._comparison_row.setSpacing(12)
+
+        self._cmp_vs_prev   = InsightHighlightCard("VS PREVIOUS PERIOD", "—", "Comparing screen time", "activity")
+        self._cmp_peak_day  = InsightHighlightCard("PEAK DAY",           "—", "Highest activity day",  "flame")
+        self._cmp_trend     = InsightHighlightCard("TREND",              "—", "General direction",     "bar_chart")
+
+        for card in (self._cmp_vs_prev, self._cmp_peak_day, self._cmp_trend):
+            card.setObjectName("cmp_card")
+            self._comparison_row.addWidget(card)
+
+        self._inner_layout.addLayout(self._comparison_row)
+
         # 1. YOUR DIGITAL DAY Hero Card
         self._hero_card = QFrame()
         self._hero_card.setObjectName("hero_card")
@@ -120,7 +181,7 @@ class InsightsPage(QWidget):
         self._inner_layout.addWidget(self._hero_card)
 
         # 2. Key Metrics Row
-        lbl_kpis = QLabel("CORE HIGHLIGHTS")
+        lbl_kpis = QLabel("KEY METRICS")
         lbl_kpis.setObjectName("section_header")
         self._inner_layout.addWidget(lbl_kpis)
 
@@ -138,7 +199,7 @@ class InsightsPage(QWidget):
         self._inner_layout.addLayout(self._metrics_row)
 
         # 2b. Attention Quality: fragmentation + flow
-        lbl_attention = QLabel("ATTENTION QUALITY")
+        lbl_attention = QLabel("FOCUS QUALITY")
         lbl_attention.setObjectName("section_header")
         self._inner_layout.addWidget(lbl_attention)
 
@@ -191,6 +252,12 @@ class InsightsPage(QWidget):
         dialog.raise_()
         dialog.activateWindow()
 
+    def _set_period(self, period: str) -> None:
+        self._period = period
+        for key, button in self._period_buttons.items():
+            button.setChecked(key == period)
+        self._refresh()
+
     def _clear_layout(self, layout):
         while layout.count():
             item = layout.takeAt(0)
@@ -205,14 +272,89 @@ class InsightsPage(QWidget):
     def _refresh(self):
         self._clear_layout(self._breakdown_container)
 
-        summary = self._engine.get_today_summary()
+        today = date.today()
+        if self._period == "week":
+            start = today - timedelta(days=today.weekday())
+            label = "This week"
+            prev_start = start - timedelta(days=7)
+            prev_end = start - timedelta(days=1)
+        elif self._period == "month":
+            start = today.replace(day=1)
+            label = "This month"
+            prev_end = start - timedelta(days=1)
+            prev_start = prev_end.replace(day=1)
+        else:
+            start = today.replace(month=1, day=1)
+            label = "This year"
+            prev_end = start - timedelta(days=1)
+            prev_start = prev_end.replace(month=1, day=1)
+
+        summary = self._engine.get_custom_summary(start, today)
+        prev_summary = self._engine.get_custom_summary(prev_start, prev_end)
         long_term = self._engine.get_long_term_analytics()
         comparison = self._engine.get_yesterday_comparison()
-        fragmentation = self._engine.get_focus_fragmentation()
+        fragmentation = self._engine.get_focus_fragmentation(today)
         flow = self._engine.get_flow_analytics(days=7)
 
         self._fragmentation_card.update_data(fragmentation)
         self._flow_card.update_data(flow)
+
+        self._period_label.setText(f"{label} · {start.strftime('%b %d, %Y')} – {today.strftime('%b %d, %Y')}")
+        if hasattr(self, "_period_range_lbl"):
+            self._period_range_lbl.setText(f"Comparing against previous: {prev_start.strftime('%b %d')} – {prev_end.strftime('%b %d')}")
+
+        # Update Comparison Mini-Cards
+        cur_total = summary.total_screen_time_s
+        prev_total = prev_summary.total_screen_time_s
+
+        if prev_total > 0:
+            diff_pct = ((cur_total - prev_total) / prev_total) * 100
+            if diff_pct < 0:
+                self._cmp_vs_prev.val_lbl.setText(f"{abs(diff_pct):.1f}% less")
+                self._cmp_vs_prev.sub_lbl.setText(f"vs {self._engine.format_duration_short(prev_total)} prior")
+            elif diff_pct > 0:
+                self._cmp_vs_prev.val_lbl.setText(f"+{diff_pct:.1f}% more")
+                self._cmp_vs_prev.sub_lbl.setText(f"vs {self._engine.format_duration_short(prev_total)} prior")
+            else:
+                self._cmp_vs_prev.val_lbl.setText("Equal")
+                self._cmp_vs_prev.sub_lbl.setText("Matches prior period")
+        else:
+            self._cmp_vs_prev.val_lbl.setText(self._engine.format_duration_short(cur_total))
+            self._cmp_vs_prev.sub_lbl.setText("Baseline establishing")
+
+        daily_pts = self._engine.get_daily_chart_data(start, today)
+        if daily_pts:
+            max_pt = max(daily_pts, key=lambda p: (getattr(p, 'active_s', 0.0) + getattr(p, 'idle_s', 0.0)))
+            peak_dur = getattr(max_pt, 'active_s', 0.0) + getattr(max_pt, 'idle_s', 0.0)
+            if peak_dur > 0:
+                from datetime import datetime
+                day_str = getattr(max_pt, 'day', '')
+                try:
+                    dt = datetime.strptime(day_str, "%Y-%m-%d").date()
+                    self._cmp_peak_day.val_lbl.setText(dt.strftime("%a, %b %d"))
+                except Exception:
+                    self._cmp_peak_day.val_lbl.setText(str(day_str))
+                self._cmp_peak_day.sub_lbl.setText(f"{self._engine.format_duration_short(peak_dur)} peak")
+            else:
+                self._cmp_peak_day.val_lbl.setText("—")
+                self._cmp_peak_day.sub_lbl.setText("No peak recorded")
+        else:
+            self._cmp_peak_day.val_lbl.setText("—")
+            self._cmp_peak_day.sub_lbl.setText("No daily activity")
+
+        if prev_total > 0:
+            if cur_total < prev_total * 0.95:
+                self._cmp_trend.val_lbl.setText("Decreasing")
+                self._cmp_trend.sub_lbl.setText("Improved digital balance")
+            elif cur_total > prev_total * 1.05:
+                self._cmp_trend.val_lbl.setText("Increasing")
+                self._cmp_trend.sub_lbl.setText("Higher screen activity")
+            else:
+                self._cmp_trend.val_lbl.setText("Stable")
+                self._cmp_trend.sub_lbl.setText("Consistent daily usage")
+        else:
+            self._cmp_trend.val_lbl.setText("Establishing")
+            self._cmp_trend.sub_lbl.setText("Collecting trend data")
 
         # Update Hero Headline & Narrative
         total_s = summary.total_screen_time_s
@@ -241,14 +383,14 @@ class InsightsPage(QWidget):
             top_cat_name = cats[0]["category"] if cats else "General"
             if hasattr(top_cat_name, "value"):
                 top_cat_name = top_cat_name.value
-            self._hero_headline.setText(f"{total_fmt} recorded today  ·  {active_fmt} actively focused")
+            self._hero_headline.setText(f"{total_fmt} recorded {label.lower()}  ·  {active_fmt} active time")
             self._hero_narrative.setText(
-                f"{change_str} Your highest volume category today is {str(top_cat_name).title()}. "
+                f"{change_str} Your highest volume category is {str(top_cat_name).title()}. "
                 f"Your active-to-idle engagement ratio is currently {pct_active}%."
             )
         else:
-            self._hero_headline.setText("No activity recorded yet today")
-            self._hero_narrative.setText("As you interact with applications, local analytics will summarize your productivity patterns here.")
+            self._hero_headline.setText(f"No activity recorded {label.lower()} yet")
+            self._hero_narrative.setText("As you use your device, local analytics will summarize activity for this period.")
 
         # Key Metrics Row
         self._card_screen_time.val_lbl.setText(total_fmt)
@@ -325,6 +467,58 @@ class InsightsPage(QWidget):
                 letter-spacing: 1.5px;
                 text-transform: uppercase;
                 margin-top: 6px;
+            }}
+            QLabel#period_section_label {{
+                font-size: 11px;
+                font-weight: 700;
+                color: {tm.color('text_muted')};
+                letter-spacing: 1.5px;
+                text-transform: uppercase;
+            }}
+            QLabel#period_range_label {{
+                font-size: 11px;
+                color: {tm.color('text_sub')};
+                font-weight: 500;
+            }}
+            QPushButton#period_btn_left, QPushButton#period_btn_mid, QPushButton#period_btn_right {{
+                background: {tm.color('surface_secondary')};
+                color: {tm.color('text_sub')};
+                border: 1px solid {tm.color('border')};
+                padding: 7px 16px;
+                font-size: 12px;
+                font-weight: 600;
+            }}
+            QPushButton#period_btn_left {{
+                border-top-left-radius: 9px;
+                border-bottom-left-radius: 9px;
+                border-right: none;
+            }}
+            QPushButton#period_btn_mid {{
+                border-radius: 0px;
+                border-right: none;
+            }}
+            QPushButton#period_btn_right {{
+                border-top-right-radius: 9px;
+                border-bottom-right-radius: 9px;
+            }}
+            QPushButton#period_btn_left:hover, QPushButton#period_btn_mid:hover, QPushButton#period_btn_right:hover {{
+                background: {tm.color('card_hover')};
+                color: {tm.color('text_main')};
+            }}
+            QPushButton#period_btn_left:checked, QPushButton#period_btn_mid:checked, QPushButton#period_btn_right:checked {{
+                background: {tm.color('accent_tint_bg')};
+                color: {tm.color('accent_tint_text')};
+                border-color: {tm.color('accent_tint_border')};
+                font-weight: 700;
+            }}
+            QFrame#cmp_card {{
+                background-color: {tm.color('surface')};
+                border: 1px solid {tm.color('border')};
+                border-radius: 12px;
+            }}
+            QFrame#cmp_card:hover {{
+                background-color: {tm.color('card_hover')};
+                border-color: {tm.color('border_hover')};
             }}
             QFrame#hero_card {{
                 background-color: {tm.color('surface')};

@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] — 2026-10-29
+
+The **Flow & Dynamic Island** release — Smart To-Do List integration, Nectar-inspired Ambient Desktop Notch, media & lecture awareness in SleepGuard, parental & doomscrolling controls, interactive period insights, and historical date navigation.
+
+### Added
+- **Smart To-Do List Integration** (`ui/pages/tasks.py`, `database/schema.py`, `database/repository.py`):
+  - GTD task queue integrated into the local database schema (`smart_tasks`).
+  - Target process linking: associate tasks with executable files (e.g. `code.exe`, `cursor.exe`, `figma.exe`).
+  - Time tracking calibration: dynamically measures active foreground time in linked applications vs. estimated durations.
+  - Direct Focus Mode integration: start an attention-locked Focus session directly targeting any selected task.
+- **Ambient Desktop Dynamic Notch** (`ui/widgets/ambient_notch.py`):
+  - Inspired by [kua8/Nectar](https://github.com/kua8/Nectar), a physics-animated screen-edge dynamic island overlay for Windows.
+  - Compact resting pill (`260x32px`) at the top screen edge with fluid spring expand-on-hover (`440x200px`).
+  - Real-time display of active focus countdowns, active tasks, tool tags, and animated reactive flow dot.
+  - Intelligent passthrough: automatically suppresses hover expansion and stays unobtrusive during fullscreen games or media.
+- **SleepGuard Media, Lecture & Notes Awareness** (`tracker/media_awareness.py`):
+  - Multi-engine detection preventing accidental sleep or workstation locking while watching videos in VLC, MPV, MPC, PotPlayer, Plex, Kodi, or browser video streams (YouTube, Netflix, Prime).
+  - Lecture and learning detection for Coursera, edX, Udemy, Khan Academy, PDF textbooks (Acrobat, Sumatra), and note-taking apps (OneNote, Obsidian, Notion).
+  - Explicit gaming exclusion to ensure high-distraction games do not prevent sleep triggers.
+- **Parental Controls & Doomscrolling Shield** (`protection/content_guard.py`, `ui/pages/settings.py`):
+  - Anti-doomscrolling toggles blocking short-form video feeds: YouTube Shorts, Instagram Reels, TikTok.
+  - Esports & gaming blocker restricting Battle Royale titles: Free Fire, PUBG, BGMI, Valorant, CS2, Fortnite, and Roblox.
+  - Custom user-defined distraction blacklist and productivity startup automations.
+- **Interactive Period Analytics** (`ui/pages/insights.py`):
+  - Segmented Weekly, Monthly, and Yearly switcher.
+  - Automated period-over-period comparisons (`VS PREVIOUS PERIOD`, `PEAK DAY`, and productivity trend scores).
+- **Historical Date Navigation** (`ui/pages/activity.py`, `ui/pages/websites.py`):
+  - Added interactive `‹` `[Date]` `›` calendar controls to both Activity and Websites dashboards for seamless retrospective analysis.
+
+### Changed
+- **SleepGuard Page Redesign** (`ui/pages/sleepguard_page.py`):
+  - Overhauled with modern Apple HIG hero card layout, semantic status chips, real-time media detection dot, and instant safety test preview modal.
+- **Session Logs & Diagnostics Overhaul** (`ui/pages/debug.py`):
+  - Renamed Dev Logs to "Session Logs" with an emoji-free, professional copywriting style.
+  - Added a live "System Diagnostics" panel displaying event hook status, event wakeups, flush ticks, and memory metrics.
+- **Focus UI Polish** (`ui/styles/focus.py`):
+  - Modernized primary "Start Focus" CTA button with full pill border radius (`999px`).
+
+### Fixed
+- Fixed `AttributeError: 'DailyPoint' object has no attribute 'duration_s'` crash when switching aggregate periods in Insights.
+
 ## [4.3.2] — 2026-10-26
 
 ### Changed

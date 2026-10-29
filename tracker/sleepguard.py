@@ -4,10 +4,13 @@ sleepguard.py -- SleepGuard Controller for Digital Wellbeing Platform v2.5.
 Integrates Win32 idle monitoring, WinRT GSMTC media playback detection,
 and automated PC power action logic with PySide6 signals.
 
-v2.5 changes:
-- Explicit 4-state machine: MONITORING -> INACTIVE -> MEDIA_GRACE -> WARNING
-- Media playback no longer pauses/resets inactivity indefinitely
-- Media grace is a single finite period per idle cycle (default 5 min)
+v2.6 changes:
+- Media/lecture/notes activity now holds SleepGuard instead of only granting
+  one short grace period; power actions cannot fire while playback or a
+  lecture/notes window is active
+- After media stops, the configured grace period still applies before warning
+- Explicit 5-state machine: MONITORING -> INACTIVE -> MEDIA_HOLD -> MEDIA_GRACE -> WARNING
+- Media playback no longer pauses/resets inactivity indefinitely on its own
 - Warning dialog is no longer auto-dismissed by mouse movement;
   the controller monitors activity and cancels via signal instead
 """
@@ -25,6 +28,7 @@ from PySide6.QtCore import QObject, Signal
 from settings.manager import SettingsManager
 from tracker.idle import get_idle_seconds, get_last_input_tick
 from tracker.media import MediaDetectionEngine, MediaInfo
+from tracker.media_awareness import MediaAwarenessState, detect_foreground_media
 from utils.shutdown import ShutdownManager, MIN_COUNTDOWN_SECONDS, VALID_ACTIONS
 
 # Use the application's configured logger hierarchy so final safety decisions
@@ -39,8 +43,9 @@ logger = logging.getLogger("digital_wellbeing.sleepguard")
 class _SGState(enum.Enum):
     """Explicit states for the SleepGuard inactivity state machine."""
     MONITORING         = "monitoring"          # Normal: waiting for inactivity threshold
-    INACTIVE           = "inactive"            # Threshold reached: deciding on media grace
-    MEDIA_GRACE        = "media_grace"         # One-shot grace period while media plays
+    INACTIVE           = "inactive"            # Threshold reached: deciding on media guard
+    MEDIA_HOLD         = "media_hold"           # Playback/lecture active: never power off
+    MEDIA_GRACE        = "media_grace"         # Media stopped: finite post-media grace
     WARNING            = "warning"             # Dialog shown: counting down to power action
     FINAL_SAFETY_CHECK = "final_safety_check"  # Safety check before power action
 
@@ -87,6 +92,10 @@ class SleepGuardController(QObject):
         # Guard: only one MEDIA_GRACE per idle cycle.
         # Reset only when returning to MONITORING via user activity.
         self._media_grace_used: bool = False
+
+        # Last foreground media/lecture/notes observation (for UI + safety).
+        self._foreground_guard: MediaAwarenessState = MediaAwarenessState()
+        self._last_guard_label: str = ""
 
         # -- legacy compat --------------------------------------------------
         self._idle_fired = threading.Event()
@@ -157,6 +166,28 @@ class SleepGuardController(QObject):
     @property
     def current_media(self) -> MediaInfo:
         return self._media_engine.current
+
+    @property
+    def foreground_guard(self) -> MediaAwarenessState:
+        return self._foreground_guard
+
+    @property
+    def media_guard_active(self) -> bool:
+        return self._media_guard_active()
+
+    @property
+    def media_guard_label(self) -> str:
+        if self._media_engine.is_playing:
+            return self._media_engine.current.display_name
+        if self._foreground_guard.active:
+            return self._foreground_guard.label or self._foreground_guard.kind.title()
+        return "No media or lecture activity"
+
+    def _media_guard_active(self) -> bool:
+        """True while playback or a lecture/notes window should hold SleepGuard."""
+        if self._media_engine.is_playing:
+            return True
+        return bool(self._foreground_guard.active)
 
     @property
     def current_state(self) -> _SGState:
@@ -254,13 +285,15 @@ class SleepGuardController(QObject):
         with self._state_lock:
             self._state = _SGState.FINAL_SAFETY_CHECK
 
-        # Safety guard: if media is playing and grace was never granted, enter grace instead of immediate action
-        if self._media_engine.is_playing and not self._media_grace_used:
-            logger.info("[SLEEPGUARD] Media active and grace not yet exhausted. Aborting power action to grant grace.")
+        # Safety guard: playback / lecture / notes always wins over a timer.
+        self._foreground_guard = detect_foreground_media(force=True)
+        if self._media_guard_active():
+            logger.info(
+                "[SLEEPGUARD] Media guard active (%s). Aborting power action and holding.",
+                self.media_guard_label,
+            )
             with self._state_lock:
-                self._state = _SGState.MEDIA_GRACE
-                self._media_grace_used = True
-                self._grace_start = time.monotonic()
+                self._state = _SGState.MEDIA_HOLD
             self._warning_active.clear()
             return False
 
@@ -395,91 +428,115 @@ class SleepGuardController(QObject):
                 if time.time() < self._cancel_block_until:
                     continue
 
-            with self._state_lock:
-                state = self._state
+            # Refresh media/lecture guard before evaluating state.
+            self._foreground_guard = detect_foreground_media()
+            self._last_guard_label = self.media_guard_label
+            self._advance_state(idle_s, threshold_s, grace_s, is_quick_test)
 
-            # ==============================================================
-            # STATE: MONITORING
-            # ==============================================================
-            if state == _SGState.MONITORING:
-                idle_triggered = idle_s >= threshold_s or self._force_trigger.is_set()
-                if self._force_trigger.is_set():
-                    self._force_trigger.clear()
+    def _advance_state(
+        self, idle_s: float, threshold_s: float, grace_s: float, is_quick_test: bool
+    ) -> None:
+        """Advance the public state machine for one poll tick."""
+        with self._state_lock:
+            state = self._state
+        guard_active = self._media_guard_active()
 
-                if idle_triggered:
-                    logger.info(
-                        "[SLEEPGUARD] Threshold reached (idle=%.0fs, threshold=%ds). -> INACTIVE.",
-                        idle_s, threshold_s,
-                    )
-                    with self._state_lock:
-                        self._state = _SGState.INACTIVE
-
-            # ==============================================================
-            # STATE: INACTIVE
-            # ==============================================================
-            elif state == _SGState.INACTIVE:
-                # User regained activity -> back to MONITORING
-                if idle_s < threshold_s * 0.5:
-                    logger.info(
-                        "[SLEEPGUARD] Activity in INACTIVE (idle=%.1fs). -> MONITORING.", idle_s,
-                    )
-                    with self._state_lock:
-                        self._state = _SGState.MONITORING
-                        self._media_grace_used = False
-                    continue
-
-                media_playing = self._media_engine.is_playing
-                if media_playing and not self._media_grace_used:
-                    # Grant the one-shot media grace period
-                    logger.info(
-                        "[SLEEPGUARD] Media active at threshold -- granting one-shot grace of %ds.",
-                        grace_s,
-                    )
-                    self._grace_start = time.monotonic()
-                    with self._state_lock:
-                        self._state = _SGState.MEDIA_GRACE
-                        self._media_grace_used = True
-                else:
-                    # No media, or grace already exhausted this cycle
-                    if self._media_grace_used and media_playing:
-                        logger.info(
-                            "[SLEEPGUARD] Media playing but grace already used. -> WARNING."
-                        )
-                    self._emit_warning(threshold_s, idle_s, is_quick_test)
-
-            # ==============================================================
-            # STATE: MEDIA_GRACE
-            # ==============================================================
-            elif state == _SGState.MEDIA_GRACE:
-                elapsed_grace = time.monotonic() - self._grace_start
-
-                # User regained activity -> back to MONITORING
-                if idle_s < threshold_s * 0.5:
-                    logger.info(
-                        "[SLEEPGUARD] Activity in MEDIA_GRACE (idle=%.1fs). -> MONITORING.", idle_s,
-                    )
-                    with self._state_lock:
-                        self._state = _SGState.MONITORING
-                        self._media_grace_used = False
-                    continue
-
-                logger.debug(
-                    "[SLEEPGUARD] MEDIA_GRACE: %.0fs / %.0fs elapsed, media=%s",
-                    elapsed_grace, grace_s, self._media_engine.is_playing,
+        # ==============================================================
+        # STATE: MONITORING
+        # ==============================================================
+        if state == _SGState.MONITORING:
+            idle_triggered = idle_s >= threshold_s or self._force_trigger.is_set()
+            if self._force_trigger.is_set():
+                self._force_trigger.clear()
+            if idle_triggered:
+                target = _SGState.MEDIA_HOLD if guard_active else _SGState.INACTIVE
+                logger.info(
+                    "[SLEEPGUARD] Threshold reached (idle=%.0fs, threshold=%ds). -> %s.",
+                    idle_s, threshold_s, target.value.upper(),
                 )
+                with self._state_lock:
+                    self._state = target
 
-                # If media stopped while user is idle, or grace expired -> warn immediately
-                if not self._media_engine.is_playing:
-                    logger.info(
-                        "[SLEEPGUARD] Media stopped before grace expired (%.0fs elapsed). -> WARNING.",
-                        elapsed_grace,
-                    )
-                    self._emit_warning(threshold_s, idle_s, is_quick_test)
-                elif elapsed_grace >= grace_s:
-                    logger.info(
-                        "[SLEEPGUARD] Media grace expired (%.0fs). -> WARNING.", grace_s,
-                    )
-                    self._emit_warning(threshold_s, idle_s, is_quick_test)
+        # ==============================================================
+        # STATE: INACTIVE
+        # ==============================================================
+        elif state == _SGState.INACTIVE:
+            if idle_s < threshold_s * 0.5:
+                logger.info(
+                    "[SLEEPGUARD] Activity in INACTIVE (idle=%.1fs). -> MONITORING.", idle_s,
+                )
+                with self._state_lock:
+                    self._state = _SGState.MONITORING
+                    self._media_grace_used = False
+                return
+            if guard_active:
+                logger.info(
+                    "[SLEEPGUARD] Media/lecture active at threshold (%s). -> MEDIA_HOLD.",
+                    self.media_guard_label,
+                )
+                with self._state_lock:
+                    self._state = _SGState.MEDIA_HOLD
+                return
+            self._emit_warning(threshold_s, idle_s, is_quick_test)
+
+        # ==============================================================
+        # STATE: MEDIA_HOLD
+        # ==============================================================
+        elif state == _SGState.MEDIA_HOLD:
+            if idle_s < threshold_s * 0.5:
+                logger.info(
+                    "[SLEEPGUARD] Activity in MEDIA_HOLD (idle=%.1fs). -> MONITORING.", idle_s,
+                )
+                with self._state_lock:
+                    self._state = _SGState.MONITORING
+                    self._media_grace_used = False
+                    self._foreground_guard = MediaAwarenessState()
+                return
+            if guard_active:
+                logger.debug(
+                    "[SLEEPGUARD] MEDIA_HOLD: %s; power action suppressed.",
+                    self.media_guard_label,
+                )
+                return
+            # Media ended: allow the configured post-media grace before warning.
+            logger.info(
+                "[SLEEPGUARD] Media ended in MEDIA_HOLD. -> MEDIA_GRACE (%ds).", grace_s,
+            )
+            self._grace_start = time.monotonic()
+            with self._state_lock:
+                self._state = _SGState.MEDIA_GRACE
+                self._media_grace_used = True
+
+        # ==============================================================
+        # STATE: MEDIA_GRACE
+        # ==============================================================
+        elif state == _SGState.MEDIA_GRACE:
+            elapsed_grace = time.monotonic() - self._grace_start
+            if idle_s < threshold_s * 0.5:
+                logger.info(
+                    "[SLEEPGUARD] Activity in MEDIA_GRACE (idle=%.1fs). -> MONITORING.", idle_s,
+                )
+                with self._state_lock:
+                    self._state = _SGState.MONITORING
+                    self._media_grace_used = False
+                return
+            if guard_active:
+                logger.info(
+                    "[SLEEPGUARD] Media resumed during grace (%s). -> MEDIA_HOLD.",
+                    self.media_guard_label,
+                )
+                with self._state_lock:
+                    self._state = _SGState.MEDIA_HOLD
+                return
+            logger.debug(
+                "[SLEEPGUARD] MEDIA_GRACE: %.0fs / %.0fs elapsed.",
+                elapsed_grace, grace_s,
+            )
+            if elapsed_grace >= grace_s:
+                logger.info(
+                    "[SLEEPGUARD] Post-media grace expired (%.0fs). -> WARNING.", grace_s,
+                )
+                self._emit_warning(threshold_s, idle_s, is_quick_test)
 
     def _check_warning_activity(self) -> None:
         """Monitor user activity while WARNING is active; cancel if genuine activity occurs."""
@@ -487,6 +544,17 @@ class SleepGuardController(QObject):
         # Give a 2-second grace period after dialog display so pop-up events/window activation
         # do not trigger instant cancellation.
         if now_mono - getattr(self, "_warning_start_monotonic", 0.0) < 2.0:
+            return
+
+        self._foreground_guard = detect_foreground_media()
+        if self._media_guard_active():
+            logger.info(
+                "[SLEEPGUARD] Media/lecture started during warning (%s). Cancelling and holding.",
+                self.media_guard_label,
+            )
+            self.cancel_warning()
+            with self._state_lock:
+                self._state = _SGState.MEDIA_HOLD
             return
 
         current_tick = get_last_input_tick()
@@ -505,6 +573,15 @@ class SleepGuardController(QObject):
         self, threshold_s: float, idle_s: float, is_quick_test: bool
     ) -> None:
         """Transition to WARNING state and signal the UI to show the dialog."""
+        self._foreground_guard = detect_foreground_media(force=True)
+        if self._media_guard_active():
+            logger.info(
+                "[SLEEPGUARD] Warning suppressed: media/lecture active (%s).",
+                self.media_guard_label,
+            )
+            with self._state_lock:
+                self._state = _SGState.MEDIA_HOLD
+            return
         action = self._settings.sleepguard_action
         raw_countdown = self._settings.countdown_seconds
         countdown = max(raw_countdown, MIN_COUNTDOWN_SECONDS)
