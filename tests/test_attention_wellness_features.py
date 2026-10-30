@@ -117,6 +117,50 @@ def test_extension_bridge_round_trip(temp_repo):
         with urllib.request.urlopen(f"http://127.0.0.1:{bridge.port}/v1/health", timeout=3) as response:
             health = json.loads(response.read())
         assert health["ok"] is True
+
+        # Test /v1/rules
+        bridge.set_rules_provider(lambda: {
+            "focus_active": True,
+            "mode": "study",
+            "seconds_remaining": 600,
+            "session_total_seconds": 1500,
+            "rules": [{"pattern": "youtube.com/shorts", "action": "block"}],
+            "blocked_domains": ["reddit.com"],
+            "revision": 42,
+        })
+        rules_req = urllib.request.Request(
+            f"http://127.0.0.1:{bridge.port}/v1/rules",
+            headers={"X-DW-Token": bridge.token},
+        )
+        with urllib.request.urlopen(rules_req, timeout=3) as response:
+            rules_payload = json.loads(response.read())
+        assert rules_payload["focus_active"] is True
+        assert rules_payload["revision"] == 42
+        assert len(rules_payload["rules"]) == 1
+
+        # Test /v1/pair with code
+        code = bridge.enable_pairing(duration_s=60)
+        pair_req = urllib.request.Request(
+            f"http://127.0.0.1:{bridge.port}/v1/pair",
+            data=json.dumps({"code": code}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(pair_req, timeout=3) as response:
+            pair_payload = json.loads(response.read())
+        assert pair_payload["ok"] is True
+        assert pair_payload["token"] == bridge.token
+
+        # Test /v1/heartbeat
+        hb_req = urllib.request.Request(
+            f"http://127.0.0.1:{bridge.port}/v1/heartbeat",
+            data=json.dumps({"url": "https://docs.python.org", "browser": "chrome.exe", "title": "Docs"}).encode("utf-8"),
+            headers={"Content-Type": "application/json", "X-DW-Token": bridge.token},
+        )
+        with urllib.request.urlopen(hb_req, timeout=3) as response:
+            hb_payload = json.loads(response.read())
+        assert hb_payload["ok"] is True
+        assert hb_payload["focus_active"] is True
+        assert bridge.latest_url("chrome.exe") == "https://docs.python.org"
     finally:
         bridge.stop()
 

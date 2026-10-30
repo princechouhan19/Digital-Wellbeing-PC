@@ -126,6 +126,29 @@ class MainWindow(QMainWindow):
         if tasks_page and hasattr(tasks_page, "refresh"):
             tasks_page.refresh()
 
+    def set_ambient_notch_enabled(self, enabled: bool) -> None:
+        try:
+            if enabled:
+                if getattr(self, "_ambient_notch", None) is None:
+                    from ui.widgets.ambient_notch import AmbientNotch
+                    self._ambient_notch = AmbientNotch()
+                    self._ambient_notch.task_completed.connect(self._on_notch_task_completed)
+                self._ambient_notch.show()
+                self._ambient_notch.sync_active_task()
+            else:
+                if getattr(self, "_ambient_notch", None) is not None:
+                    self._ambient_notch.hide()
+        except Exception as e:
+            from core.logger import logger
+            logger.warning("Failed to toggle AmbientNotch: %s", e)
+
+    def sync_ambient_notch(self) -> None:
+        if getattr(self, "_ambient_notch", None) is not None:
+            try:
+                self._ambient_notch.sync_active_task()
+            except Exception:
+                pass
+
     def _check_first_run_onboarding(self) -> None:
         """Launch the first-run onboarding wizard once, on the visible main window."""
         import os

@@ -2,21 +2,25 @@
 extension_bridge.py — Loopback-only bridge for the optional browser extension.
 
 The extension is the only reliable way to see a full URL (including sub-path)
-for every Chromium/Firefox tab. This server exposes exactly two endpoints on
-127.0.0.1:
+for every Chromium/Firefox tab without heavy COM/UIA overhead. This server
+exposes loopback endpoints on 127.0.0.1:
 
-    GET  /v1/health          -> bridge status
-    POST /v1/check           -> {"action": "allow"|"block", "reason": ...}
+    GET  /v1/health          -> bridge status (public loopback)
+    GET  /v1/rules           -> cached rule set, focus state, revision (auth required)
+    POST /v1/pair            -> one-click / code pairing exchange
+    POST /v1/check           -> {"action": "allow"|"block", "reason": ...} (auth required)
+    POST /v1/heartbeat       -> active tab report + lightweight sync (auth required)
 
 Security / privacy:
-* Bound to loopback only; never exposed to the LAN.
+* Bound to loopback (127.0.0.1) only; never exposed to the LAN or internet.
 * Requires a per-install bearer token (stored in the local SQLite settings).
-* URLs are evaluated in memory and are not logged or persisted.
-* The extension sends a URL only when it changes; no browsing history upload.
+* URLs are evaluated in memory and are not logged or persisted to disk.
+* Fail-open design: if the bridge is offline, web browsing is never interrupted.
 """
 from __future__ import annotations
 
 import json
+import secrets
 import threading
 import time
 import uuid
@@ -25,14 +29,14 @@ from typing import Callable, Optional
 
 from core.logger import logger
 
-_MAX_BODY_BYTES = 12 * 1024
+_MAX_BODY_BYTES = 16 * 1024
 _DEFAULT_PORT = 47823
 _TOKEN_SETTING = "extension_bridge_token"
 _PORT_SETTING = "extension_bridge_port"
 
 
 class _Handler(BaseHTTPRequestHandler):
-    server_version = "DigitalWellbeingBridge/1.0"
+    server_version = "DigitalWellbeingBridge/2.0"
     protocol_version = "HTTP/1.1"
 
     # ── helpers ────────────────────────────────────────────────────────────
@@ -51,7 +55,10 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "close")
         self._cors()
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
         self.close_connection = True
 
     def log_message(self, fmt: str, *args) -> None:  # noqa: A003 - stdlib hook
@@ -63,6 +70,25 @@ class _Handler(BaseHTTPRequestHandler):
         token = self.headers.get("X-DW-Token", "").strip()
         return bool(token) and token == bridge.token
 
+    def _parse_body(self) -> Optional[dict]:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+        if length <= 0 or length > _MAX_BODY_BYTES:
+            self._send_json(413, {"ok": False, "error": "invalid body size"})
+            return None
+        try:
+            raw = self.rfile.read(length).decode("utf-8")
+            payload = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._send_json(400, {"ok": False, "error": "invalid json"})
+            return None
+        if not isinstance(payload, dict):
+            self._send_json(400, {"ok": False, "error": "invalid payload"})
+            return None
+        return payload
+
     # ── routes ─────────────────────────────────────────────────────────────
 
     def do_OPTIONS(self) -> None:  # noqa: N802 - stdlib hook
@@ -73,50 +99,96 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib hook
         bridge: "ExtensionBridge" = self.server.bridge  # type: ignore[attr-defined]
-        if self.path.split("?")[0] == "/v1/health":
+        path = self.path.split("?")[0]
+
+        if path == "/v1/health":
             self._send_json(
                 200,
                 {
                     "ok": True,
                     "service": "digital-wellbeing",
-                    "version": 1,
+                    "version": 2,
                     "port": bridge.port,
                 },
             )
             return
+
+        if path == "/v1/rules":
+            if not self._authorized():
+                self._send_json(401, {"ok": False, "error": "invalid token"})
+                return
+            self._send_json(200, bridge.get_rules())
+            return
+
+        if path == "/v1/status":
+            if not self._authorized():
+                self._send_json(401, {"ok": False, "error": "invalid token"})
+                return
+            self._send_json(200, bridge.connection_info())
+            return
+
         self._send_json(404, {"ok": False, "error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib hook
-        if self.path.split("?")[0] != "/v1/check":
-            self._send_json(404, {"ok": False, "error": "not found"})
-            return
-        if not self._authorized():
-            self._send_json(401, {"ok": False, "error": "invalid token"})
-            return
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            length = 0
-        if length <= 0 or length > _MAX_BODY_BYTES:
-            self._send_json(413, {"ok": False, "error": "invalid body size"})
+        bridge: "ExtensionBridge" = self.server.bridge  # type: ignore[attr-defined]
+        path = self.path.split("?")[0]
+
+        if path == "/v1/pair":
+            payload = self._parse_body()
+            if payload is None:
+                return
+            code = str(payload.get("code", "")).strip()
+            auto = bool(payload.get("auto", False))
+            if bridge.verify_pairing(code=code, auto=auto):
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "port": bridge.port,
+                        "token": bridge.token,
+                        "service": "digital-wellbeing",
+                    },
+                )
+            else:
+                self._send_json(
+                    401,
+                    {
+                        "ok": False,
+                        "error": "Pairing not approved or expired. Open Focus > Web Rules in the app to pair.",
+                    },
+                )
             return
 
-        try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            self._send_json(400, {"ok": False, "error": "invalid json"})
-            return
-        if not isinstance(payload, dict):
-            self._send_json(400, {"ok": False, "error": "invalid payload"})
+        if path == "/v1/check":
+            if not self._authorized():
+                self._send_json(401, {"ok": False, "error": "invalid token"})
+                return
+            payload = self._parse_body()
+            if payload is None:
+                return
+            url = str(payload.get("url", ""))[:4096]
+            browser = str(payload.get("browser", ""))[:80]
+            title = str(payload.get("title", ""))[:512]
+            result = bridge.evaluate(url, browser=browser, title=title)
+            self._send_json(200, result)
             return
 
-        url = str(payload.get("url", ""))[:4096]
-        browser = str(payload.get("browser", ""))[:80]
-        title = str(payload.get("title", ""))[:512]
+        if path == "/v1/heartbeat":
+            if not self._authorized():
+                self._send_json(401, {"ok": False, "error": "invalid token"})
+                return
+            payload = self._parse_body()
+            if payload is None:
+                return
+            url = str(payload.get("url", ""))[:4096]
+            browser = str(payload.get("browser", ""))[:80]
+            title = str(payload.get("title", ""))[:512]
+            if url:
+                bridge.record_tab_heartbeat(url, browser=browser, title=title)
+            self._send_json(200, bridge.get_heartbeat_response())
+            return
 
-        bridge = self.server.bridge  # type: ignore[attr-defined]
-        result = bridge.evaluate(url, browser=browser, title=title)
-        self._send_json(200, result)
+        self._send_json(404, {"ok": False, "error": "not found"})
 
 
 class ExtensionBridge:
@@ -137,8 +209,12 @@ class ExtensionBridge:
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
-        self._provider: Optional[Callable[[str], dict]] = None
+        self._decision_provider: Optional[Callable[[str], dict]] = None
+        self._rules_provider: Optional[Callable[[], dict]] = None
         self._latest: dict[str, dict] = {}
+        self._pairing_code: str = ""
+        self._pairing_expiry: float = 0.0
+        self._pairing_unlocked_until: float = 0.0
         self.port = 0
         self.token = ""
         self.last_error = ""
@@ -161,28 +237,89 @@ class ExtensionBridge:
         self.token = token
 
     def set_decision_provider(self, provider: Callable[[str], dict]) -> None:
-        self._provider = provider
+        self._decision_provider = provider
+
+    def set_rules_provider(self, provider: Callable[[], dict]) -> None:
+        self._rules_provider = provider
+
+    # ── pairing management ──────────────────────────────────────────────────
+
+    def enable_pairing(self, duration_s: float = 300.0) -> str:
+        """Generate a 6-digit pairing code and enable auto-pairing for duration_s."""
+        code = f"{secrets.randbelow(900000) + 100000}"
+        now = time.time()
+        with self._lock:
+            self._pairing_code = code
+            self._pairing_expiry = now + duration_s
+            self._pairing_unlocked_until = now + duration_s
+        logger.info("[EXT_BRIDGE] Pairing enabled (code %s) for %.0fs", code, duration_s)
+        return code
+
+    def verify_pairing(self, code: str = "", auto: bool = False) -> bool:
+        now = time.time()
+        with self._lock:
+            if auto and now <= self._pairing_unlocked_until:
+                return True
+            if code and self._pairing_code and code.strip() == self._pairing_code and now <= self._pairing_expiry:
+                return True
+        return False
+
+    def is_pairing_unlocked(self) -> bool:
+        return time.time() <= self._pairing_unlocked_until
+
+    # ── rules & evaluation ──────────────────────────────────────────────────
+
+    def get_rules(self) -> dict:
+        if self._rules_provider:
+            try:
+                res = dict(self._rules_provider())
+                res.setdefault("ok", True)
+                return res
+            except Exception as exc:
+                logger.debug("[EXT_BRIDGE] rules provider failed: %s", exc)
+        return {
+            "ok": True,
+            "focus_active": False,
+            "mode": "custom",
+            "seconds_remaining": 0,
+            "session_total_seconds": 0,
+            "rules": [],
+            "blocked_domains": [],
+            "revision": 0,
+        }
 
     def evaluate(self, url: str, browser: str = "", title: str = "") -> dict:
-        if self._provider is None:
+        if self._decision_provider is None:
             return {"ok": True, "action": "allow", "reason": "Focus engine not ready"}
         try:
-            result = dict(self._provider(url))
+            result = dict(self._decision_provider(url))
         except Exception as exc:
             logger.debug("[EXT_BRIDGE] decision provider failed: %s", exc)
             return {"ok": True, "action": "allow", "reason": "decision error"}
 
-        with self._lock:
-            self._latest[(browser or "extension").lower()] = {
-                "url": url[:4096],
-                "title": title,
-                "at": time.monotonic(),
-            }
-            # Keep the map bounded (a handful of browsers at most).
-            if len(self._latest) > 16:
-                self._latest.pop(next(iter(self._latest)))
+        self.record_tab_heartbeat(url, browser=browser, title=title)
         result.setdefault("ok", True)
         return result
+
+    def record_tab_heartbeat(self, url: str, browser: str = "", title: str = "") -> None:
+        with self._lock:
+            key = (browser or "extension").lower()
+            self._latest[key] = {
+                "url": url[:4096],
+                "title": title[:512],
+                "at": time.monotonic(),
+            }
+            if len(self._latest) > 16:
+                self._latest.pop(next(iter(self._latest)))
+
+    def get_heartbeat_response(self) -> dict:
+        rules = self.get_rules()
+        return {
+            "ok": True,
+            "focus_active": rules.get("focus_active", False),
+            "seconds_remaining": rules.get("seconds_remaining", 0),
+            "revision": rules.get("revision", 0),
+        }
 
     def latest_url(self, browser: str = "", max_age_s: float = 15.0) -> str:
         now = time.monotonic()
@@ -251,9 +388,14 @@ class ExtensionBridge:
         return self._server is not None
 
     def connection_info(self) -> dict:
+        with self._lock:
+            pairing_active = time.time() <= self._pairing_expiry
+            code = self._pairing_code if pairing_active else ""
         return {
             "running": self.is_running,
             "port": self.port,
             "token": self.token,
+            "pairing_active": pairing_active,
+            "pairing_code": code,
             "last_error": self.last_error,
         }

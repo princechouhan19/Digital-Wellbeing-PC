@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Digital Wellbeing</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <img class="logo-img" src="icons/icon-48.png" width="18" height="18" alt="Logo" />
+        <span class="title">Digital Wellbeing</span>
+      </div>
+      <div id="connectionPill" class="status-pill offline">
+        <span class="dot"></span>
+        <span id="connectionText">Checking...</span>
+      </div>
+    </header>
+
+    <!-- Focus Session Card -->
+    <section class="card focus-card" id="focusCard">
+      <div class="card-header">
+        <span class="card-label">FOCUS STATE</span>
+        <span id="focusModeTag" class="tag">Standard</span>
+      </div>
+      <div class="focus-body">
+        <div id="focusStatusTitle" class="focus-title">No Active Session</div>
+        <div id="focusTimer" class="focus-timer">--:--</div>
+        <p id="focusSubtext" class="focus-subtext">Start a session in the desktop app to lock distracting feeds.</p>
+      </div>
+    </section>
+
+    <!-- Current Tab Status Card -->
+    <section class="card tab-card">
+      <div class="card-header">
+        <span class="card-label">CURRENT TAB</span>
+        <span id="tabDecisionBadge" class="badge badge-neutral">Checking</span>
+      </div>
+      <div class="tab-body">
+        <div id="tabDomain" class="tab-domain">Loading...</div>
+        <div id="tabReason" class="tab-reason">Evaluating web policy...</div>
+      </div>
+    </section>
+
+    <!-- Feed Shield Info -->
+    <div class="shield-row">
+      <span class="shield-icon">🛡️</span>
+      <span class="shield-text">Feed Shield: Shorts & infinite feeds hidden</span>
+    </div>
+
+    <!-- Actions -->
+    <footer class="footer">
+      <button id="syncBtn" class="btn secondary">
+        <span id="syncIcon" class="btn-icon">↻</span> Sync Rules
+      </button>
+      <button id="optionsBtn" class="btn link-btn">Settings & Pairing</button>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

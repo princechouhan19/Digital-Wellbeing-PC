@@ -21,3 +21,27 @@ document.getElementById("close").addEventListener("click", async () => {
 document.getElementById("back").addEventListener("click", () => {
   history.length > 1 ? history.back() : window.close();
 });
+
+// 60-Second Mindfulness Breather
+let breatherInterval = null;
+document.getElementById("breatheBtn").addEventListener("click", () => {
+  const timerBox = document.getElementById("breatherTimer");
+  const countEl = document.getElementById("countdown");
+  const breatheBtn = document.getElementById("breatheBtn");
+
+  breatheBtn.style.display = "none";
+  timerBox.style.display = "block";
+
+  let remaining = 60;
+  countEl.textContent = remaining;
+
+  if (breatherInterval) clearInterval(breatherInterval);
+  breatherInterval = setInterval(() => {
+    remaining -= 1;
+    countEl.textContent = remaining;
+    if (remaining <= 0) {
+      clearInterval(breatherInterval);
+      timerBox.textContent = "Mindful pause complete. Ready to return to focus?";
+    }
+  }, 1000);
+});

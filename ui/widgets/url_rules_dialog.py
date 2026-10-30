@@ -218,6 +218,12 @@ class UrlRulesDialog(QDialog):
         copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         copy_btn.clicked.connect(self._copy_bridge_info)
         bridge_actions.addWidget(copy_btn)
+
+        pair_btn = QPushButton("Generate 6-Digit Pairing Code")
+        pair_btn.setObjectName("preset_btn")
+        pair_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        pair_btn.clicked.connect(self._generate_pairing_code)
+        bridge_actions.addWidget(pair_btn)
         bridge_actions.addStretch()
         bridge_layout.addLayout(bridge_actions)
         root.addWidget(bridge_card)
@@ -305,12 +311,13 @@ class UrlRulesDialog(QDialog):
     def _refresh_bridge(self) -> None:
         info = self._fm.extension_bridge_info()
         if info.get("running"):
-            self._bridge_status.setText("● Listening on loopback")
+            code_text = f"    Pairing code: {info.get('pairing_code')}" if info.get("pairing_code") else ""
+            self._bridge_status.setText("● Listening on loopback (ready to pair)")
             self._bridge_status.setProperty("state", "on")
             self._bridge_detail.setText(
-                f"Port: {info.get('port', 0)}    Token: {info.get('token', '')}\n"
-                "Install the bundled extension (assets/browser_extension) and paste these "
-                "credentials into its Options page. Traffic never leaves this computer."
+                f"Port: {info.get('port', 0)}    Token: {info.get('token', '')}{code_text}\n"
+                "Install the companion extension (assets/browser_extension) in Chrome/Edge.\n"
+                "You can click '1-Click Auto Connect' in extension options or enter the pairing code."
             )
         else:
             self._bridge_status.setText("○ Bridge offline")
@@ -321,9 +328,17 @@ class UrlRulesDialog(QDialog):
         self._bridge_status.style().unpolish(self._bridge_status)
         self._bridge_status.style().polish(self._bridge_status)
 
+    def _generate_pairing_code(self) -> None:
+        code = self._fm.enable_extension_pairing(duration_s=300.0)
+        self._refresh_bridge()
+        if code:
+            QApplication.clipboard().setText(code)
+
     def _copy_bridge_info(self) -> None:
         info = self._fm.extension_bridge_info()
         text = f"port={info.get('port', 0)}\ntoken={info.get('token', '')}"
+        if info.get("pairing_code"):
+            text += f"\ncode={info.get('pairing_code')}"
         QApplication.clipboard().setText(text)
 
     # ── theme ───────────────────────────────────────────────────────────────

@@ -401,6 +401,19 @@ def get_active_browser_domain(process_name: str, window_title: str, hwnd: int = 
     if domain:
         return domain
 
+    # Extension bridge fast-path: bypass UIA COM traversal if extension recently reported URL
+    try:
+        from protection.extension_bridge import ExtensionBridge
+        from protection.url_rules import domain_of
+
+        candidate = ExtensionBridge.instance().latest_url(process_name, max_age_s=6.0)
+        if candidate:
+            ext_dom = domain_of(candidate)
+            if ext_dom:
+                return ext_dom
+    except Exception:
+        pass
+
     if hwnd <= 0:
         return ""
 

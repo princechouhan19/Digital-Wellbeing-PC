@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import Qt, Signal, QSize, QTimer
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMessageBox,
     QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
@@ -44,6 +44,12 @@ class SettingsPage(QWidget):
         self._pending_changes = False
         self._theme_btns: dict[str, QPushButton] = {}
         self._selected_theme = self._sm.theme
+
+        self._ext_pairing_timer = QTimer(self)
+        self._ext_pairing_timer.setInterval(1000)
+        self._ext_pairing_timer.timeout.connect(self._update_ext_pairing_countdown)
+        self._ext_code_expires_at = 0.0
+        self._ext_active_code = ""
         
         self._setup_ui()
         self._load_values()
@@ -367,6 +373,10 @@ class SettingsPage(QWidget):
         # 5c. Productivity
         categories.append(("Productivity", "Focus defaults and attention nudges"))
         self._stack.addWidget(self._wrap_scroll(self._build_productivity_page()))
+
+        # 5d. Browser Extension Companion
+        categories.append(("Browser Extension", "Pairing, sub-path rules, and feed shield"))
+        self._stack.addWidget(self._wrap_scroll(self._build_extension_page()))
 
         # 6. Data Management
         data_page = QWidget()
@@ -804,6 +814,14 @@ class SettingsPage(QWidget):
         self._prod_break.setChecked(self._sm.get_bool("focus_break_reminders", False))
         layout.addWidget(row)
 
+        self._prod_notch, row = self._create_toggle_row(
+            "Dynamic Island (Desktop Notch)",
+            "Ambient floating overlay at the top of your screen with live focus timers, task progress, and drift alerts."
+        )
+        self._prod_notch.setChecked(self._sm.get_bool("ambient_notch_enabled", True))
+        self._prod_notch.toggled.connect(self._on_notch_toggled)
+        layout.addWidget(row)
+
         # ── Coming soon ──────────────────────────────────────────────────────
         layout.addWidget(self._create_section_title("Scheduling"))
 
@@ -826,6 +844,231 @@ class SettingsPage(QWidget):
 
         layout.addStretch()
         return page
+
+    def _build_extension_page(self) -> QWidget:
+        from protection.extension_bridge import ExtensionBridge
+
+        bridge = ExtensionBridge.instance()
+        if not bridge.is_running:
+            bridge.start()
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 12, 12)
+        layout.setSpacing(14)
+
+        layout.addWidget(self._create_section_title("Browser Extension Companion"))
+
+        # ── 1. Overview card ─────────────────────────────────────────────────
+        desc_card = QFrame()
+        desc_card.setObjectName("settings_card")
+        desc_l = QVBoxLayout(desc_card)
+        desc_l.setContentsMargins(20, 18, 20, 18)
+        desc_l.setSpacing(6)
+        desc_title = QLabel("Private, in-browser Focus enforcement")
+        desc_title.setObjectName("setting_label")
+        desc_body = QLabel(
+            "The Digital Wellbeing Companion extension for Chrome, Edge, Brave, and Firefox "
+            "enforces granular sub-path rules (e.g., blocking youtube.com/shorts while allowing lecture videos), "
+            "shields addictive algorithmic recommendation feeds, and tracks active tabs with zero CPU lag. "
+            "All communication is strictly confined to loopback (127.0.0.1) with zero telemetry."
+        )
+        desc_body.setObjectName("setting_desc")
+        desc_body.setWordWrap(True)
+        desc_l.addWidget(desc_title)
+        desc_l.addWidget(desc_body)
+        layout.addWidget(desc_card)
+
+        # ── 2. Pairing & Connection Card ─────────────────────────────────────
+        layout.addWidget(self._create_section_title("Connection & Pairing"))
+
+        pair_card = QFrame()
+        pair_card.setObjectName("settings_card")
+        pair_l = QVBoxLayout(pair_card)
+        pair_l.setContentsMargins(20, 18, 20, 18)
+        pair_l.setSpacing(14)
+
+        # Status row
+        status_row = QHBoxLayout()
+        status_row.setSpacing(8)
+
+        self._ext_status_dot = QLabel("●")
+        self._ext_status_dot.setObjectName("ext_status_dot")
+        self._ext_status_text = QLabel(f"Listening on 127.0.0.1 (Port {bridge.port})")
+        self._ext_status_text.setObjectName("setting_label")
+        status_row.addWidget(self._ext_status_dot)
+        status_row.addWidget(self._ext_status_text, 1)
+
+        self._ext_badge = QLabel("Ready to pair")
+        self._ext_badge.setObjectName("ext_badge")
+        status_row.addWidget(self._ext_badge)
+        pair_l.addLayout(status_row)
+
+        desc_pair = QLabel(
+            "Click below to generate a unique 6-digit code. In your browser extension options or popup, "
+            "enter this code or simply click '1-Click Auto Connect'."
+        )
+        desc_pair.setObjectName("setting_desc")
+        desc_pair.setWordWrap(True)
+        pair_l.addWidget(desc_pair)
+
+        # Huge Code Display Box
+        code_box = QFrame()
+        code_box.setObjectName("ext_code_box")
+        code_box_l = QVBoxLayout(code_box)
+        code_box_l.setContentsMargins(18, 18, 18, 18)
+        code_box_l.setSpacing(6)
+        code_box_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self._ext_code_label = QLabel("— — —   — — —")
+        self._ext_code_label.setObjectName("ext_code_display")
+        self._ext_code_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        code_box_l.addWidget(self._ext_code_label)
+
+        self._ext_expiry_label = QLabel("Click 'Generate Code' to start pairing")
+        self._ext_expiry_label.setObjectName("ext_timer_label")
+        self._ext_expiry_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        code_box_l.addWidget(self._ext_expiry_label)
+
+        pair_l.addWidget(code_box)
+
+        # Actions Row
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        self._btn_gen_code = QPushButton("Generate 6-Digit Pairing Code")
+        self._btn_gen_code.setObjectName("accent_btn")
+        self._btn_gen_code.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_gen_code.clicked.connect(self._on_generate_ext_code)
+        btn_row.addWidget(self._btn_gen_code)
+
+        self._btn_copy_code = QPushButton("Copy Code")
+        self._btn_copy_code.setObjectName("secondary_action_btn")
+        self._btn_copy_code.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_copy_code.clicked.connect(self._on_copy_ext_code)
+        btn_row.addWidget(self._btn_copy_code)
+
+        self._btn_copy_details = QPushButton("Copy Port & Token")
+        self._btn_copy_details.setObjectName("secondary_action_btn")
+        self._btn_copy_details.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_copy_details.clicked.connect(self._on_copy_ext_details)
+        btn_row.addWidget(self._btn_copy_details)
+
+        btn_row.addStretch()
+        pair_l.addLayout(btn_row)
+
+        layout.addWidget(pair_card)
+
+        # ── 3. Quick Setup Guide & Tools ─────────────────────────────────────
+        layout.addWidget(self._create_section_title("Installation & Web Rules"))
+
+        setup_card = QFrame()
+        setup_card.setObjectName("settings_card")
+        setup_l = QVBoxLayout(setup_card)
+        setup_l.setContentsMargins(20, 18, 20, 18)
+        setup_l.setSpacing(12)
+
+        guide_text = QLabel(
+            "1. Open <b>chrome://extensions</b> (or <b>edge://extensions</b> / <b>brave://extensions</b>) and toggle on <b>Developer mode</b>.<br>"
+            "2. Click <b>Load unpacked</b> and select the extension folder.<br>"
+            "3. Open the extension Options page or click its toolbar icon, and enter your 6-digit code or click <b>1-Click Auto Connect</b>."
+        )
+        guide_text.setObjectName("setting_desc")
+        guide_text.setTextFormat(Qt.TextFormat.RichText)
+        guide_text.setWordWrap(True)
+        setup_l.addWidget(guide_text)
+
+        tools_row = QHBoxLayout()
+        tools_row.setSpacing(10)
+
+        btn_open_folder = QPushButton("Open Extension Folder in Explorer")
+        btn_open_folder.setObjectName("secondary_action_btn")
+        btn_open_folder.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_open_folder.clicked.connect(self._on_open_ext_folder)
+        tools_row.addWidget(btn_open_folder)
+
+        btn_web_rules = QPushButton("Manage Sub-Path Web Rules")
+        btn_web_rules.setObjectName("secondary_action_btn")
+        btn_web_rules.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_web_rules.clicked.connect(self._on_open_web_rules_dialog)
+        tools_row.addWidget(btn_web_rules)
+
+        tools_row.addStretch()
+        setup_l.addLayout(tools_row)
+
+        layout.addWidget(setup_card)
+
+        layout.addStretch()
+        return page
+
+    def _on_generate_ext_code(self) -> None:
+        import time
+        from PySide6.QtWidgets import QApplication
+        from protection.extension_bridge import ExtensionBridge
+
+        bridge = ExtensionBridge.instance()
+        if not bridge.is_running:
+            bridge.start()
+
+        code = bridge.enable_pairing(duration_s=300.0)
+        self._ext_active_code = code
+        self._ext_code_expires_at = time.time() + 300.0
+
+        formatted = f"{code[:3]}  {code[3:]}" if len(code) == 6 else code
+        self._ext_code_label.setText(formatted)
+        self._ext_expiry_label.setText("Code active for 5:00 • 1-Click auto-connect enabled • Copied to clipboard!")
+        QApplication.clipboard().setText(code)
+
+        if not self._ext_pairing_timer.isActive():
+            self._ext_pairing_timer.start()
+
+    def _update_ext_pairing_countdown(self) -> None:
+        import time
+        remaining = int(self._ext_code_expires_at - time.time())
+        if remaining > 0:
+            mins = remaining // 60
+            secs = remaining % 60
+            self._ext_expiry_label.setText(
+                f"Code active for {mins}:{secs:02d} • 1-Click auto-connect enabled"
+            )
+        else:
+            self._ext_pairing_timer.stop()
+            self._ext_code_label.setText("— — —   — — —")
+            self._ext_expiry_label.setText("Pairing code expired. Click 'Generate Code' to create a new one.")
+            self._ext_active_code = ""
+
+    def _on_copy_ext_code(self) -> None:
+        from PySide6.QtWidgets import QApplication
+        if self._ext_active_code:
+            QApplication.clipboard().setText(self._ext_active_code)
+            self._ext_expiry_label.setText("Code copied to clipboard!")
+        else:
+            self._on_generate_ext_code()
+
+    def _on_copy_ext_details(self) -> None:
+        from PySide6.QtWidgets import QApplication
+        from protection.extension_bridge import ExtensionBridge
+
+        bridge = ExtensionBridge.instance()
+        info = bridge.connection_info()
+        text = f"port={info.get('port', 47823)}\ntoken={info.get('token', '')}"
+        if self._ext_active_code:
+            text += f"\ncode={self._ext_active_code}"
+        QApplication.clipboard().setText(text)
+        self._ext_expiry_label.setText("Port and token copied to clipboard!")
+
+    def _on_open_ext_folder(self) -> None:
+        import os
+        from pathlib import Path
+        ext_path = Path(__file__).resolve().parent.parent.parent / "assets" / "browser_extension"
+        if ext_path.exists():
+            os.startfile(str(ext_path))
+
+    def _on_open_web_rules_dialog(self) -> None:
+        from ui.widgets.url_rules_dialog import UrlRulesDialog
+        from protection.focus_manager import FocusManager
+        dialog = UrlRulesDialog(FocusManager.instance(), parent=self.window())
+        dialog.exec()
 
     def _wrap_scroll(self, widget: QWidget) -> QScrollArea:
         scroll = QScrollArea()
@@ -1119,6 +1362,36 @@ class SettingsPage(QWidget):
                 background: {tm.color('primary_btn_hover')};
                 border-color: {tm.color('accent_hover')};
             }}
+            QFrame#ext_code_box {{
+                background-color: rgba(0, 0, 0, 0.25);
+                border: 1px solid rgba(16, 185, 129, 0.35);
+                border-radius: 12px;
+            }}
+            QLabel#ext_code_display {{
+                font-size: 32px;
+                font-weight: 800;
+                font-family: Consolas, "Courier New", monospace;
+                color: {tm.color('accent')};
+                letter-spacing: 5px;
+            }}
+            QLabel#ext_status_dot {{
+                color: #10B981;
+                font-size: 14px;
+            }}
+            QLabel#ext_badge {{
+                background-color: rgba(16, 185, 129, 0.15);
+                color: #10B981;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 3px 10px;
+                border-radius: 6px;
+                border: 1px solid rgba(16, 185, 129, 0.3);
+            }}
+            QLabel#ext_timer_label {{
+                font-size: 12px;
+                color: {tm.color('text_sub')};
+                font-weight: 500;
+            }}
             QPushButton#secondary_action_btn {{
                 background-color: {tm.color('surface_secondary')};
                 color: {tm.color('text_main')};
@@ -1210,12 +1483,20 @@ class SettingsPage(QWidget):
             self._prod_nudge.setChecked(self._sm.get_bool("attention_nudge_enabled", True))
         if hasattr(self, "_prod_break"):
             self._prod_break.setChecked(self._sm.get_bool("focus_break_reminders", False))
+        if hasattr(self, "_prod_notch"):
+            self._prod_notch.setChecked(self._sm.get_bool("ambient_notch_enabled", True))
         if hasattr(self, "_prod_startup_focus"):
             self._prod_startup_focus.setChecked(self._sm.get_bool("prod_startup_focus", False))
         if hasattr(self, "_prod_screen_goal_spin"):
             self._prod_screen_goal_spin.setValue(self._sm.get_int("prod_screen_goal_hours", 6))
 
         self._on_sg_mode_changed()
+
+    def _on_notch_toggled(self, enabled: bool) -> None:
+        self._sm.set_bool("ambient_notch_enabled", enabled)
+        main_win = self.window()
+        if main_win and hasattr(main_win, "set_ambient_notch_enabled"):
+            main_win.set_ambient_notch_enabled(enabled)
 
     def _on_export_csv(self) -> None:
         days = self._export_range_combo.currentData()

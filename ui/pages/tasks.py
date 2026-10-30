@@ -331,6 +331,11 @@ class TasksPage(QWidget):
         layout.addWidget(card, 1)
         return lbl_val
 
+    def _sync_notch(self) -> None:
+        main_win = self.window()
+        if main_win and hasattr(main_win, "sync_ambient_notch"):
+            main_win.sync_ambient_notch()
+
     def _open_add_dialog(self) -> None:
         dialog = TaskCreateDialog(self.window())
         if dialog.exec():
@@ -342,6 +347,7 @@ class TasksPage(QWidget):
                 target_processes=data["target_processes"],
             )
             self.refresh()
+            self._sync_notch()
 
     def refresh(self) -> None:
         # Clear existing cards
@@ -382,6 +388,7 @@ class TasksPage(QWidget):
             # Launch focus session matching task duration
             self._fm.start_focus(minutes=mins)
         self.refresh()
+        self._sync_notch()
 
     def _on_complete_task(self, task_id: int) -> None:
         task = self._repo.get_smart_task(task_id)
@@ -389,10 +396,12 @@ class TasksPage(QWidget):
             new_status = "pending" if task.get("status") == "completed" else "completed"
             self._repo.update_smart_task_status(task_id, new_status)
         self.refresh()
+        self._sync_notch()
 
     def _on_delete_task(self, task_id: int) -> None:
         self._repo.delete_smart_task(task_id)
         self.refresh()
+        self._sync_notch()
 
     def _apply_theme(self, is_dark: bool) -> None:
         tm = ThemeManager.instance()

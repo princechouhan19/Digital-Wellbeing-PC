@@ -60,6 +60,7 @@ class FocusManager(QObject):
         self._repo = repo
         self._pin_manager = PINManager(repo)
         self._is_active = False
+        self._rules_revision = getattr(self, "_rules_revision", 0) + 1
         self._is_strict = False
         self._lockout = False
         self._watchdog_proc = None
@@ -85,12 +86,17 @@ class FocusManager(QObject):
         self._url_rule_engine = UrlRuleEngine(repo)
         self._url_rules_cache = None
 
+        self._rules_revision: int = 1
+
         # The browser extension bridge asks this manager for a decision on each
-        # navigation. Registration is cheap and does not start the server.
+        # navigation and fetches synced rule batches. Registration is cheap and
+        # does not start the server.
         try:
             from protection.extension_bridge import ExtensionBridge
 
-            ExtensionBridge.instance().set_decision_provider(self.check_url)
+            bridge = ExtensionBridge.instance()
+            bridge.set_decision_provider(self.check_url)
+            bridge.set_rules_provider(self.get_extension_rules)
         except Exception:
             pass
 
@@ -245,24 +251,28 @@ class FocusManager(QObject):
         rule = self._url_rule_engine.add(pattern, action, label)
         if rule is not None:
             self._url_rules_cache = None
+            self._rules_revision = getattr(self, "_rules_revision", 0) + 1
         return rule
 
     def remove_url_rule(self, rule_id: str) -> bool:
         removed = self._url_rule_engine.remove(rule_id)
         if removed:
             self._url_rules_cache = None
+            self._rules_revision = getattr(self, "_rules_revision", 0) + 1
         return removed
 
     def set_url_rule_enabled(self, rule_id: str, enabled: bool) -> bool:
         changed = self._url_rule_engine.set_enabled(rule_id, enabled)
         if changed:
             self._url_rules_cache = None
+            self._rules_revision = getattr(self, "_rules_revision", 0) + 1
         return changed
 
     def apply_url_preset(self, preset_name: str) -> int:
         added = self._url_rule_engine.apply_preset(preset_name)
         if added:
             self._url_rules_cache = None
+            self._rules_revision = getattr(self, "_rules_revision", 0) + 1
         return added
 
     def export_url_rules(self, path: str) -> int:
@@ -350,6 +360,38 @@ class FocusManager(QObject):
         except Exception:
             return {"running": False, "port": 0, "token": "", "last_error": ""}
 
+    def enable_extension_pairing(self, duration_s: float = 300.0) -> str:
+        try:
+            from protection.extension_bridge import ExtensionBridge
+
+            return ExtensionBridge.instance().enable_pairing(duration_s=duration_s)
+        except Exception:
+            return ""
+
+    def get_extension_rules(self) -> dict:
+        rules_list = []
+        for r in self.url_rules():
+            if r.enabled:
+                rules_list.append(r.to_dict())
+
+        blocked_domains = []
+        if self._is_active:
+            for site in self.blocked_websites():
+                norm = self._normalize_domain(site)
+                if norm:
+                    blocked_domains.append(norm)
+
+        return {
+            "ok": True,
+            "focus_active": self._is_active,
+            "mode": self._mode,
+            "seconds_remaining": self._seconds_remaining,
+            "session_total_seconds": self._session_total_seconds,
+            "rules": rules_list,
+            "blocked_domains": blocked_domains,
+            "revision": getattr(self, "_rules_revision", 1),
+        }
+
     def set_mode(self, mode: str) -> None:
         if mode in self._mode_apps and not self._is_active:
             self._mode = mode
@@ -411,6 +453,7 @@ class FocusManager(QObject):
             return False
 
         self._is_active = True
+        self._rules_revision = getattr(self, "_rules_revision", 0) + 1
         self._is_strict = strict_mode or lockout
         self._lockout = bool(lockout)
         self._deadline = time.monotonic() + minutes * 60
@@ -724,6 +767,7 @@ class FocusManager(QObject):
                 logger.warning("[FOCUS] Could not persist recap: %s", exc)
 
         self._is_active = False
+        self._rules_revision = getattr(self, "_rules_revision", 0) + 1
         self._is_strict = False
         self._lockout = False
         self._seconds_remaining = 0
