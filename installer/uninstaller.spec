@@ -12,6 +12,8 @@ if os.path.exists('assets/icons/app_icon.ico'):
     datas.append((os.path.abspath('assets/icons/app_icon.ico'), 'assets/icons'))
 if os.path.exists('assets/icon.ico'):
     datas.append((os.path.abspath('assets/icon.ico'), 'assets'))
+if os.path.exists('version.json'):
+    datas.append((os.path.abspath('version.json'), '.'))
 
 excludes = [
     'tkinter', 'unittest', 'test', 'distutils',

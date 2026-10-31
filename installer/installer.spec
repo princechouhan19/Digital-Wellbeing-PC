@@ -20,6 +20,8 @@ if os.path.exists('assets/icons/app_icon.ico'):
     datas.append((os.path.abspath('assets/icons/app_icon.ico'), 'assets/icons'))
 if os.path.exists('assets/icon.ico'):
     datas.append((os.path.abspath('assets/icon.ico'), 'assets'))
+if os.path.exists('version.json'):
+    datas.append((os.path.abspath('version.json'), '.'))
 
 icon = os.path.abspath('assets/icon.ico') if os.path.exists('assets/icon.ico') else (os.path.abspath('assets/icons/app_icon.ico') if os.path.exists('assets/icons/app_icon.ico') else None)
 version_file = os.path.abspath(os.path.join(SPECPATH, 'installer_version_info.txt')) if os.path.exists(os.path.join(SPECPATH, 'installer_version_info.txt')) else None

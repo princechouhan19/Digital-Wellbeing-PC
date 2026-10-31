@@ -4,6 +4,10 @@ psutil>=5.9.8
 pyqtgraph>=0.13.7
 numpy<2.0.0
 PyInstaller>=6.6.0
+qtawesome>=1.3.0
+soundcard>=0.4.6
+cffi>=2.1.0
+pycaw>=20260927
 winrt-Windows.Security.Credentials.UI>=3.2.1
 winrt-Windows.UI.Notifications>=3.2.1
 winrt-Windows.Data.Xml.Dom>=3.2.1

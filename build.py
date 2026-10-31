@@ -20,29 +20,31 @@ def update_file_version_info(version_str):
         parts.append("0")
     tuple_str = f"({parts[0]}, {parts[1]}, {parts[2]}, {parts[3]})"
     
-    path = "file_version_info.txt"
-    with open(path, "r", encoding="utf-8") as f:
-        content = f.read()
+    for path in ["file_version_info.txt", "installer/installer_version_info.txt", "installer/uninstaller_version_info.txt"]:
+        if not os.path.exists(path):
+            continue
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        # Replace filevers and prodvers tuples
+        content = re.sub(r"filevers=\(\d+,\s*\d+,\s*\d+,\s*\d+\)", f"filevers={tuple_str}", content)
+        content = re.sub(r"prodvers=\(\d+,\s*\d+,\s*\d+,\s*\d+\)", f"prodvers={tuple_str}", content)
         
-    # Replace filevers and prodvers tuples
-    content = re.sub(r"filevers=\(\d+,\s*\d+,\s*\d+,\s*\d+\)", f"filevers={tuple_str}", content)
-    content = re.sub(r"prodvers=\(\d+,\s*\d+,\s*\d+,\s*\d+\)", f"prodvers={tuple_str}", content)
-    
-    # Replace FileVersion and ProductVersion string structs
-    content = re.sub(
-        r"StringStruct\('FileVersion',\s*'[^']+'\)",
-        f"StringStruct('FileVersion', '{version_str}')",
-        content
-    )
-    content = re.sub(
-        r"StringStruct\('ProductVersion',\s*'[^']+'\)",
-        f"StringStruct('ProductVersion', '{version_str}')",
-        content
-    )
-    
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    print("Done updating file_version_info.txt.")
+        # Replace FileVersion and ProductVersion string structs
+        content = re.sub(
+            r"StringStruct\('FileVersion',\s*'[^']+'\)",
+            f"StringStruct('FileVersion', '{version_str}')",
+            content
+        )
+        content = re.sub(
+            r"StringStruct\('ProductVersion',\s*'[^']+'\)",
+            f"StringStruct('ProductVersion', '{version_str}')",
+            content
+        )
+        
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+    print("Done updating version info files.")
 
 def update_manifest_version(version_str):
     """

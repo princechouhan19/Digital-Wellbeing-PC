@@ -18,8 +18,8 @@ from core.constants import APP_NAME, APP_VERSION
 from core.logger import logger
 from settings.manager import SettingsManager
 
-GITHUB_OWNER = os.environ.get("GITHUB_OWNER", "")
-GITHUB_REPO = os.environ.get("GITHUB_REPO", "digital-wellbeing")
+GITHUB_OWNER = os.environ.get("GITHUB_OWNER", "princechouhan19")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "Digital-Wellbeing-PC")
 GITHUB_API_BASE = os.environ.get("GITHUB_API_BASE", "https://api.github.com")
 
 

@@ -14,7 +14,22 @@ from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QPushButton, QVBox
 
 from branding import get_logo_pixmap, get_app_icon
 
-APP, EXE = "Digital Wellbeing", "DigitalWellbeing.exe"
+def _load_app_version() -> str:
+    try:
+        import json
+        for cand in [Path(__file__).resolve().parent / "version.json",
+                     Path(__file__).resolve().parent.parent / "version.json",
+                     Path(getattr(sys, "_MEIPASS", ".")) / "version.json"]:
+            if cand.is_file():
+                with open(cand, "r", encoding="utf-8") as f:
+                    v = json.load(f).get("version")
+                    if v:
+                        return str(v)
+    except Exception:
+        pass
+    return "4.4.1"
+
+APP, VER, EXE = "Digital Wellbeing", _load_app_version(), "DigitalWellbeing.exe"
 ACCENT, BG, CARD, LINE = "#3E8BFF", "#0B0B0E", "#17171D", "#26262D"
 TXT, SUB, DANGER, SUCCESS = "#F3F3F6", "#9B9BA6", "#FF6B6B", "#4CAF50"
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\DigitalWellbeing"
@@ -266,7 +281,7 @@ def main():
     if sys.platform == "win32":
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PrinceChouhan.DigitalWellbeing.Uninstaller.4.3.2")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f"PrinceChouhan.DigitalWellbeing.Uninstaller.{VER}")
         except Exception:
             pass
 

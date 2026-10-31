@@ -19,12 +19,12 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'Prince Chouhan'),
             StringStruct('FileDescription', 'Digital Wellbeing Setup'),
-            StringStruct('FileVersion', '4.3.2'),
+            StringStruct('FileVersion', '4.4.1'),
             StringStruct('InternalName', 'DigitalWellbeingSetup'),
             StringStruct('LegalCopyright', 'Copyright (c) 2026 Prince Chouhan. All rights reserved.'),
             StringStruct('OriginalFilename', 'Digital Wellbeing Setup.exe'),
             StringStruct('ProductName', 'Digital Wellbeing'),
-            StringStruct('ProductVersion', '4.3.2')
+            StringStruct('ProductVersion', '4.4.1')
           ]
         )
       ]
