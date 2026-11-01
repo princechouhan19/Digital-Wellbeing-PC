@@ -12,12 +12,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from PySide6.QtCore import Qt, Signal
+import psutil
+from PySide6.QtCore import Qt, Signal, QTime
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -26,6 +29,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSpinBox,
+    QTimeEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -36,41 +40,96 @@ from protection.focus_manager import FocusManager
 from ui import design_system as ds
 from ui.icons import get_icon, get_pixmap
 from ui.theme import ThemeManager
+from ui.widgets.process_picker import ProcessPickerDialog
 
 
 class TaskCreateDialog(QDialog):
-    """Clean dialog to create a new Smart Task."""
+    """Clean dialog to create a new Smart Task with exact scheduled time and visual app picker."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("New Smart Task")
-        self.setFixedWidth(420)
+        self.setFixedWidth(460)
         self.setObjectName("task_dialog")
+
+        self._selected_apps: List[dict] = []  # [{"proc": "chrome.exe", "name": "Google Chrome"}]
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(14)
 
+        # 1. Task Title
         title_lbl = QLabel("Task Title")
         title_lbl.setObjectName("field_label")
         self._title_edit = QLineEdit()
-        self._title_edit.setPlaceholderText("e.g., Complete Biology Assignment")
+        self._title_edit.setPlaceholderText("e.g., 5:50 PM Gym, Biology Assignment, Code Review")
         layout.addWidget(title_lbl)
         layout.addWidget(self._title_edit)
 
-        est_row = QHBoxLayout()
+        # 2. Exact Scheduled Time Section
+        time_section = QVBoxLayout()
+        time_section.setSpacing(6)
+        
+        time_hdr = QHBoxLayout()
+        self._time_check = QCheckBox("Schedule Exact Time")
+        self._time_check.setObjectName("field_check")
+        self._time_check.setChecked(True)
+        self._time_check.toggled.connect(self._on_time_toggled)
+        time_hdr.addWidget(self._time_check)
+        time_hdr.addStretch()
+
+        self._time_edit = QTimeEdit()
+        self._time_edit.setDisplayFormat("h:mm AP")
+        curr_time = QTime.currentTime()
+        # Round up to nearest 5 or 10 min
+        mins = curr_time.minute()
+        rounded_mins = ((mins // 5) + 1) * 5
+        if rounded_mins >= 60:
+            curr_time = curr_time.addSecs(3600)
+            rounded_mins = 0
+        self._time_edit.setTime(QTime(curr_time.hour(), rounded_mins))
+        time_hdr.addWidget(self._time_edit)
+        time_section.addLayout(time_hdr)
+
+        # Quick preset buttons (e.g. +30m, 5:50 PM, 6:00 PM, 8:00 PM)
+        self._preset_row = QHBoxLayout()
+        self._preset_row.setSpacing(6)
+        presets = [
+            ("Now", lambda: self._time_edit.setTime(QTime.currentTime())),
+            ("+30m", lambda: self._time_edit.setTime(self._time_edit.time().addSecs(1800))),
+            ("+1h", lambda: self._time_edit.setTime(self._time_edit.time().addSecs(3600))),
+            ("5:50 PM", lambda: self._time_edit.setTime(QTime(17, 50))),
+            ("6:00 PM", lambda: self._time_edit.setTime(QTime(18, 0))),
+            ("8:00 PM", lambda: self._time_edit.setTime(QTime(20, 0))),
+        ]
+        for p_label, p_fn in presets:
+            btn = QPushButton(p_label)
+            btn.setObjectName("preset_chip")
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn.clicked.connect(p_fn)
+            self._preset_row.addWidget(btn)
+        self._preset_row.addStretch()
+        time_section.addLayout(self._preset_row)
+        layout.addLayout(time_section)
+
+        # 3. Estimated Duration & Priority
+        est_prio_row = QHBoxLayout()
+        est_prio_row.setSpacing(16)
+
+        est_col = QVBoxLayout()
+        est_col.setSpacing(4)
         est_lbl = QLabel("Estimated Duration")
         est_lbl.setObjectName("field_label")
         self._est_spin = QSpinBox()
-        self._est_spin.setRange(5, 240)
+        self._est_spin.setRange(5, 300)
         self._est_spin.setValue(25)
         self._est_spin.setSuffix(" min")
-        est_row.addWidget(est_lbl)
-        est_row.addStretch()
-        est_row.addWidget(self._est_spin)
-        layout.addLayout(est_row)
+        est_col.addWidget(est_lbl)
+        est_col.addWidget(self._est_spin)
+        est_prio_row.addLayout(est_col, 1)
 
-        prio_row = QHBoxLayout()
+        prio_col = QVBoxLayout()
+        prio_col.setSpacing(4)
         prio_lbl = QLabel("Priority")
         prio_lbl.setObjectName("field_label")
         self._prio_combo = QComboBox()
@@ -78,18 +137,51 @@ class TaskCreateDialog(QDialog):
         self._prio_combo.addItem("Normal Priority", 2)
         self._prio_combo.addItem("Low Priority", 3)
         self._prio_combo.setCurrentIndex(1)
-        prio_row.addWidget(prio_lbl)
-        prio_row.addStretch()
-        prio_row.addWidget(self._prio_combo)
-        layout.addLayout(prio_row)
+        prio_col.addWidget(prio_lbl)
+        prio_col.addWidget(self._prio_combo)
+        est_prio_row.addLayout(prio_col, 1)
 
-        target_lbl = QLabel("Target Applications (comma-separated exe)")
+        layout.addLayout(est_prio_row)
+
+        # 4. Target Application Selector (No manual typing required!)
+        target_box = QVBoxLayout()
+        target_box.setSpacing(6)
+        target_lbl = QLabel("Target Applications (Choose from list)")
         target_lbl.setObjectName("field_label")
-        self._target_edit = QLineEdit()
-        self._target_edit.setPlaceholderText("e.g., word.exe, excel.exe, code.exe")
-        layout.addWidget(target_lbl)
-        layout.addWidget(self._target_edit)
+        target_box.addWidget(target_lbl)
 
+        # Selected apps chip tags area
+        self._chips_container = QWidget()
+        self._chips_layout = QHBoxLayout(self._chips_container)
+        self._chips_layout.setContentsMargins(0, 0, 0, 0)
+        self._chips_layout.setSpacing(6)
+        self._chips_layout.addStretch()
+        target_box.addWidget(self._chips_container)
+
+        # Action row with quick dropdown and "+ Choose App from List" button
+        app_picker_row = QHBoxLayout()
+        app_picker_row.setSpacing(8)
+
+        self._quick_apps_combo = QComboBox()
+        self._quick_apps_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._populate_quick_apps()
+        app_picker_row.addWidget(self._quick_apps_combo, 1)
+
+        btn_add_quick = QPushButton("+ Add")
+        btn_add_quick.setObjectName("secondary_btn")
+        btn_add_quick.clicked.connect(self._on_add_quick_app)
+        app_picker_row.addWidget(btn_add_quick)
+
+        self._btn_browse_app = QPushButton("App List 🗂")
+        self._btn_browse_app.setObjectName("secondary_btn")
+        self._btn_browse_app.setToolTip("Browse all running & installed applications")
+        self._btn_browse_app.clicked.connect(self._open_process_picker)
+        app_picker_row.addWidget(self._btn_browse_app)
+
+        target_box.addLayout(app_picker_row)
+        layout.addLayout(target_box)
+
+        # 5. Buttons
         btn_row = QHBoxLayout()
         btn_row.addStretch()
         self._btn_cancel = QPushButton("Cancel")
@@ -104,6 +196,108 @@ class TaskCreateDialog(QDialog):
 
         self._apply_theme()
 
+    def _on_time_toggled(self, checked: bool) -> None:
+        self._time_edit.setEnabled(checked)
+        for i in range(self._preset_row.count()):
+            w = self._preset_row.itemAt(i).widget()
+            if w:
+                w.setEnabled(checked)
+
+    def _populate_quick_apps(self) -> None:
+        self._quick_apps_combo.clear()
+        self._quick_apps_combo.addItem("Select from detected apps...", None)
+
+        seen = set()
+        # Common desktop application presets
+        presets = [
+            ("Google Chrome", "chrome.exe"),
+            ("Visual Studio Code", "code.exe"),
+            ("Microsoft Edge", "msedge.exe"),
+            ("Microsoft Word", "winword.exe"),
+            ("Microsoft Excel", "excel.exe"),
+            ("Spotify", "spotify.exe"),
+            ("Discord", "discord.exe"),
+            ("Notion", "notion.exe"),
+            ("Obsidian", "obsidian.exe"),
+            ("Figma", "figma.exe"),
+            ("Terminal / PowerShell", "powershell.exe"),
+        ]
+
+        # First add active running user processes
+        try:
+            for p in psutil.process_iter(['name']):
+                name = (p.info.get('name') or '').strip()
+                low = name.lower()
+                if low and low.endswith(".exe") and low not in seen:
+                    # filter system processes
+                    if low not in ("svchost.exe", "system", "registry", "smss.exe", "csrss.exe", "services.exe", "lsass.exe"):
+                        display = low[:-4].capitalize()
+                        self._quick_apps_combo.addItem(f"{display} ({low})", low)
+                        seen.add(low)
+        except Exception:
+            pass
+
+        # Then add presets that weren't detected running
+        for label, proc in presets:
+            if proc.lower() not in seen:
+                self._quick_apps_combo.addItem(f"{label} ({proc})", proc.lower())
+                seen.add(proc.lower())
+
+    def _on_add_quick_app(self) -> None:
+        proc = self._quick_apps_combo.currentData()
+        if not proc:
+            return
+        text = self._quick_apps_combo.currentText().split(" (")[0]
+        self._add_app_chip(proc, text)
+
+    def _open_process_picker(self) -> None:
+        dialog = ProcessPickerDialog(self, mode="task", title_text="Select Target Application", action_text="Select Application")
+        if dialog.exec():
+            proc = dialog.selected_process_name
+            name = dialog.selected_display_name or proc
+            if proc:
+                self._add_app_chip(proc, name)
+
+    def _add_app_chip(self, proc: str, name: str) -> None:
+        proc = proc.lower()
+        if any(a["proc"] == proc for a in self._selected_apps):
+            return
+        self._selected_apps.append({"proc": proc, "name": name})
+        self._render_chips()
+
+    def _remove_app_chip(self, proc: str) -> None:
+        self._selected_apps = [a for a in self._selected_apps if a["proc"] != proc]
+        self._render_chips()
+
+    def _render_chips(self) -> None:
+        # Clear chips
+        while self._chips_layout.count():
+            item = self._chips_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for app in self._selected_apps:
+            chip = QFrame()
+            chip.setObjectName("app_chip")
+            cl = QHBoxLayout(chip)
+            cl.setContentsMargins(8, 3, 8, 3)
+            cl.setSpacing(6)
+            
+            lbl = QLabel(app["name"])
+            lbl.setObjectName("chip_text")
+            cl.addWidget(lbl)
+
+            btn_del = QPushButton("✕")
+            btn_del.setObjectName("chip_del_btn")
+            btn_del.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            proc_val = app["proc"]
+            btn_del.clicked.connect(lambda _, p=proc_val: self._remove_app_chip(p))
+            cl.addWidget(btn_del)
+
+            self._chips_layout.addWidget(chip)
+
+        self._chips_layout.addStretch()
+
     def _on_create(self) -> None:
         if not self._title_edit.text().strip():
             QMessageBox.warning(self, "Invalid Title", "Please enter a task title.")
@@ -111,13 +305,17 @@ class TaskCreateDialog(QDialog):
         self.accept()
 
     def get_data(self) -> dict:
-        procs_raw = self._target_edit.text().split(",")
-        procs = [p.strip().lower() for p in procs_raw if p.strip()]
+        scheduled_str = ""
+        if self._time_check.isChecked():
+            scheduled_str = self._time_edit.time().toString("h:mm AP")
+        
+        procs = [a["proc"] for a in self._selected_apps]
         return {
             "title": self._title_edit.text().strip(),
             "estimated_minutes": self._est_spin.value(),
             "priority": self._prio_combo.currentData(),
             "target_processes": procs,
+            "scheduled_time": scheduled_str,
         }
 
     def _apply_theme(self) -> None:
@@ -133,13 +331,48 @@ class TaskCreateDialog(QDialog):
                 font-weight: 600;
                 color: {tm.color('text_main')};
             }}
-            QLineEdit, QSpinBox, QComboBox {{
+            QCheckBox#field_check {{
+                font-size: 12px;
+                font-weight: 600;
+                color: {tm.color('text_main')};
+            }}
+            QLineEdit, QSpinBox, QComboBox, QTimeEdit {{
                 background: {tm.color('input_bg')};
                 border: 1px solid {tm.color('input_border')};
                 border-radius: 8px;
                 padding: 6px 10px;
                 color: {tm.color('text_main')};
                 font-size: 12px;
+            }}
+            QPushButton#preset_chip {{
+                background: {tm.color('surface_secondary')};
+                border: 1px solid {tm.color('border')};
+                border-radius: 6px;
+                padding: 3px 8px;
+                font-size: 11px;
+                font-weight: 600;
+                color: {tm.color('text_sub')};
+            }}
+            QPushButton#preset_chip:hover {{
+                background: {tm.color('card_hover')};
+                color: {tm.color('accent')};
+            }}
+            QFrame#app_chip {{
+                background: {tm.color('accent_tint_bg')};
+                border: 1px solid {tm.color('accent_tint_border')};
+                border-radius: 8px;
+            }}
+            QLabel#chip_text {{
+                font-size: 11px;
+                font-weight: 600;
+                color: {tm.color('accent')};
+            }}
+            QPushButton#chip_del_btn {{
+                background: transparent;
+                border: none;
+                color: {tm.color('accent')};
+                font-size: 10px;
+                padding: 0;
             }}
             QPushButton#primary_btn {{
                 background-color: {tm.color('accent')};
@@ -199,6 +432,12 @@ class TaskCard(QFrame):
 
         meta_row = QHBoxLayout()
         meta_row.setSpacing(10)
+
+        sched_time = self._task.get("scheduled_time")
+        if sched_time:
+            time_pill = QLabel(f"🕒 {sched_time}")
+            time_pill.setObjectName("task_time_pill")
+            meta_row.addWidget(time_pill)
 
         est_m = self._task.get("estimated_minutes", 25)
         act_s = self._task.get("actual_active_s", 0.0)
@@ -345,6 +584,7 @@ class TasksPage(QWidget):
                 priority=data["priority"],
                 estimated_minutes=data["estimated_minutes"],
                 target_processes=data["target_processes"],
+                scheduled_time=data.get("scheduled_time", ""),
             )
             self.refresh()
             self._sync_notch()
@@ -433,6 +673,15 @@ class TasksPage(QWidget):
             }}
             QLabel#task_title {{ font-size: 14px; font-weight: 600; color: {tm.color('text_main')}; }}
             QLabel#task_title_completed {{ font-size: 14px; font-weight: 600; color: {tm.color('text_muted')}; text-decoration: line-through; }}
+            QLabel#task_time_pill {{
+                background: {tm.color('accent_tint_bg')};
+                border: 1px solid {tm.color('accent_tint_border')};
+                border-radius: 6px;
+                padding: 2px 8px;
+                font-size: 11px;
+                font-weight: 700;
+                color: {tm.color('accent')};
+            }}
             QLabel#task_meta {{ font-size: 11px; color: {tm.color('text_sub')}; }}
             QLabel#task_pill {{
                 background: {tm.color('surface_secondary')};

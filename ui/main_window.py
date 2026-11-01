@@ -117,11 +117,18 @@ class MainWindow(QMainWindow):
                 self._ambient_notch.show()
                 # Connect task completion back to tasks page refresh if loaded
                 self._ambient_notch.task_completed.connect(self._on_notch_task_completed)
+                if hasattr(self._ambient_notch, "tasks_changed"):
+                    self._ambient_notch.tasks_changed.connect(self._on_notch_tasks_changed)
         except Exception as e:
             from core.logger import logger
             logger.warning("Failed to initialize AmbientNotch: %s", e)
 
     def _on_notch_task_completed(self, task_id: int) -> None:
+        tasks_page = self.get_loaded_page("_tasks_page")
+        if tasks_page and hasattr(tasks_page, "refresh"):
+            tasks_page.refresh()
+
+    def _on_notch_tasks_changed(self) -> None:
         tasks_page = self.get_loaded_page("_tasks_page")
         if tasks_page and hasattr(tasks_page, "refresh"):
             tasks_page.refresh()
@@ -133,6 +140,8 @@ class MainWindow(QMainWindow):
                     from ui.widgets.ambient_notch import AmbientNotch
                     self._ambient_notch = AmbientNotch()
                     self._ambient_notch.task_completed.connect(self._on_notch_task_completed)
+                    if hasattr(self._ambient_notch, "tasks_changed"):
+                        self._ambient_notch.tasks_changed.connect(self._on_notch_tasks_changed)
                 self._ambient_notch.show()
                 self._ambient_notch.sync_active_task()
             else:
@@ -146,6 +155,10 @@ class MainWindow(QMainWindow):
         if getattr(self, "_ambient_notch", None) is not None:
             try:
                 self._ambient_notch.sync_active_task()
+                if hasattr(self._ambient_notch, "refresh_calendar_panel"):
+                    self._ambient_notch.refresh_calendar_panel()
+                if hasattr(self._ambient_notch, "_evaluate_smart_mode"):
+                    self._ambient_notch._evaluate_smart_mode()
             except Exception:
                 pass
 

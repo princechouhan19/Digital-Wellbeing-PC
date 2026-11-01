@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS smart_tasks (
     target_processes    TEXT    DEFAULT '[]',
     target_domains      TEXT    DEFAULT '[]',
     due_date            TEXT,
+    scheduled_time      TEXT    DEFAULT '',
     created_at          TEXT    NOT NULL,
     completed_at        TEXT
 );
@@ -175,6 +176,10 @@ MIGRATE_ADD_DS_TIMELINE_JSON = """
 ALTER TABLE daily_stats ADD COLUMN timeline_json TEXT NOT NULL DEFAULT '[]';
 """
 
+MIGRATE_ADD_SMART_TASKS_SCHEDULED_TIME = """
+ALTER TABLE smart_tasks ADD COLUMN scheduled_time TEXT NOT NULL DEFAULT '';
+"""
+
 ALL_DDL = [
     CREATE_APP_SESSIONS,
     CREATE_APP_INFO,
@@ -197,6 +202,7 @@ MIGRATIONS = [
     ("category_usage_json", "daily_stats", MIGRATE_ADD_DS_CATEGORY_JSON),
     ("app_usage_json", "daily_stats", MIGRATE_ADD_DS_APP_JSON),
     ("timeline_json", "daily_stats", MIGRATE_ADD_DS_TIMELINE_JSON),
+    ("scheduled_time", "smart_tasks", MIGRATE_ADD_SMART_TASKS_SCHEDULED_TIME),
 ]
 
 DEFAULT_SETTINGS = {

@@ -1258,6 +1258,8 @@ class Repository:
                 tasks = []
                 for r in rows:
                     t = dict(r)
+                    if "scheduled_time" not in t or t["scheduled_time"] is None:
+                        t["scheduled_time"] = ""
                     try:
                         t["target_processes"] = json.loads(t.get("target_processes") or "[]")
                     except Exception:
@@ -1281,6 +1283,8 @@ class Repository:
                 if not row:
                     return None
                 t = dict(row)
+                if "scheduled_time" not in t or t["scheduled_time"] is None:
+                    t["scheduled_time"] = ""
                 try:
                     t["target_processes"] = json.loads(t.get("target_processes") or "[]")
                 except Exception:
@@ -1303,20 +1307,22 @@ class Repository:
         target_processes: Optional[List[str]] = None,
         target_domains: Optional[List[str]] = None,
         due_date: Optional[str] = None,
+        scheduled_time: Optional[str] = None,
     ) -> int:
         """Insert a new smart task and return its ID."""
         try:
             now_iso = datetime.now(timezone.utc).isoformat()
             procs_json = json.dumps(target_processes or [])
             doms_json = json.dumps(target_domains or [])
+            sched_str = (scheduled_time or "").strip()
             with self._cursor() as cur:
                 cur.execute(
                     """
                     INSERT INTO smart_tasks (
                         title, description, priority, estimated_minutes,
                         actual_active_s, status, target_processes,
-                        target_domains, due_date, created_at
-                    ) VALUES (?, ?, ?, ?, 0.0, 'pending', ?, ?, ?, ?)
+                        target_domains, due_date, scheduled_time, created_at
+                    ) VALUES (?, ?, ?, ?, 0.0, 'pending', ?, ?, ?, ?, ?)
                     """,
                     (
                         title.strip(),
@@ -1326,6 +1332,7 @@ class Repository:
                         procs_json,
                         doms_json,
                         due_date,
+                        sched_str,
                         now_iso,
                     ),
                 )

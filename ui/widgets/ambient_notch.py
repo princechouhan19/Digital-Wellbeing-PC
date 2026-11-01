@@ -997,6 +997,7 @@ class AmbientNotch(QWidget):
     """Unified Smart Dynamic Island integrating all dynamic-island-for-windows monitors and UI panels."""
 
     task_completed = Signal(int)
+    tasks_changed = Signal()
 
     # Rest Dimensions
     REST_WIDTH_IDLE = 200
@@ -1128,9 +1129,20 @@ class AmbientNotch(QWidget):
         # Initial layout
         self.set_mode(self.MODE_IDLE)
         self._sync_battery_and_time()
+        self._ensure_initial_tasks()
         self.sync_active_task()
         self._evaluate_smart_mode()
         self._update_position(expanded=False)
+
+    def _ensure_initial_tasks(self) -> None:
+        try:
+            tasks = self._repo.get_smart_tasks()
+            if not tasks:
+                self._repo.add_smart_task("Gym Session", priority=2, estimated_minutes=45, scheduled_time="5:50 PM")
+                self._repo.add_smart_task("Project Sync", priority=1, estimated_minutes=30, scheduled_time="2:00 PM")
+                self._repo.add_smart_task("Deep Focus Review", priority=2, estimated_minutes=25, scheduled_time="7:30 PM")
+        except Exception:
+            pass
 
     def _init_apple_fonts(self) -> None:
         try:
@@ -1587,17 +1599,21 @@ class AmbientNotch(QWidget):
         add_btn = QPushButton("Add")
         add_btn.setObjectName("DialogBtn")
         add_btn.clicked.connect(self.add_task_integrated)
+        toggle_btn = QPushButton("Toggle Done")
+        toggle_btn.setObjectName("DialogBtn")
+        toggle_btn.clicked.connect(self.toggle_task_done_integrated)
         del_btn = QPushButton("Delete Selected")
         del_btn.setObjectName("DialogBtn")
         del_btn.clicked.connect(self.delete_task_integrated)
-        save_btn = QPushButton("Save and Close")
+        save_btn = QPushButton("Close Editor")
         save_btn.setStyleSheet(f"background-color: {self._media_accent_color}; color: white; border-radius: 8px; padding: 10px; font-weight: bold;")
         save_btn.clicked.connect(self.save_and_close_editor)
 
         btn_layout.addWidget(add_btn)
+        btn_layout.addWidget(toggle_btn)
         btn_layout.addWidget(del_btn)
 
-        edit_layout.addWidget(QLabel("Manage Tasks", styleSheet="font-weight: bold; font-size: 15px;"))
+        edit_layout.addWidget(QLabel("Manage Smart Tasks", styleSheet="font-weight: bold; font-size: 15px;"))
         edit_layout.addWidget(self.edit_list)
         edit_layout.addLayout(input_grid)
         edit_layout.addLayout(btn_layout)
@@ -1610,31 +1626,63 @@ class AmbientNotch(QWidget):
 
     def add_task_integrated(self):
         name = self.edit_name.text().strip()
-        if name:
-            tasks = getattr(self, "custom_tasks", DEFAULT_TASKS)
-            tasks.append({
-                "name": name,
-                "category": self.edit_cat.currentText(),
-                "time": self.edit_time.text().strip() or "N/A",
-                "color": "#00A0FF",
-            })
-            self.custom_tasks = tasks
-            self._save_config()
+        if not name:
+            return
+        time_str = self.edit_time.text().strip()
+        cat = self.edit_cat.currentText()
+        prio = 1 if cat in ("Work", "Urgent") else (2 if cat in ("Study", "Health") else 3)
+        try:
+            self._repo.add_smart_task(
+                title=name,
+                priority=prio,
+                estimated_minutes=25,
+                scheduled_time=time_str,
+            )
+            self.tasks_changed.emit()
+        except Exception as e:
+            logger.error("Failed to add smart task from notch: %s", e)
+        self.refresh_calendar_panel()
+        self.sync_active_task()
+        self._evaluate_smart_mode()
+        self.edit_name.clear()
+        self.edit_time.clear()
+
+    def toggle_task_done_integrated(self):
+        curr_item = self.edit_list.currentItem()
+        if not curr_item:
+            return
+        task_id = curr_item.data(Qt.ItemDataRole.UserRole)
+        if task_id:
+            try:
+                task = self._repo.get_smart_task(task_id)
+                if task:
+                    new_status = "pending" if task.get("status") == "completed" else "completed"
+                    self._repo.update_smart_task_status(task_id, new_status)
+                    if new_status == "completed":
+                        self.task_completed.emit(task_id)
+                    self.tasks_changed.emit()
+            except Exception as e:
+                logger.error("Failed to toggle smart task from notch: %s", e)
             self.refresh_calendar_panel()
-            self.edit_name.clear()
-            self.edit_time.clear()
+            self.sync_active_task()
+            self._evaluate_smart_mode()
 
     def delete_task_integrated(self):
-        idx = self.edit_list.currentRow()
-        tasks = getattr(self, "custom_tasks", DEFAULT_TASKS)
-        if 0 <= idx < len(tasks):
-            tasks.pop(idx)
-            self.custom_tasks = tasks
-            self._save_config()
+        curr_item = self.edit_list.currentItem()
+        if not curr_item:
+            return
+        task_id = curr_item.data(Qt.ItemDataRole.UserRole)
+        if task_id:
+            try:
+                self._repo.delete_smart_task(task_id)
+                self.tasks_changed.emit()
+            except Exception as e:
+                logger.error("Failed to delete smart task from notch: %s", e)
             self.refresh_calendar_panel()
+            self.sync_active_task()
+            self._evaluate_smart_mode()
 
     def save_and_close_editor(self):
-        self._save_config()
         self.open_task_editor()
 
     def open_task_editor(self):
@@ -1654,35 +1702,59 @@ class AmbientNotch(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        tasks = getattr(self, "custom_tasks", DEFAULT_TASKS)
-        self.ev_count_label.setText(f"{len(tasks)} tasks")
+        try:
+            all_tasks = self._repo.get_smart_tasks()
+        except Exception:
+            all_tasks = []
+
+        pending_tasks = [t for t in all_tasks if t.get("status") != "completed"]
+        self.ev_count_label.setText(f"{len(pending_tasks)} tasks")
 
         self.edit_list.clear()
-        for t in tasks:
-            item = QListWidgetItem(f"{t['name']} • {t['time']}\n{t.get('category', 'Task').upper()}")
+        for t in all_tasks:
+            time_part = t.get("scheduled_time") or (f"{t.get('estimated_minutes', 25)}m" if t.get("estimated_minutes") else "")
+            status_prefix = "✓ " if t.get("status") == "completed" else "○ "
+            item = QListWidgetItem(f"{status_prefix}{t['title']} • {time_part or 'No time'}\nStatus: {t.get('status', 'pending').capitalize()} (Priority {t.get('priority', 2)})")
+            item.setData(Qt.ItemDataRole.UserRole, t["id"])
+            if t.get("status") == "completed":
+                item.setForeground(QColor("#666666"))
             self.edit_list.addItem(item)
 
-        for t in tasks[:3]:
-            row = QHBoxLayout()
-            bar = QFrame()
-            bar.setFixedWidth(3)
-            bar.setStyleSheet(f"background-color: {t.get('color', '#00A0FF')}; border-radius: 1px;")
-            det = QVBoxLayout()
-            det.setContentsMargins(0, 0, 0, 0)
-            det.setSpacing(1)
-            n = QLabel(t["name"])
-            n.setStyleSheet("font-size: 12px; font-weight: 600; padding: 0px;")
-            c = QLabel(t.get("category", "Task"))
-            c.setStyleSheet("font-size: 9px; color: #888; padding: 0px;")
-            det.addWidget(n)
-            det.addWidget(c)
-            tm = QLabel(t.get("time", ""))
-            tm.setStyleSheet("font-size: 11px; font-weight: 500;")
-            row.addWidget(bar)
-            row.addLayout(det)
-            row.addStretch()
-            row.addWidget(tm)
-            self.tasks_container_layout.addLayout(row)
+        if not pending_tasks:
+            empty_lbl = QLabel("All caught up! No pending tasks.")
+            empty_lbl.setStyleSheet("color: #8E8E93; font-size: 11px; padding: 12px; font-weight: 500;")
+            empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.tasks_container_layout.addWidget(empty_lbl)
+        else:
+            for t in pending_tasks[:3]:
+                row = QHBoxLayout()
+                row.setContentsMargins(0, 2, 0, 2)
+                prio = t.get("priority", 2)
+                prio_color = "#FF453A" if prio == 1 else ("#0A84FF" if prio == 2 else "#30D158")
+                bar = QFrame()
+                bar.setFixedWidth(3)
+                bar.setStyleSheet(f"background-color: {prio_color}; border-radius: 1px;")
+                det = QVBoxLayout()
+                det.setContentsMargins(0, 0, 0, 0)
+                det.setSpacing(1)
+                n = QLabel(t.get("title", ""))
+                n.setStyleSheet("font-size: 12px; font-weight: 600; padding: 0px; color: #FFFFFF;")
+                procs = t.get("target_processes") or []
+                sub_txt = f"Tools: {', '.join(procs[:2])}" if procs else ("High Priority" if prio == 1 else "Smart Task")
+                c = QLabel(sub_txt)
+                c.setStyleSheet("font-size: 9px; color: #8E8E93; padding: 0px;")
+                det.addWidget(n)
+                det.addWidget(c)
+
+                time_val = t.get("scheduled_time") or f"{t.get('estimated_minutes', 25)}m"
+                tm = QLabel(time_val)
+                tm.setStyleSheet("font-size: 11px; font-weight: 600; color: #0A84FF;")
+                row.addWidget(bar)
+                row.addSpacing(4)
+                row.addLayout(det)
+                row.addStretch()
+                row.addWidget(tm)
+                self.tasks_container_layout.addLayout(row)
 
     def create_month_panel(self) -> QWidget:
         w = QWidget()
@@ -2400,6 +2472,15 @@ class AmbientNotch(QWidget):
             self._task_priority.setText("High" if prio == 1 else ("Normal" if prio == 2 else "Low"))
             targets = (self._active_task.get("target_processes") or []) + (self._active_task.get("target_domains") or [])
             self._target_label.setText(f"Target: {', '.join(targets[:2]) if targets else 'Any app'}")
+
+            # Show scheduled time or duration if focus countdown is not running
+            if not self._focus_active and not self._fm.is_active:
+                sched = self._active_task.get("scheduled_time")
+                if sched:
+                    self._lbl_task_timer.setText(sched)
+                else:
+                    est = self._active_task.get("estimated_minutes", 25)
+                    self._lbl_task_timer.setText(f"{est}m")
         else:
             self._lbl_task_name.setText("Ready to Focus")
             self._exp_task_title.setText("Deep Work Session")

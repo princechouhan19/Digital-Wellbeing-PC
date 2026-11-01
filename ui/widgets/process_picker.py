@@ -60,6 +60,10 @@ class ProcessPickerDialog(QDialog):
             default_title = "Add Application to Focus Session"
             default_action = "Add to Focus Session"
             self.browse_desc_text = "Select an allowed application's .exe file directly."
+        elif self.mode == "task":
+            default_title = "Select Target Application"
+            default_action = "Select Application"
+            self.browse_desc_text = "Select the target application for this task."
         else:  # "locker" or default
             default_title = "Add Application to App Locker"
             default_action = "Add to App Locker"
