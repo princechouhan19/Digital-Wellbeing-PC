@@ -11,10 +11,11 @@ Digital Wellbeing is built as a modular desktop application in Python 3.13 and P
 ```mermaid
 flowchart TD
     subgraph UI ["Aurora UI Layer (PySide6)"]
-        MW["MainWindow & Sidebar (12 Pages)"]
+        MW["MainWindow & Sidebar (13 Pages)"]
+        NOTCH["Ambient Desktop Notch (Dynamic Island)\n- WASAPI Audio Peak Visualizer\n- Apple Battery Indicator\n- Smart Task Sync"]
         OB["Onboarding Flow (5 Steps)"]
         DS["Aurora Design System & Theme Engine"]
-        CW["Custom Widgets & PyQtGraph"]
+        CW["Custom Widgets & PyQtGraph\n- Daily Activity Rings\n- Monthly Spline Graph\n- Water Intake Tracker"]
     end
 
     subgraph CoreEngine ["Tracking & Protection Core"]

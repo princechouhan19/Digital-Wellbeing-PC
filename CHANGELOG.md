@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.3] — 2026-11-01
+
+### Fixed
+- **Smart Task Dialog UI Cutoff Fix** (`ui/pages/tasks.py`):
+  - Fixed horizontal and vertical clipping on task creation and edit modals by expanding dialog dimensions to `640x680px`.
+  - Re-architected action buttons into a sticky `#dialog_footer` at the bottom of the dialog outside the scroll container, ensuring `Cancel` and `Save Changes` / `Create Smart Task` are always visible.
+  - Set `scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)` and refined vertical scrollbar geometry.
+  - Made repeat day buttons (`M`, `T`, `W`, `T`, `F`, `S`, `S`) expanding with compact padding so all 7 days fit cleanly (~75px each) without horizontal overflow or label clipping.
+  - Reorganized per-day routine notes matrix into an Apple-style 2-column grid (`QGridLayout`) with Mon–Sat paired and Sunday spanning below, cutting vertical space in half.
+- **Dynamic Island Desktop Notch Startup Fix** (`ui/dynamic_island/media_monitor.py`, `requirements.txt`):
+  - Fixed startup failure `Failed to initialize AmbientNotch: No module named 'PIL'` by wrapping PIL imports defensively with a PySide6 native `QImage` fallback algorithm for dominant album art accent color extraction.
+  - Added `Pillow>=10.0.0` to project requirements for high-performance image processing when available.
+
+## [4.4.2] — 2026-11-01
+
+The **Smart Routines & Apple Activity Rings** release — Strict start/end scheduling, day-specific workout and lecture routines, interactive Apple health-style activity charts, water intake checkpoints, and live Dynamic Island synchronization.
+
+### Added
+- **Strict Time Window Scheduling** (`ui/pages/tasks.py`, `database/schema.py`, `database/repository.py`):
+  - Added Start Time and End Time fields (`start_time`, `end_time`) with automatic duration calculation and midnight-crossing support.
+  - Strict time window toggle allowing flexible or rigid time commitments.
+- **Weekly Schedule & Day-Specific Routine Notes** (`ui/pages/tasks.py`, `database/schema.py`):
+  - 7-day repeat selector (`M`, `T`, `W`, `T`, `F`, `S`, `S`) with quick preset chips (`Every Day`, `Mon – Fri`, `Mon – Sat`, `Weekends`, `Clear`).
+  - Day-specific routine notes matrix stored in JSON (`day_notes_json`) for day-by-day workout splits (e.g. Monday Chest+Biceps, Tuesday Back+Triceps) and daily college lecture topics.
+  - Quick routine templates: Gym Session, College Lectures & Labs, Bath & Morning Reset, Deep Work Coding Block, and Sleep Recovery.
+- **Apple Design System Task Analytics** (`ui/widgets/apple_task_charts.py`):
+  - `DailyActivityRingWidget`: Circular multi-layer completion progress ring showing daily task completion percentage.
+  - `MonthlyTrendLineGraphWidget`: Smooth cubic Bézier spline line chart illustrating 30-day task completion velocity.
+  - `WaterIntakeWidget`: Interactive daily hydration tracker with 500 mL and 1,000 mL quick-add checkpoints, progress bar, and completion badges.
+- **Visual Target Application Picker** (`ui/pages/tasks.py`, `ui/widgets/process_picker.py`):
+  - Visual app picker dropdown populated from currently running system processes and common software presets (`Chrome`, `VS Code`, `Spotify`, `Discord`, `Notion`, etc.).
+  - Browse dialog integration with `ProcessPickerDialog` to select any executable without manual typing.
+- **Live Dynamic Island Task Synchronization** (`ui/dynamic_island/notch.py`, `ui/pages/tasks.py`):
+  - Real-time bi-directional sync between database `smart_tasks` and the Desktop Dynamic Island.
+  - Desktop Notch task selection combobox displaying pending tasks with direct Start and Complete buttons.
+
+## [4.4.1] — 2026-10-31
+
+The **Dynamic Island Audio & Precision Visualizer** release — Real-time WASAPI soundbar audio spectrum visualizer, Apple HIG battery indicator, and improved screen-edge centering.
+
+### Added
+- **WASAPI Audio Peak Visualizer** (`ui/dynamic_island/audio_visualizer.py`):
+  - Real-time multi-band soundbar spectrum analyzer driven by Windows WASAPI audio stream peaks.
+  - Reactive bouncing bars synchronized with pitch and volume dynamics of currently playing music and video.
+- **Apple HIG Battery Widget** (`ui/dynamic_island/battery_widget.py`):
+  - Precision battery percentage indicator with custom Apple-style vector battery glyph and active charging bolt icon.
+- **Enhanced Desktop Notch Geometry & Overflow Handling** (`ui/dynamic_island/notch.py`):
+  - Perfect screen-edge centering on primary display.
+  - Smooth marquee scrolling for long song titles and YouTube video names.
+
 ## [4.4.0] — 2026-10-29
 
 The **Flow & Dynamic Island** release — Smart To-Do List integration, Nectar-inspired Ambient Desktop Notch, media & lecture awareness in SleepGuard, parental & doomscrolling controls, interactive period insights, and historical date navigation.

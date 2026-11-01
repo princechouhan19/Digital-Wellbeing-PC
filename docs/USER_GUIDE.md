@@ -71,23 +71,33 @@ The interface is structured around a streamlined sidebar navigation:
 
 ---
 
-## 4. Smart To-Do List Integration
+## 4. Smart Routine & Task Management
 
-The **Tasks** page brings Getting Things Done (GTD) principles directly into Digital Wellbeing:
+The **Tasks** page brings advanced routine planning and Getting Things Done (GTD) principles directly into Digital Wellbeing:
 
-- **Target Application Linking:** Link specific executables (such as `code.exe`, `cursor.exe`, `figma.exe`, `word.exe`) to your task.
-- **Active Time Calibration:** Digital Wellbeing automatically measures how many seconds you spend actively working inside those specific tools vs. your estimated task duration.
+- **Strict Start & End Time Windows:** Set designated time windows (e.g., 5:50 PM – 7:00 PM) to enforce disciplined routines. The app automatically calculates durations and gracefully supports cross-midnight schedules.
+- **Weekly Schedule & Routine Matrix:** Assign tasks to specific days of the week (`Mon`–`Sun`) with quick preset buttons (`Every Day`, `Mon – Fri`, `Mon – Sat`, `Weekends`).
+- **Day-Specific Notes & Splits:** Configure distinct day-by-day sub-routines (e.g., Monday: Chest + Biceps, Tuesday: Back + Triceps, Wednesday: Shoulders + Legs for Gym; or Instagram Backend vs. Spotify Frontend for College Lectures).
+- **Quick Routine Presets:** One-click template chips for *Gym*, *College*, *Bath*, *Coding*, and *Sleep* prefill titles, categories, schedules, notes, and target apps.
+- **Apple Design System Task Analytics:**
+  - **Daily Activity Ring:** Interactive circular progress ring illustrating daily task completion percentages.
+  - **Monthly Trend Line Graph:** Smooth cubic Bézier spline visualising 30-day task completion momentum.
+  - **Water Intake Tracker:** Hydration tracker with quick-add 500 mL and 1,000 mL checkpoints, live status badge, and progress filling.
+- **Visual Target Application Selector:** Pick target software directly from detected running applications or open the full process picker dialog without manual executable typing.
+- **Active Time Calibration:** Digital Wellbeing automatically measures how many seconds you spend actively working inside linked applications vs. your estimated task duration.
 - **One-Click Focus:** Click **Focus** on any task item to instantly engage Focus Mode configured to keep you immersed in that task's tools.
-- **Priority & Status:** Assign priorities (*Low*, *Medium*, *High*, *Urgent*) and update status (*Pending*, *In Progress*, *Completed*).
 
 ---
 
 ## 5. Ambient Desktop Dynamic Notch
 
-Digital Wellbeing features a floating, physics-animated screen-edge notch overlay inspired by [kua8/Nectar](https://github.com/kua8/Nectar):
+Digital Wellbeing features a floating, physics-animated screen-edge notch overlay inspired by [kua8/Nectar](https://github.com/kua8/Nectar) and Apple Dynamic Island:
 
-- **Compact Resting Pill:** A sleek `260x32px` pill anchors seamlessly at the top edge of your primary screen. It displays the live Focus timer, active task name, and a pulsating reactive status dot.
+- **Compact Resting Pill:** A sleek `260x32px` pill anchors seamlessly at the top edge of your primary screen. It displays the active task, music/media title, and status indicators.
 - **Spring Expand-on-Hover:** Hovering over the notch smoothly expands it into an interactive command cockpit (`440x200px`) showing detailed session progress and target tools.
+- **WASAPI Audio Peak Visualizer:** Multi-band soundbar spectrum analyzer driven by Windows WASAPI audio stream peaks, dynamically reacting to music pitch and volume.
+- **Apple HIG Battery Widget:** Precision battery gauge with vector battery glyph and active charging bolt icon.
+- **Live Task Synchronization:** Choose pending smart tasks directly from the notch dropdown, trigger Focus sessions, or mark items complete with zero window switching.
 - **Fullscreen & Media Pass-Through:** The notch automatically stays unobtrusive and passes through input when playing fullscreen videos or games.
 
 ---

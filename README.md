@@ -8,14 +8,14 @@
 
 Digital Wellbeing tracks your screen time, protects your attention, and filters the web — all locally, with an Apple-grade interface inspired by macOS Sequoia.
 
-[![Release](https://img.shields.io/badge/Release-v4.4.1-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
+[![Release](https://img.shields.io/badge/Release-v4.4.3-0A84FF.svg?style=flat-square)](https://github.com/princechouhan19/Digital-Wellbeing-PC/releases)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-30D158.svg?style=flat-square)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%20%28Qt%29-BF5AF2.svg?style=flat-square)](https://www.qt.io/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20x64-007AFF.svg?style=flat-square)](https://www.microsoft.com/windows)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-30D158.svg?style=flat-square)](PRIVACY.md)
 [![License](https://img.shields.io/badge/License-MIT-FF9F0A.svg?style=flat-square)](LICENSE)
 
-[**Download Installer (v4.4.1)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
+[**Download Installer (v4.4.3)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
 
 </div>
 
@@ -89,16 +89,21 @@ Tracking runs quietly in the background with negligible CPU footprint; the **Aur
 
 ## Key Features
 
-### 1. Smart To-Do List Integration
-- **Process-Linked Task Management**: Bind tasks directly to desktop applications (`code.exe`, `cursor.exe`, `figma.exe`, `word.exe`).
-- **Active Time Calibration**: Digital Wellbeing tracks real active foreground seconds inside linked applications, accurately comparing actual work time against estimated task durations.
-- **One-Click Focus**: Hit the focus action on any task to instantly initiate an attention-locked Focus session centered around that task's tools.
-- **Priority & Status Tracking**: Categorize tasks by priority (*Low*, *Medium*, *High*, *Urgent*) and progress (*Pending*, *In Progress*, *Completed*).
+### 1. Smart Routine & Task Management
+- **Strict Time Window Scheduling**: Set exact start and end times (e.g. 5:50 PM to 7:00 PM Gym) with automatic duration calculation and midnight-crossing support.
+- **Weekly Schedule & Routine Matrix**: Configure recurring days (`M`, `T`, `W`, `T`, `F`, `S`, `S`) with custom day-specific notes (e.g. Monday Chest+Biceps, Tuesday Back+Triceps) and presets (Gym, College, Deep Work, Sleep).
+- **Apple Design System Task Analytics**:
+  - `DailyActivityRingWidget`: Multi-layer activity completion rings for daily productivity visualization.
+  - `MonthlyTrendLineGraphWidget`: Smooth cubic Bézier spline line chart charting 30-day task completion velocity.
+  - `WaterIntakeWidget`: Interactive daily hydration tracker with 500 mL and 1,000 mL quick checkpoints.
+- **Visual Process Selector**: Choose target applications directly from running system processes or presets (`VS Code`, `Chrome`, `Spotify`) via `ProcessPickerDialog` without manual typing.
+- **Process-Linked Time Calibration**: Measures real active foreground seconds inside linked applications against planned durations, with direct one-click Focus mode engagement.
 
-### 2. Ambient Desktop Dynamic Notch (Nectar-Inspired)
-- **Fluid Screen-Edge Pill**: Inspired by [Nectar](https://github.com/kua8/Nectar) / macOS Dynamic Island, a minimalist floating pill (`260x32px`) rests seamlessly at the top edge of your primary screen.
-- **Spring Expand-on-Hover**: Hovering smoothly expands the island into an interactive command cockpit (`440x200px`) using Apple-style spring animations.
-- **Live Focus & Task Visibility**: Features live session countdowns, active task titles, target tool tags, and a pulsing status dot.
+### 2. Ambient Desktop Dynamic Notch (Nectar & Apple-Inspired)
+- **Fluid Screen-Edge Pill**: A floating pill (`260x32px`) rests seamlessly at the top edge of your primary screen with spring expand-on-hover (`440x200px`) using Apple-style spring animations.
+- **WASAPI Audio Peak Spectrum Visualizer**: Real-time soundbar spectrum analyzer driven by Windows WASAPI audio stream peaks, synchronized with music and video dynamics.
+- **Apple HIG Battery Widget**: Vector battery glyph with precise charging bolt indicator and percentage.
+- **Live Focus & Task Synchronization**: Full bi-directional sync with Smart Tasks — select tasks, start focus sessions, and complete items directly from the desktop notch.
 - **Unobtrusive Media Awareness**: Automatically passes mouse events and hides during fullscreen video playback and games.
 
 ### 3. Intelligent SleepGuard with Media & Lecture Awareness
