@@ -1064,6 +1064,7 @@ class AmbientNotch(QWidget):
         # Basic controls orbiting items
         self.basic_controls_index = 0
         self.basic_controls_items = [
+            {"name": "Water +500ml", "icon": "mdi.water", "cmd": "water_500"},
             {"name": "Shutdown", "icon": "mdi.power", "cmd": "shutdown /s /t 0"},
             {"name": "Restart", "icon": "mdi.refresh", "cmd": "shutdown /r /t 0"},
             {"name": "Sleep", "icon": "mdi.sleep", "cmd": "rundll32.exe powrprof.dll,SetSuspendState 0,1,0"},
@@ -1082,6 +1083,13 @@ class AmbientNotch(QWidget):
         self._next_task: Optional[dict] = None
         self._poll_count: int = 0
         self._anim_phase: float = 0.0
+        self._last_alerted_tasks: set[str] = set()
+
+        # Scheduled task alert ticker (checks every 20s)
+        self._task_alert_timer = QTimer(self)
+        self._task_alert_timer.setInterval(20000)
+        self._task_alert_timer.timeout.connect(self._check_scheduled_task_alerts)
+        self._task_alert_timer.start()
 
         # Real media state (from MediaMonitor)
         self._media_playing = False
@@ -1138,11 +1146,56 @@ class AmbientNotch(QWidget):
         try:
             tasks = self._repo.get_smart_tasks()
             if not tasks:
-                self._repo.add_smart_task("Gym Session", priority=2, estimated_minutes=45, scheduled_time="5:50 PM")
-                self._repo.add_smart_task("Project Sync", priority=1, estimated_minutes=30, scheduled_time="2:00 PM")
-                self._repo.add_smart_task("Deep Focus Review", priority=2, estimated_minutes=25, scheduled_time="7:30 PM")
-        except Exception:
-            pass
+                self._repo.add_smart_task(
+                    title="Gym Session",
+                    category="Health",
+                    priority=1,
+                    estimated_minutes=70,
+                    start_time="5:50 PM",
+                    end_time="7:00 PM",
+                    scheduled_time="5:50 PM – 7:00 PM",
+                    repeat_days=[0, 1, 2, 3, 4, 5],
+                    day_notes_json={
+                        "0": "Chest + Biceps + Forearms",
+                        "1": "Back + Triceps + Traps",
+                        "2": "Shoulder + Legs + Abs",
+                        "3": "Active Recovery / Cardio",
+                        "4": "Chest + Back Supersets",
+                        "5": "Arms + Core Focus",
+                    },
+                    target_processes=["spotify.exe"],
+                )
+                self._repo.add_smart_task(
+                    title="College Lectures & Labs",
+                    category="Study",
+                    priority=2,
+                    estimated_minutes=420,
+                    start_time="9:00 AM",
+                    end_time="4:00 PM",
+                    scheduled_time="9:00 AM – 4:00 PM",
+                    repeat_days=[0, 1, 2, 3, 4],
+                    day_notes_json={
+                        "0": "Project 1 Backend (Instagram)",
+                        "1": "Frontend UI (Spotify)",
+                        "2": "Data Structures & Algorithms",
+                        "3": "System Design",
+                        "4": "Lab Work",
+                    },
+                    target_processes=["code.exe", "chrome.exe"],
+                )
+                self._repo.add_smart_task(
+                    title="Sleep & Wind-down",
+                    category="Routine",
+                    priority=3,
+                    estimated_minutes=480,
+                    start_time="10:30 PM",
+                    end_time="6:30 AM",
+                    scheduled_time="10:30 PM – 6:30 AM",
+                    repeat_days=[0, 1, 2, 3, 4, 5, 6],
+                    day_notes_json={str(i): "Screen-free bedtime rest" for i in range(7)},
+                )
+        except Exception as e:
+            logger.debug("Failed ensuring initial tasks: %s", e)
 
     def _init_apple_fonts(self) -> None:
         try:
@@ -1739,8 +1792,14 @@ class AmbientNotch(QWidget):
                 det.setSpacing(1)
                 n = QLabel(t.get("title", ""))
                 n.setStyleSheet("font-size: 12px; font-weight: 600; padding: 0px; color: #FFFFFF;")
-                procs = t.get("target_processes") or []
-                sub_txt = f"Tools: {', '.join(procs[:2])}" if procs else ("High Priority" if prio == 1 else "Smart Task")
+                today_idx = str(datetime.datetime.now().weekday())
+                day_notes = t.get("day_notes_json") or {}
+                today_note = day_notes.get(today_idx)
+                if today_note:
+                    sub_txt = f"Today: {today_note}"
+                else:
+                    procs = t.get("target_processes") or []
+                    sub_txt = f"Tools: {', '.join(procs[:2])}" if procs else ("High Priority" if prio == 1 else "Smart Task")
                 c = QLabel(sub_txt)
                 c.setStyleSheet("font-size: 9px; color: #8E8E93; padding: 0px;")
                 det.addWidget(n)
@@ -1854,6 +1913,16 @@ class AmbientNotch(QWidget):
     def _execute_action_cmd(self, cmd: str) -> None:
         if not cmd:
             return
+        if cmd == "water_500":
+            data = self._repo.add_water_intake(500)
+            self._hud_icon_speaker.setVisible(False)
+            self._hud_title_lbl.setText("Hydration Logged 💧")
+            self._hud_sub_lbl.setText(f"+500 ml ({data.get('current_ml', 0):,} / 3,000 ml)")
+            self._hud_bar.setVisible(False)
+            self._show_transient_hud()
+            self._transient_timer.start(2500)
+            self.tasks_changed.emit()
+            return
         if cmd.startswith("http"):
             webbrowser.open(cmd)
         else:
@@ -1861,6 +1930,66 @@ class AmbientNotch(QWidget):
                 subprocess.Popen(cmd, shell=True)
             except Exception as e:
                 logger.debug("Failed executing action %s: %s", cmd, e)
+
+    def _check_scheduled_task_alerts(self) -> None:
+        try:
+            tasks = self._repo.get_smart_tasks()
+        except Exception:
+            return
+
+        now = datetime.datetime.now()
+        curr_time_str = now.strftime("%I:%M %p").lstrip("0")
+        curr_weekday = now.weekday()
+        curr_date_str = now.strftime("%Y-%m-%d")
+
+        for t in tasks:
+            if t.get("status") == "completed":
+                continue
+
+            repeat_days = t.get("repeat_days") or []
+            if repeat_days and curr_weekday not in repeat_days:
+                continue
+
+            s_time = (t.get("start_time") or t.get("scheduled_time") or "").strip()
+            if "–" in s_time:
+                s_time = s_time.split("–")[0].strip()
+            elif "-" in s_time:
+                s_time = s_time.split("-")[0].strip()
+
+            if not s_time:
+                continue
+
+            alert_key = f"{t['id']}_{curr_date_str}_{s_time}"
+            if alert_key in self._last_alerted_tasks:
+                continue
+
+            norm_curr = curr_time_str.replace(" ", "").upper()
+            norm_sched = s_time.replace(" ", "").upper()
+            if norm_curr == norm_sched:
+                self._last_alerted_tasks.add(alert_key)
+
+                day_notes = t.get("day_notes_json") or {}
+                today_note = day_notes.get(str(curr_weekday), "")
+                subtext = today_note if today_note else f"Scheduled at {s_time}"
+
+                # Dynamic Island Notch HUD Alert
+                self._hud_icon_speaker.setVisible(False)
+                self._hud_title_lbl.setText(f"{t['title']} 🕒")
+                self._hud_sub_lbl.setText(subtext)
+                self._hud_bar.setVisible(False)
+                self._show_transient_hud()
+                self._transient_timer.start(4500)
+
+                # Windows Toast Notification
+                try:
+                    from notifications.notifier import Notifier
+                    Notifier().notify(
+                        title=f"Time for {t['title']} 🕒",
+                        message=f"{subtext} — Ready to focus.",
+                    )
+                except Exception as ex:
+                    logger.debug("Task notification failed: %s", ex)
+                break
 
     def scroll_controls(self, delta: int):
         n = len(self.basic_controls_items)

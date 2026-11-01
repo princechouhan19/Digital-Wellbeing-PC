@@ -115,8 +115,24 @@ CREATE TABLE IF NOT EXISTS smart_tasks (
     target_domains      TEXT    DEFAULT '[]',
     due_date            TEXT,
     scheduled_time      TEXT    DEFAULT '',
+    start_time          TEXT    DEFAULT '',
+    end_time            TEXT    DEFAULT '',
+    repeat_days         TEXT    DEFAULT '[]',
+    day_notes_json      TEXT    DEFAULT '{}',
+    category            TEXT    DEFAULT 'General',
+    is_template         INTEGER DEFAULT 0,
     created_at          TEXT    NOT NULL,
     completed_at        TEXT
+);
+"""
+
+CREATE_DAILY_WATER_LOGS = """
+CREATE TABLE IF NOT EXISTS daily_water_logs (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_date            TEXT    NOT NULL UNIQUE,
+    target_ml           INTEGER NOT NULL DEFAULT 3000,
+    current_ml          INTEGER NOT NULL DEFAULT 0,
+    checkpoints_json    TEXT    NOT NULL DEFAULT '[]'
 );
 """
 
@@ -180,6 +196,30 @@ MIGRATE_ADD_SMART_TASKS_SCHEDULED_TIME = """
 ALTER TABLE smart_tasks ADD COLUMN scheduled_time TEXT NOT NULL DEFAULT '';
 """
 
+MIGRATE_ADD_SMART_TASKS_START_TIME = """
+ALTER TABLE smart_tasks ADD COLUMN start_time TEXT NOT NULL DEFAULT '';
+"""
+
+MIGRATE_ADD_SMART_TASKS_END_TIME = """
+ALTER TABLE smart_tasks ADD COLUMN end_time TEXT NOT NULL DEFAULT '';
+"""
+
+MIGRATE_ADD_SMART_TASKS_REPEAT_DAYS = """
+ALTER TABLE smart_tasks ADD COLUMN repeat_days TEXT NOT NULL DEFAULT '[]';
+"""
+
+MIGRATE_ADD_SMART_TASKS_DAY_NOTES = """
+ALTER TABLE smart_tasks ADD COLUMN day_notes_json TEXT NOT NULL DEFAULT '{}';
+"""
+
+MIGRATE_ADD_SMART_TASKS_CATEGORY = """
+ALTER TABLE smart_tasks ADD COLUMN category TEXT NOT NULL DEFAULT 'General';
+"""
+
+MIGRATE_ADD_SMART_TASKS_IS_TEMPLATE = """
+ALTER TABLE smart_tasks ADD COLUMN is_template INTEGER NOT NULL DEFAULT 0;
+"""
+
 ALL_DDL = [
     CREATE_APP_SESSIONS,
     CREATE_APP_INFO,
@@ -190,6 +230,7 @@ ALL_DDL = [
     CREATE_APP_LOCKER_APPS,
     CREATE_FOCUS_SESSIONS,
     CREATE_SMART_TASKS,
+    CREATE_DAILY_WATER_LOGS,
     *CREATE_INDEXES,
 ]
 
@@ -203,6 +244,12 @@ MIGRATIONS = [
     ("app_usage_json", "daily_stats", MIGRATE_ADD_DS_APP_JSON),
     ("timeline_json", "daily_stats", MIGRATE_ADD_DS_TIMELINE_JSON),
     ("scheduled_time", "smart_tasks", MIGRATE_ADD_SMART_TASKS_SCHEDULED_TIME),
+    ("start_time", "smart_tasks", MIGRATE_ADD_SMART_TASKS_START_TIME),
+    ("end_time", "smart_tasks", MIGRATE_ADD_SMART_TASKS_END_TIME),
+    ("repeat_days", "smart_tasks", MIGRATE_ADD_SMART_TASKS_REPEAT_DAYS),
+    ("day_notes_json", "smart_tasks", MIGRATE_ADD_SMART_TASKS_DAY_NOTES),
+    ("category", "smart_tasks", MIGRATE_ADD_SMART_TASKS_CATEGORY),
+    ("is_template", "smart_tasks", MIGRATE_ADD_SMART_TASKS_IS_TEMPLATE),
 ]
 
 DEFAULT_SETTINGS = {
