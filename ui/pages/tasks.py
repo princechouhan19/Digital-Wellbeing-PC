@@ -68,8 +68,9 @@ class TaskEditDialog(QDialog):
         self._task = task
         self.is_edit_mode = task is not None
         self.setWindowTitle("Edit Task" if self.is_edit_mode else "New Smart Task")
-        self.setFixedWidth(640)
-        self.setFixedHeight(680)
+        self.setMinimumWidth(680)
+        self.setMinimumHeight(640)
+        self.resize(700, 720)
         self.setObjectName("task_dialog")
 
         self._selected_apps: List[dict] = []

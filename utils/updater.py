@@ -442,10 +442,24 @@ class Updater(QObject):
             # Determine path to relaunch the app
             import sys
 
+            # Look up registered install location first
+            reg_app = None
+            try:
+                import winreg
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Uninstall\DigitalWellbeing") as k:
+                    inst_loc, _ = winreg.QueryValueEx(k, "InstallLocation")
+                    p_exe = Path(inst_loc) / "DigitalWellbeing.exe"
+                    if p_exe.exists():
+                        reg_app = str(p_exe)
+            except Exception:
+                pass
+
             if getattr(sys, "frozen", False):
                 app_exec = sys.executable
+            elif reg_app:
+                app_exec = reg_app
             else:
-                # Look for installed app location first
+                # Fallback paths
                 local_app = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "DigitalWellbeing" / "DigitalWellbeing.exe"
                 prog_files = Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "DigitalWellbeing" / "DigitalWellbeing.exe"
                 if local_app.exists():
@@ -460,18 +474,18 @@ class Updater(QObject):
             current_pid = os.getpid()
 
             # PowerShell wrapper script:
-            # 1. Wait up to 7 seconds for the current app process to exit and release file locks
-            # 2. Run Inno Setup installer with /SILENT /SUPPRESSMSGBOXES /NORESTART
-            # 3. Wait for installer process to finish
-            # 4. Remove temporary installer file and this script
-            # 5. Relaunch the app executable
+            # 1. Wait up to 7 seconds for current app process to cleanly terminate
+            # 2. Launch installer with seamless in-app flags (--update --silent /SILENT)
+            # 3. Wait for update to complete
+            # 4. Relaunch app if not already running
+            # 5. Cleanup installer and script
             ps_script = f"""# Digital Wellbeing In-App Update Wrapper
 $ErrorActionPreference = 'Continue'
 $dwPid = {current_pid}
 $installerPath = '{str(p).replace("'", "''")}'
 $appPath = '{str(app_exec).replace("'", "''")}'
 
-# 1. Wait for the current app process to cleanly terminate
+# 1. Wait for current app process to cleanly terminate
 try {{
     $proc = Get-Process -Id $dwPid -ErrorAction SilentlyContinue
     if ($proc) {{
@@ -479,19 +493,20 @@ try {{
     }}
 }} catch {{}}
 
-# 2. Launch Inno Setup installer
+# 2. Launch installer with professional seamless update parameters
 $exitCode = 1
 try {{
-    $installProc = Start-Process -FilePath $installerPath -ArgumentList '/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+    $installProc = Start-Process -FilePath $installerPath -ArgumentList '--update', '--silent', '/SILENT' -Wait -PassThru
     $exitCode = $installProc.ExitCode
 }} catch {{
     $exitCode = -1
 }}
 
-Start-Sleep -Seconds 1
+Start-Sleep -Milliseconds 800
 
-# 3. Relaunch the app
-if (Test-Path -LiteralPath $appPath) {{
+# 3. Relaunch the app if not already running
+$running = Get-Process -Name "DigitalWellbeing" -ErrorAction SilentlyContinue
+if (-not $running -and (Test-Path -LiteralPath $appPath)) {{
     Start-Process -FilePath $appPath
 }}
 

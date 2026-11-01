@@ -16,7 +16,9 @@ except ImportError:
     Image = None
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QImage, QColor
-import requests
+import urllib.request
+import urllib.parse
+import json
 
 
 class MediaMonitor(QThread):
@@ -244,14 +246,15 @@ class MediaMonitor(QThread):
         def do_fetch():
             try:
                 clean_title = re.sub(r"\(.*?\)|\[.*?\]", "", title).strip()
-                url = "https://lrclib.net/api/get"
-                params = {"artist_name": artist, "track_name": clean_title}
-                resp = requests.get(url, params=params, timeout=4)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    lrc = data.get("syncedLyrics")
-                    if lrc:
-                        return self.parse_lrc(lrc)
+                params = urllib.parse.urlencode({"artist_name": artist, "track_name": clean_title})
+                url = f"https://lrclib.net/api/get?{params}"
+                req = urllib.request.Request(url, headers={"User-Agent": "DigitalWellbeing/4.4.3"})
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        lrc = data.get("syncedLyrics")
+                        if lrc:
+                            return self.parse_lrc(lrc)
             except Exception:
                 pass
             return []

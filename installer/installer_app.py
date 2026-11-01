@@ -28,7 +28,7 @@ def _load_app_version() -> str:
                         return str(v)
     except Exception:
         pass
-    return "4.4.1"
+    return "4.4.4"
 
 APP, VER, EXE = "Digital Wellbeing", _load_app_version(), "DigitalWellbeing.exe"
 ACCENT, BG, CARD, LINE = "#3E8BFF", "#0B0B0E", "#17171D", "#26262D"
@@ -44,6 +44,68 @@ DEFAULT_DIR = get_default_install_dir()
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\DigitalWellbeing"
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 AUMID_KEY = r"Software\Classes\AppUserModelId\PrinceChouhan.DigitalWellbeing.App"
+
+
+def get_existing_installation():
+    """Returns (install_path: Path, version: str) if Digital Wellbeing is already installed, else (None, None)."""
+    try:
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY)
+        loc, _ = winreg.QueryValueEx(k, "InstallLocation")
+        ver, _ = winreg.QueryValueEx(k, "DisplayVersion")
+        winreg.CloseKey(k)
+        p = Path(loc)
+        if p.exists() and (p / EXE).is_file():
+            return p, str(ver)
+    except Exception:
+        pass
+    if DEFAULT_DIR.exists() and (DEFAULT_DIR / EXE).is_file():
+        return DEFAULT_DIR, "installed"
+    return None, None
+
+
+def get_existing_preferences():
+    """Detect if desktop shortcut and autostart were already configured by user."""
+    desktop_lnk = Path(os.environ.get("USERPROFILE", "")) / "Desktop" / "Digital Wellbeing.lnk"
+    has_desktop = desktop_lnk.is_file()
+    has_autostart = False
+    try:
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY)
+        winreg.QueryValueEx(k, "DigitalWellbeing")
+        winreg.CloseKey(k)
+        has_autostart = True
+    except Exception:
+        pass
+    return {"desktop": has_desktop, "autostart": has_autostart}
+
+
+def parse_cli_args():
+    """Parse command line arguments for silent and in-app update workflows."""
+    args = sys.argv[1:]
+    is_silent = False
+    is_update = False
+    is_headless = False
+    custom_target = None
+    no_launch = False
+    for a in args:
+        al = a.strip().lower()
+        if al in ("/silent", "--silent", "-s", "/s"):
+            is_silent = True
+        elif al in ("/verysilent", "--verysilent", "--headless", "-q", "/q"):
+            is_headless = True
+            is_silent = True
+        elif al in ("/update", "--update", "-u", "/u"):
+            is_update = True
+        elif al.startswith("--install-dir=") or al.startswith("/dir="):
+            custom_target = a.split("=", 1)[1].strip('"').strip("'")
+        elif al in ("--no-launch", "/nolaunch"):
+            no_launch = True
+    return {
+        "silent": is_silent,
+        "headless": is_headless,
+        "update": is_update,
+        "target": custom_target,
+        "no_launch": no_launch
+    }
 
 LICENSE_TEXT = """Digital Wellbeing for Windows
 Copyright (c) 2026 Prince Chouhan. All rights reserved.
@@ -106,28 +168,37 @@ class InstallWorker(QThread):
         except Exception as e: self.failed.emit(str(e))
 
     def _run(self):
+        import time
         t, opts = Path(self.target), self.opts
         self.step.emit("Closing active instances…", 2)
         for exe in (EXE, "DigitalWellbeing.exe"):
-            subprocess.run(["taskkill", "/F", "/IM", exe], capture_output=True)
-            
+            subprocess.run(["taskkill", "/F", "/IM", exe, "/T"], capture_output=True)
+        time.sleep(0.4)
+
         self.step.emit("Preparing installation directory…", 5)
-        if t.exists():
-            shutil.rmtree(t, ignore_errors=True)
         t.mkdir(parents=True, exist_ok=True)
-        
+
         files = [p for p in self.payload.rglob("*") if p.is_file()]
-        total = sum(p.stat().st_size for p in files) or 1; done = 0
+        total = sum(p.stat().st_size for p in files) or 1
+        done = 0
         for i, p in enumerate(files):
             dst = t / p.relative_to(self.payload)
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(p, dst)
+            try:
+                shutil.copyfile(p, dst)
+            except Exception:
+                time.sleep(0.2)
+                try:
+                    shutil.copyfile(p, dst)
+                except Exception:
+                    pass
             done += p.stat().st_size
             self.detail.emit(str(p.relative_to(self.payload)))
-            self.progress.emit(8 + int(70 * done / total))
-            if i % 5 == 0: self.msleep(1)
-            
-        self.step.emit("Creating system shortcuts…", 80)
+            self.progress.emit(8 + int(72 * done / total))
+            if i % 5 == 0:
+                self.msleep(1)
+
+        self.step.emit("Updating system shortcuts…", 82)
         def lnk(dest):
             dest_p = Path(dest)
             dest_p.parent.mkdir(parents=True, exist_ok=True)
@@ -205,6 +276,136 @@ class InstallWorker(QThread):
         self.progress.emit(100); self.done_ok.emit()
 
 
+class UpdateWindow(QWidget):
+    """Sleek Apple-style mini progress card shown during in-app updates."""
+
+    def __init__(self, target: Path, opts: dict, no_launch: bool = False):
+        super().__init__()
+        self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setFixedSize(450, 190)
+        self.target = Path(target)
+        self.opts = opts
+        self.no_launch = no_launch
+        self.worker = None
+
+        app_icon = get_app_icon()
+        if not app_icon.isNull():
+            self.setWindowIcon(app_icon)
+
+        self._setup_ui()
+        QTimer.singleShot(150, self._start_update)
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(12)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(14)
+
+        logo = QLabel()
+        logo.setFixedSize(44, 44)
+        logo.setStyleSheet("border: none; background: transparent;")
+        pix = get_logo_pixmap(44)
+        if pix and not pix.isNull():
+            logo.setPixmap(pix)
+        else:
+            logo.setText("DW")
+            logo.setStyleSheet(f"background:{ACCENT};color:white;font-size:16px;font-weight:700;border-radius:10px;")
+        top_row.addWidget(logo)
+
+        title_box = QVBoxLayout()
+        title_box.setSpacing(2)
+        title_lbl = QLabel("Updating Digital Wellbeing")
+        title_lbl.setStyleSheet("color: #FFFFFF; font-size: 15px; font-weight: 700; letter-spacing: -0.3px; border: none; background: transparent;")
+        
+        self.ver_badge = QLabel(f"Upgrading to v{VER}…")
+        self.ver_badge.setStyleSheet(f"color: {ACCENT}; font-size: 12px; font-weight: 600; border: none; background: transparent;")
+        title_box.addWidget(title_lbl)
+        title_box.addWidget(self.ver_badge)
+        top_row.addLayout(title_box, 1)
+
+        layout.addLayout(top_row)
+        layout.addSpacing(4)
+
+        self.bar = QProgressBar()
+        self.bar.setFixedHeight(6)
+        self.bar.setTextVisible(False)
+        self.bar.setRange(0, 100)
+        self.bar.setValue(2)
+        self.bar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: rgba(255, 255, 255, 0.08);
+                border: none;
+                border-radius: 3px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {ACCENT};
+                border-radius: 3px;
+            }}
+        """)
+        layout.addWidget(self.bar)
+
+        self.status_lbl = QLabel("Preparing update…")
+        self.status_lbl.setStyleSheet(f"color: {SUB}; font-size: 12px; font-weight: 500; border: none; background: transparent;")
+        layout.addWidget(self.status_lbl)
+
+        self.detail_lbl = QLabel("")
+        self.detail_lbl.setStyleSheet("color: #636366; font-size: 10px; border: none; background: transparent;")
+        layout.addWidget(self.detail_lbl)
+
+        layout.addStretch()
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 14, 14)
+        p.fillPath(path, QColor("#141416"))
+        p.setPen(QColor(LINE))
+        p.drawPath(path)
+
+    def _start_update(self):
+        payload = payload_dir()
+        if payload is None:
+            self.status_lbl.setText("Error: Application update payload not found.")
+            self.status_lbl.setStyleSheet(f"color: {DANGER}; font-size: 12px;")
+            return
+
+        self.worker = InstallWorker(payload, self.target, self.opts)
+        self.worker.step.connect(lambda s, p: (self.status_lbl.setText(s), self.bar.setValue(p)))
+        self.worker.detail.connect(self.detail_lbl.setText)
+        self.worker.progress.connect(self.bar.setValue)
+        self.worker.failed.connect(self._on_failed)
+        self.worker.done_ok.connect(self._on_done)
+        self.worker.start()
+
+    def _on_failed(self, err):
+        self.status_lbl.setText(f"Update error: {err}")
+        self.status_lbl.setStyleSheet(f"color: {DANGER}; font-size: 12px;")
+        QTimer.singleShot(4000, QApplication.quit)
+
+    def _on_done(self):
+        self.bar.setValue(100)
+        self.status_lbl.setText("✓ Update complete! Launching Digital Wellbeing…")
+        self.status_lbl.setStyleSheet(f"color: {SUCCESS}; font-size: 12px; font-weight: 600; border: none; background: transparent;")
+        self.detail_lbl.setText("")
+
+        if not self.no_launch:
+            try:
+                target_exe = self.target / EXE
+                subprocess.Popen(
+                    [str(target_exe)],
+                    cwd=str(self.target),
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                )
+            except Exception:
+                pass
+
+        QTimer.singleShot(700, QApplication.quit)
+
+
 class TitleBar(QWidget):
     def __init__(self):
         super().__init__(); self.setFixedHeight(44)
@@ -234,8 +435,13 @@ class Installer(QWidget):
         if not app_icon.isNull():
             self.setWindowIcon(app_icon)
         self.setFixedSize(900, 580)
-        self.worker = None; self.target = DEFAULT_DIR; self.opts = {}
-        self._auto_close_timer = None; self._countdown = 2
+        self.existing_dir, self.existing_ver = get_existing_installation()
+        self.is_upgrade = self.existing_dir is not None
+        self.target = self.existing_dir if self.existing_dir else DEFAULT_DIR
+        self.opts = get_existing_preferences() if self.is_upgrade else {}
+        self.worker = None
+        self._auto_close_timer = None
+        self._countdown = 2
         
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         content = QHBoxLayout(); content.setSpacing(0); root.addLayout(content)
@@ -365,57 +571,98 @@ class Installer(QWidget):
         w = QWidget(); lay = QVBoxLayout(w); lay.setContentsMargins(38, 24, 38, 16); lay.setSpacing(10)
         lay.addSpacing(4)
         
-        # Clean, modern header without redundant double logo
-        lay.addWidget(self._h1("Welcome to Digital Wellbeing"))
-        lay.addWidget(self._sub("Professional digital wellness, screen-time intelligence, and focus management for Windows."))
-        lay.addSpacing(12)
-        
-        # Professional Features Card with strict scoped styling
-        feat_box = QFrame()
-        feat_box.setObjectName("featBox")
-        feat_box.setStyleSheet(f"""
-            QFrame#featBox {{
-                background: {CARD};
-                border: 1px solid {LINE};
-                border-radius: 12px;
-            }}
-            QFrame#featBox QLabel {{
-                background: transparent;
-                border: none;
-                border-radius: 0px;
-                padding: 0px;
-                margin: 0px;
-            }}
-        """)
-        f_lay = QVBoxLayout(feat_box)
-        f_lay.setContentsMargins(22, 16, 22, 16)
-        f_lay.setSpacing(12)
-        
-        feats = [
-            ("Precision Screen Analytics", "Automated tracking of foreground applications and domains with idle distinction."),
-            ("Smart Focus & App Shield", "Distraction blocking, customizable focus sessions, and granular application limits."),
-            ("SleepGuard & Circadian Protection", "Intelligent downtime scheduling, bedtime reminders, and screen rest protection."),
-            ("Private by Design", "100% offline local SQLite database — your personal activity data never leaves this PC.")
-        ]
-        for title, desc in feats:
-            col = QVBoxLayout()
-            col.setSpacing(2)
-            t_lbl = QLabel(title)
-            t_lbl.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: 600; border: none; background: transparent; padding: 0;")
-            d_lbl = QLabel(desc)
-            d_lbl.setWordWrap(True)
-            d_lbl.setStyleSheet(f"color: {SUB}; font-size: 12px; border: none; background: transparent; padding: 0;")
-            col.addWidget(t_lbl)
-            col.addWidget(d_lbl)
-            f_lay.addLayout(col)
+        if self.is_upgrade:
+            lay.addWidget(self._h1("Update Digital Wellbeing"))
+            lay.addWidget(self._sub("A previous installation of Digital Wellbeing was detected on your PC."))
+            lay.addSpacing(10)
+
+            upd_box = QFrame()
+            upd_box.setObjectName("featBox")
+            upd_box.setStyleSheet(f"""
+                QFrame#featBox {{
+                    background: {CARD};
+                    border: 1px solid rgba(10, 132, 255, 0.4);
+                    border-radius: 12px;
+                }}
+                QFrame#featBox QLabel {{
+                    background: transparent;
+                    border: none;
+                    padding: 0px;
+                }}
+            """)
+            u_lay = QVBoxLayout(upd_box)
+            u_lay.setContentsMargins(22, 18, 22, 18)
+            u_lay.setSpacing(8)
+
+            u_title = QLabel(f"Ready to upgrade to version {VER}")
+            u_title.setStyleSheet("color: #FFFFFF; font-size: 15px; font-weight: 700;")
+            u_desc = QLabel(f"Installed Version: v{self.existing_ver}\nTarget Location: {self.target}\n\nYour personal screen time statistics, local database, and focus configurations will remain completely safe and untouched.")
+            u_desc.setWordWrap(True)
+            u_desc.setStyleSheet(f"color: {SUB}; font-size: 12px; line-height: 1.4;")
+            u_lay.addWidget(u_title)
+            u_lay.addWidget(u_desc)
+            lay.addWidget(upd_box)
+            lay.addStretch()
+
+            custom_row = QHBoxLayout()
+            custom_btn = QPushButton("Custom Installation / Reinstall Options…")
+            custom_btn.setObjectName("ghost")
+            custom_btn.setCursor(Qt.PointingHandCursor)
+            custom_btn.clicked.connect(lambda: self._goto(1))
+            custom_row.addWidget(custom_btn)
+            custom_row.addStretch()
+            lay.addLayout(custom_row)
+        else:
+            # Clean, modern header without redundant double logo
+            lay.addWidget(self._h1("Welcome to Digital Wellbeing"))
+            lay.addWidget(self._sub("Professional digital wellness, screen-time intelligence, and focus management for Windows."))
+            lay.addSpacing(12)
             
-        lay.addWidget(feat_box)
-        lay.addStretch()
-        
-        info = QLabel("Designed for Windows 10 & 11 · User-space installation (no administrator privileges required)")
-        info.setStyleSheet("color: #727280; font-size: 11px;")
-        lay.addWidget(info)
-        return w
+            # Professional Features Card with strict scoped styling
+            feat_box = QFrame()
+            feat_box.setObjectName("featBox")
+            feat_box.setStyleSheet(f"""
+                QFrame#featBox {{
+                    background: {CARD};
+                    border: 1px solid {LINE};
+                    border-radius: 12px;
+                }}
+                QFrame#featBox QLabel {{
+                    background: transparent;
+                    border: none;
+                    border-radius: 0px;
+                    padding: 0px;
+                    margin: 0px;
+                }}
+            """)
+            f_lay = QVBoxLayout(feat_box)
+            f_lay.setContentsMargins(22, 16, 22, 16)
+            f_lay.setSpacing(12)
+            
+            feats = [
+                ("Precision Screen Analytics", "Automated tracking of foreground applications and domains with idle distinction."),
+                ("Smart Focus & App Shield", "Distraction blocking, customizable focus sessions, and granular application limits."),
+                ("SleepGuard & Circadian Protection", "Intelligent downtime scheduling, bedtime reminders, and screen rest protection."),
+                ("Private by Design", "100% offline local SQLite database — your personal activity data never leaves this PC.")
+            ]
+            for title, desc in feats:
+                col = QVBoxLayout()
+                col.setSpacing(2)
+                t_lbl = QLabel(title)
+                t_lbl.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: 600; border: none; background: transparent; padding: 0;")
+                d_lbl = QLabel(desc)
+                d_lbl.setWordWrap(True)
+                d_lbl.setStyleSheet(f"color: {SUB}; font-size: 12px; border: none; background: transparent; padding: 0;")
+                col.addWidget(t_lbl)
+                col.addWidget(d_lbl)
+                f_lay.addLayout(col)
+                
+            lay.addWidget(feat_box)
+            lay.addStretch()
+            
+            info = QLabel("Designed for Windows 10 & 11 · User-space installation (no administrator privileges required)")
+            info.setStyleSheet("color: #727280; font-size: 11px;")
+            lay.addWidget(info)
         return w
 
     def _page_license(self):
@@ -561,7 +808,11 @@ class Installer(QWidget):
 
     def _primary(self):
         i = self.stack.currentIndex()
-        if i == 0: self._goto(1)
+        if i == 0:
+            if self.is_upgrade:
+                self._start_install()
+            else:
+                self._goto(1)
         elif i == 1: self._goto(2)
         elif i == 2: self._start_install()
         elif i == 4: self._finish()
@@ -569,7 +820,13 @@ class Installer(QWidget):
     def _update_nav(self):
         i = self.stack.currentIndex()
         self.back_btn.setVisible(i in (1, 2))
-        labels = ["Get started", "Accept & continue", "Install now", "", "Finish"]
+        labels = [
+            f"Update Now (v{VER})" if self.is_upgrade else "Get started",
+            "Accept & continue",
+            "Install now",
+            "",
+            "Finish"
+        ]
         self.primary.setText(labels[i])
         self.primary.setVisible(i != 3)
         if i == 1:
@@ -597,20 +854,38 @@ class Installer(QWidget):
         self.loc_info.setStyleSheet("color:%s;font-size:12px;" % (msgs[0][1] if msgs else SUB))
 
     def _start_install(self):
-        t = Path(self.target_edit.text().strip() or str(DEFAULT_DIR))
+        if hasattr(self, "target_edit") and self.target_edit.text().strip():
+            t = Path(self.target_edit.text().strip())
+        elif self.target:
+            t = Path(self.target)
+        else:
+            t = Path(DEFAULT_DIR)
+
         if not t.name or t == Path(t.anchor):
-            self.loc_info.setText("Please select a valid folder path (not a root drive).")
-            self.loc_info.setStyleSheet("color:%s;font-size:12px;" % DANGER); return
+            if hasattr(self, "loc_info"):
+                self.loc_info.setText("Please select a valid folder path (not a root drive).")
+                self.loc_info.setStyleSheet("color:%s;font-size:12px;" % DANGER)
+            return
         payload = payload_dir()
         if payload is None:
-            self.loc_info.setText("Error: Embedded application payload not found.")
-            self.loc_info.setStyleSheet("color:%s;font-size:12px;" % DANGER); return
-            
+            if hasattr(self, "loc_info"):
+                self.loc_info.setText("Error: Embedded application payload not found.")
+                self.loc_info.setStyleSheet("color:%s;font-size:12px;" % DANGER)
+            return
+
         self.target = t
-        self.opts = {"desktop": self.desktop_cb.isChecked(), "autostart": self.autostart_cb.isChecked()}
+        if hasattr(self, "desktop_cb") and hasattr(self, "autostart_cb"):
+            self.opts = {"desktop": self.desktop_cb.isChecked(), "autostart": self.autostart_cb.isChecked()}
+        else:
+            self.opts = get_existing_preferences() if self.is_upgrade else {"desktop": True, "autostart": False}
+
         self.worker = InstallWorker(payload, t, self.opts)
         self.worker.step.connect(lambda s, p: (self.p_step.setText(s), self.bar.setValue(p)))
         self.worker.detail.connect(self.p_detail.setText)
+        self.worker.progress.connect(self.bar.setValue)
+        self.worker.failed.connect(self._failed)
+        self.worker.done_ok.connect(self._installed)
+        self._goto(3); self.worker.start()
         self.worker.progress.connect(self.bar.setValue)
         self.worker.failed.connect(self._failed)
         self.worker.done_ok.connect(self._installed)
@@ -681,6 +956,8 @@ class Installer(QWidget):
 
 
 def main():
+    cli = parse_cli_args()
+
     if sys.platform == "win32":
         try:
             import ctypes
@@ -693,6 +970,36 @@ def main():
     app_icon = get_app_icon()
     if not app_icon.isNull():
         app.setWindowIcon(app_icon)
+
+    # In-app or silent update flow
+    if cli["update"] or cli["silent"]:
+        existing_dir, _ = get_existing_installation()
+        target_dir = Path(cli["target"]) if cli["target"] else (existing_dir if existing_dir else DEFAULT_DIR)
+        opts = get_existing_preferences()
+
+        if cli["headless"]:
+            payload = payload_dir()
+            if payload is None:
+                sys.exit(1)
+            worker = InstallWorker(payload, target_dir, opts)
+            try:
+                worker._run()
+                if not cli["no_launch"]:
+                    target_exe = target_dir / EXE
+                    subprocess.Popen(
+                        [str(target_exe)],
+                        cwd=str(target_dir),
+                        creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                    )
+                sys.exit(0)
+            except Exception:
+                sys.exit(1)
+        else:
+            upd_win = UpdateWindow(target=target_dir, opts=opts, no_launch=cli["no_launch"])
+            if not app_icon.isNull():
+                upd_win.setWindowIcon(app_icon)
+            upd_win.show()
+            sys.exit(app.exec())
 
     win = Installer()
     if not app_icon.isNull():

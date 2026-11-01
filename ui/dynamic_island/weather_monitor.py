@@ -4,8 +4,9 @@ weather_monitor.py — Real-time Weather Forecaster via Open-Meteo for Dynamic I
 from __future__ import annotations
 
 import datetime
+import json
 import time
-import requests
+import urllib.request
 from PySide6.QtCore import QThread, Signal
 
 
@@ -24,7 +25,9 @@ class WeatherMonitor(QThread):
     def set_location(self, city: str) -> tuple[bool, str]:
         try:
             geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&language=en&format=json"
-            res = requests.get(geo_url, timeout=6).json()
+            req = urllib.request.Request(geo_url, headers={"User-Agent": "DigitalWellbeing/4.4.4"})
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
             if "results" in res and res["results"]:
                 result = res["results"][0]
                 self.city = f"{result['name']}, {result.get('country', '')}"
@@ -75,7 +78,9 @@ class WeatherMonitor(QThread):
                 time_since_last = 0
                 try:
                     url = f"https://api.open-meteo.com/v1/forecast?latitude={self.lat}&longitude={self.lon}&current_weather=true&hourly=temperature_2m,weathercode"
-                    res = requests.get(url, timeout=6).json()
+                    req = urllib.request.Request(url, headers={"User-Agent": "DigitalWellbeing/4.4.4"})
+                    with urllib.request.urlopen(req, timeout=6) as resp:
+                        res = json.loads(resp.read().decode("utf-8"))
                     if "current_weather" in res:
                         current = res["current_weather"]
                         hourly = res.get("hourly", {})

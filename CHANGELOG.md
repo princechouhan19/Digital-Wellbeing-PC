@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.4] — 2026-11-01
+
+### Fixed
+- **Dynamic Island Desktop Notch Module Error Fix** (`ui/dynamic_island/weather_monitor.py`, `ui/dynamic_island/media_monitor.py`):
+  - Completely replaced all external `requests` dependencies with Python's built-in `urllib.request` and `json` in `weather_monitor.py` and `media_monitor.py`.
+  - Fixed `Failed to initialize AmbientNotch: No module named 'requests'` and `Failed to toggle AmbientNotch: No module named 'requests'`, ensuring Dynamic Island launches cleanly out of the box with zero missing dependencies.
+  - Added `requests>=2.31.0` to `requirements.txt` for extra environment resilience.
+- **Smart Tasks Edit/New Dialog Viewport Fix** (`ui/pages/tasks.py`):
+  - Set dynamic responsive dialog dimensions (`min-width: 680px`, `min-height: 640px`, default `700x720px`) with resizable boundaries.
+  - Eliminated horizontal and right-edge clipping on high-DPI scaling (125%/150%), ensuring Category dropdown, Start/End times, Duration, all 7 repeat day buttons (`M`, `T`, `W`, `T`, `F`, `S`, `S`), and day-specific notes are fully displayed without truncation.
+
+### Enhanced
+- **Seamless 1-Click In-App Updates** (`installer/installer_app.py`, `utils/updater.py`):
+  - Built dedicated `UpdateWindow` mini progress card for in-app updates that preserves existing user desktop shortcuts, autostart preferences, database, and configurations without re-prompting.
+  - Configured updater to pass `--update --silent /SILENT` so in-app updates perform an instant, silent in-place upgrade and automatic relaunch without cycling through the 5-step fresh install wizard.
+  - Enhanced installer welcome screen to detect existing installations and provide an instant 1-click **"Update Now (v4.4.4)"** button that skips license and destination selection.
+
 ## [4.4.3] — 2026-11-01
 
 ### Fixed

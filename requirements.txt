@@ -12,5 +12,6 @@ winrt-Windows.Security.Credentials.UI>=3.2.1
 winrt-Windows.UI.Notifications>=3.2.1
 winrt-Windows.Data.Xml.Dom>=3.2.1
 Pillow>=10.0.0
+requests>=2.31.0
 
 uiautomation>=2.0.29
