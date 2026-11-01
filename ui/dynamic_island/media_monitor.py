@@ -10,8 +10,12 @@ import io
 import re
 from typing import Optional
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 from PySide6.QtCore import QThread, Signal
+from PySide6.QtGui import QImage, QColor
 import requests
 
 
@@ -165,17 +169,31 @@ class MediaMonitor(QThread):
                         buffer = reader.read_buffer(thumb_stream.size)
                         image_data = bytes(buffer)
 
-                        # Extract dominant color using PIL
-                        image = Image.open(io.BytesIO(image_data))
-                        image = image.resize((32, 32))
-                        colors = image.getcolors(32 * 32)
-                        filtered = [c for c in colors if sum(c[1][:3]) > 60 and sum(c[1][:3]) < 680]
-                        if filtered:
-                            dominant = max(filtered, key=lambda x: x[0])[1]
-                            accent_color = f"#{dominant[0]:02x}{dominant[1]:02x}{dominant[2]:02x}"
+                        # Extract dominant color using PIL or native PySide6 fallback
+                        if Image:
+                            try:
+                                image = Image.open(io.BytesIO(image_data))
+                                image = image.resize((32, 32))
+                                colors = image.getcolors(32 * 32)
+                                filtered = [c for c in colors if sum(c[1][:3]) > 60 and sum(c[1][:3]) < 680]
+                                if filtered:
+                                    dominant = max(filtered, key=lambda x: x[0])[1]
+                                    accent_color = f"#{dominant[0]:02x}{dominant[1]:02x}{dominant[2]:02x}"
+                                else:
+                                    avg = image.resize((1, 1)).getpixel((0, 0))
+                                    accent_color = f"#{avg[0]:02x}{avg[1]:02x}{avg[2]:02x}"
+                            except Exception:
+                                pass
                         else:
-                            avg = image.resize((1, 1)).getpixel((0, 0))
-                            accent_color = f"#{avg[0]:02x}{avg[1]:02x}{avg[2]:02x}"
+                            try:
+                                qimg = QImage()
+                                if qimg.loadFromData(image_data):
+                                    small = qimg.scaled(1, 1)
+                                    col = QColor(small.pixel(0, 0))
+                                    if col.isValid():
+                                        accent_color = col.name()
+                            except Exception:
+                                pass
                     except Exception:
                         pass
 

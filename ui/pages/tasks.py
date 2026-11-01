@@ -68,7 +68,8 @@ class TaskEditDialog(QDialog):
         self._task = task
         self.is_edit_mode = task is not None
         self.setWindowTitle("Edit Task" if self.is_edit_mode else "New Smart Task")
-        self.setFixedWidth(520)
+        self.setFixedWidth(640)
+        self.setFixedHeight(680)
         self.setObjectName("task_dialog")
 
         self._selected_apps: List[dict] = []
@@ -82,16 +83,19 @@ class TaskEditDialog(QDialog):
     def _setup_ui(self) -> None:
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         content_w = QWidget()
+        content_w.setObjectName("dialog_content")
         layout = QVBoxLayout(content_w)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(14)
         scroll.setWidget(content_w)
-        outer_layout.addWidget(scroll)
+        outer_layout.addWidget(scroll, 1)
 
         # 0. Quick Preset Templates Bar (Only shown in creation mode)
         if not self.is_edit_mode:
@@ -122,7 +126,7 @@ class TaskEditDialog(QDialog):
 
         # 1. Task Title & Category
         title_cat_row = QHBoxLayout()
-        title_cat_row.setSpacing(10)
+        title_cat_row.setSpacing(12)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(4)
@@ -132,7 +136,7 @@ class TaskEditDialog(QDialog):
         self._title_edit.setPlaceholderText("e.g., Gym Session, Instagram Backend Lecture")
         title_col.addWidget(title_lbl)
         title_col.addWidget(self._title_edit)
-        title_cat_row.addLayout(title_col, 2)
+        title_cat_row.addLayout(title_col, 3)
 
         cat_col = QVBoxLayout()
         cat_col.setSpacing(4)
@@ -140,6 +144,7 @@ class TaskEditDialog(QDialog):
         cat_lbl.setObjectName("field_label")
         self._cat_combo = QComboBox()
         self._cat_combo.addItems(["Health", "Study", "Work", "Routine", "Personal", "Other"])
+        self._cat_combo.setMinimumWidth(130)
         cat_col.addWidget(cat_lbl)
         cat_col.addWidget(self._cat_combo)
         title_cat_row.addLayout(cat_col, 1)
@@ -163,7 +168,7 @@ class TaskEditDialog(QDialog):
         sched_layout.addLayout(time_hdr)
 
         times_row = QHBoxLayout()
-        times_row.setSpacing(14)
+        times_row.setSpacing(12)
 
         start_col = QVBoxLayout()
         start_col.setSpacing(3)
@@ -173,7 +178,7 @@ class TaskEditDialog(QDialog):
         self._start_edit.setTime(QTime(17, 50))  # Default 5:50 PM
         self._start_edit.timeChanged.connect(self._on_times_changed)
         start_col.addWidget(self._start_edit)
-        times_row.addLayout(start_col, 1)
+        times_row.addLayout(start_col, 2)
 
         arrow_lbl = QLabel("➔")
         arrow_lbl.setStyleSheet("color: #8E8E93; font-size: 14px; margin-top: 14px;")
@@ -188,15 +193,16 @@ class TaskEditDialog(QDialog):
         self._end_edit.setTime(QTime(19, 0))  # Default 7:00 PM
         self._end_edit.timeChanged.connect(self._on_times_changed)
         end_col.addWidget(self._end_edit)
-        times_row.addLayout(end_col, 1)
+        times_row.addLayout(end_col, 2)
 
         dur_col = QVBoxLayout()
         dur_col.setSpacing(3)
-        dur_col.addWidget(QLabel("Calculated Duration", styleSheet="color: #8E8E93; font-size: 11px;"))
+        dur_col.addWidget(QLabel("Duration", styleSheet="color: #8E8E93; font-size: 11px;"))
         self._est_spin = QSpinBox()
         self._est_spin.setRange(5, 720)
         self._est_spin.setValue(70)
         self._est_spin.setSuffix(" min")
+        self._est_spin.setMinimumWidth(95)
         dur_col.addWidget(self._est_spin)
         times_row.addLayout(dur_col, 1)
 
@@ -211,12 +217,14 @@ class TaskEditDialog(QDialog):
         repeat_layout.setSpacing(10)
 
         days_row = QHBoxLayout()
-        days_row.setSpacing(8)
+        days_row.setSpacing(6)
         for i in range(7):
             btn = QPushButton(f"{DAY_SHORT[i]}\n{DAY_LABELS[i]}")
             btn.setObjectName("day_pill_btn")
             btn.setCheckable(True)
             btn.setChecked(i < 6)  # Default Mon-Sat
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.setMinimumWidth(0)
             btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             btn.toggled.connect(self._on_day_toggled)
             self._day_buttons.append(btn)
@@ -244,12 +252,16 @@ class TaskEditDialog(QDialog):
 
         layout.addWidget(repeat_group)
 
-        # 4. Per-Day Specific Routine / Notes Matrix
+        # 4. Per-Day Specific Routine / Notes Matrix (Organized 2-Column Grid)
         notes_group = QGroupBox("Day-Specific Routine / Lecture Notes (Optional)")
         notes_group.setObjectName("sched_group")
         self._notes_layout = QVBoxLayout(notes_group)
         self._notes_layout.setContentsMargins(14, 12, 14, 12)
         self._notes_layout.setSpacing(8)
+
+        grid_notes = QGridLayout()
+        grid_notes.setHorizontalSpacing(14)
+        grid_notes.setVerticalSpacing(8)
 
         default_gym_notes = [
             "Chest + Biceps + Forearms",
@@ -261,18 +273,25 @@ class TaskEditDialog(QDialog):
             "Full Rest & Mobility",
         ]
         for i, day in enumerate(DAY_LABELS):
-            row = QHBoxLayout()
-            row.setSpacing(8)
+            row_box = QHBoxLayout()
+            row_box.setSpacing(6)
             lbl = QLabel(day)
-            lbl.setFixedWidth(40)
+            lbl.setFixedWidth(32)
             lbl.setStyleSheet("font-weight: 700; color: #0A84FF; font-size: 11px;")
             edit = QLineEdit()
-            edit.setPlaceholderText(f"Routine for {day} (e.g. {default_gym_notes[i]})")
+            edit.setPlaceholderText(f"{day}: e.g. {default_gym_notes[i]}")
             self._day_note_edits.append(edit)
-            row.addWidget(lbl)
-            row.addWidget(edit, 1)
-            self._notes_layout.addLayout(row)
+            row_box.addWidget(lbl)
+            row_box.addWidget(edit, 1)
 
+            r = i // 2
+            c = i % 2
+            if i == 6:  # Sunday spans both columns
+                grid_notes.addLayout(row_box, r, 0, 1, 2)
+            else:
+                grid_notes.addLayout(row_box, r, c)
+
+        self._notes_layout.addLayout(grid_notes)
         layout.addWidget(notes_group)
 
         # 5. Priority
@@ -324,21 +343,28 @@ class TaskEditDialog(QDialog):
         target_box.addLayout(app_picker_row)
         layout.addLayout(target_box)
 
-        # 7. Action Buttons
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
+        # 7. Fixed Action Footer (Always visible)
+        footer = QWidget()
+        footer.setObjectName("dialog_footer")
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(24, 12, 24, 14)
+        footer_layout.setSpacing(12)
+        footer_layout.addStretch()
+
         self._btn_cancel = QPushButton("Cancel")
         self._btn_cancel.setObjectName("secondary_btn")
+        self._btn_cancel.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._btn_cancel.clicked.connect(self.reject)
-        
+
         btn_title = "Save Changes" if self.is_edit_mode else "Create Smart Task"
         self._btn_save = QPushButton(btn_title)
         self._btn_save.setObjectName("primary_btn")
+        self._btn_save.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._btn_save.clicked.connect(self._on_save)
-        
-        btn_row.addWidget(self._btn_cancel)
-        btn_row.addWidget(self._btn_save)
-        layout.addLayout(btn_row)
+
+        footer_layout.addWidget(self._btn_cancel)
+        footer_layout.addWidget(self._btn_save)
+        outer_layout.addWidget(footer)
 
         self._apply_theme()
 
@@ -348,6 +374,32 @@ class TaskEditDialog(QDialog):
                 background-color: #161618;
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 14px;
+            }
+            QWidget#dialog_footer {
+                background-color: #1a1a1e;
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+                border-bottom-left-radius: 14px;
+                border-bottom-right-radius: 14px;
+            }
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background: transparent;
+                width: 8px;
+                margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: rgba(255, 255, 255, 0.15);
+                border-radius: 4px;
+                min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
             }
             QLabel#field_label {
                 font-size: 12px;
@@ -402,8 +454,8 @@ class TaskEditDialog(QDialog):
                 background: #202024;
                 border: 1px solid rgba(255, 255, 255, 0.12);
                 border-radius: 8px;
-                padding: 6px 4px;
-                font-size: 10px;
+                padding: 6px 2px;
+                font-size: 11px;
                 font-weight: 700;
                 color: #8E8E93;
             }
@@ -1057,23 +1109,23 @@ class TasksPage(QWidget):
 
     def _apply_theme(self, is_dark: bool) -> None:
         tm = ThemeManager.instance()
-        self.setStyleSheet(f"""
-            QLabel#page_title {{ font-size: 26px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.5px; }}
-            QLabel#page_subtitle {{ font-size: 13px; color: #8E8E93; }}
-            QLabel#section_header {{ font-size: 11px; font-weight: 700; color: #8E8E93; letter-spacing: 1.5px; text-transform: uppercase; margin-top: 6px; }}
-            QFrame#analytics_container {{
+        self.setStyleSheet("""
+            QLabel#page_title { font-size: 26px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.5px; }
+            QLabel#page_subtitle { font-size: 13px; color: #8E8E93; }
+            QLabel#section_header { font-size: 11px; font-weight: 700; color: #8E8E93; letter-spacing: 1.5px; text-transform: uppercase; margin-top: 6px; }
+            QFrame#analytics_container {
                 background-color: #161618;
                 border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: 16px;
-            }}
-            QLabel#analytics_hdr {{
+            }
+            QLabel#analytics_hdr {
                 font-size: 10px;
                 font-weight: 700;
                 color: #8E8E93;
                 letter-spacing: 1.2px;
                 text-transform: uppercase;
-            }}
-            QPushButton#accent_btn {{
+            }
+            QPushButton#accent_btn {
                 background-color: #0A84FF;
                 color: #FFFFFF;
                 border: none;
@@ -1081,28 +1133,28 @@ class TasksPage(QWidget):
                 padding: 9px 18px;
                 font-weight: 700;
                 font-size: 13px;
-            }}
-            QPushButton#accent_btn:hover {{ background-color: #0071E3; }}
-            QFrame#task_card {{
+            }
+            QPushButton#accent_btn:hover { background-color: #0071E3; }
+            QFrame#task_card {
                 background-color: #1C1C1E;
                 border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: 14px;
-            }}
-            QFrame#task_card:hover {{
+            }
+            QFrame#task_card:hover {
                 background-color: #242426;
                 border-color: rgba(255, 255, 255, 0.15);
-            }}
-            QLabel#task_title {{ font-size: 15px; font-weight: 600; color: #FFFFFF; }}
-            QLabel#task_title_completed {{ font-size: 15px; font-weight: 600; color: #636366; text-decoration: line-through; }}
-            QLabel#task_cat_badge {{
+            }
+            QLabel#task_title { font-size: 15px; font-weight: 600; color: #FFFFFF; }
+            QLabel#task_title_completed { font-size: 15px; font-weight: 600; color: #636366; text-decoration: line-through; }
+            QLabel#task_cat_badge {
                 background: rgba(255, 255, 255, 0.06);
                 border-radius: 5px;
                 padding: 1px 6px;
                 font-size: 9px;
                 font-weight: 700;
                 color: #8E8E93;
-            }}
-            QLabel#task_time_pill {{
+            }
+            QLabel#task_time_pill {
                 background: rgba(10, 132, 255, 0.15);
                 border: 1px solid rgba(10, 132, 255, 0.35);
                 border-radius: 6px;
@@ -1110,17 +1162,17 @@ class TasksPage(QWidget):
                 font-size: 11px;
                 font-weight: 700;
                 color: #0A84FF;
-            }}
-            QLabel#task_today_note {{
+            }
+            QLabel#task_today_note {
                 color: #30D158;
                 font-size: 11px;
                 font-weight: 600;
                 background: rgba(48, 209, 88, 0.12);
                 border-radius: 6px;
                 padding: 2px 8px;
-            }}
-            QLabel#task_meta {{ font-size: 11px; color: #8E8E93; }}
-            QLabel#task_pill {{
+            }
+            QLabel#task_meta { font-size: 11px; color: #8E8E93; }
+            QLabel#task_pill {
                 background: rgba(255, 255, 255, 0.06);
                 border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: 6px;
@@ -1128,25 +1180,25 @@ class TasksPage(QWidget):
                 font-size: 10px;
                 font-weight: 600;
                 color: #8E8E93;
-            }}
-            QPushButton#task_check_btn {{
+            }
+            QPushButton#task_check_btn {
                 background: rgba(255, 255, 255, 0.06);
                 border: 1.5px solid rgba(255, 255, 255, 0.18);
                 border-radius: 6px;
-            }}
-            QPushButton#task_btn_edit {{
+            }
+            QPushButton#task_btn_edit {
                 background: rgba(255, 255, 255, 0.06);
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 8px;
                 color: #8E8E93;
                 font-size: 12px;
                 padding: 6px 10px;
-            }}
-            QPushButton#task_btn_edit:hover {{
+            }
+            QPushButton#task_btn_edit:hover {
                 color: #0A84FF;
                 border-color: rgba(10, 132, 255, 0.4);
-            }}
-            QPushButton#task_btn_start {{
+            }
+            QPushButton#task_btn_start {
                 background-color: rgba(10, 132, 255, 0.15);
                 border: 1px solid rgba(10, 132, 255, 0.35);
                 border-radius: 8px;
@@ -1154,22 +1206,22 @@ class TasksPage(QWidget):
                 font-weight: 700;
                 font-size: 11px;
                 padding: 6px 12px;
-            }}
-            QPushButton#task_btn_start:hover {{
+            }
+            QPushButton#task_btn_start:hover {
                 background-color: rgba(10, 132, 255, 0.25);
-            }}
-            QPushButton#task_btn_del {{
+            }
+            QPushButton#task_btn_del {
                 background: transparent;
                 border: none;
                 color: #636366;
                 font-size: 12px;
                 padding: 4px;
-            }}
-            QPushButton#task_btn_del:hover {{ color: #FF453A; }}
-            QLabel#empty_state_lbl {{
+            }
+            QPushButton#task_btn_del:hover { color: #FF453A; }
+            QLabel#empty_state_lbl {
                 font-size: 13px;
                 color: #8E8E93;
                 padding: 40px;
                 line-height: 1.6;
-            }}
+            }
         """)
