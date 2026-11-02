@@ -15,7 +15,8 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPen, QRadialGradient
+from settings.manager import SettingsManager
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -143,6 +144,24 @@ class AppleFocusRing(QWidget):
         diameter = min(w, h) - pen_width - 18.0
         r = diameter / 2.0
         rect = QRectF(cx - r, cy - r, diameter, diameter)
+
+        # 0. Apple Liquid Glass Center Lens & Specular Refraction
+        if SettingsManager().liquid_glass_enabled:
+            lens_grad = QRadialGradient(cx, cy, r)
+            lens_grad.setColorAt(0.0, QColor(255, 255, 255, 14 if is_dark else 10))
+            lens_grad.setColorAt(0.85, QColor(255, 255, 255, 6 if is_dark else 4))
+            lens_grad.setColorAt(1.0, QColor(0, 0, 0, 42 if is_dark else 12))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(lens_grad)
+            painter.drawEllipse(QRectF(cx - r, cy - r, diameter, diameter))
+
+            sheen_grad = QLinearGradient(cx, cy - r, cx, cy)
+            sheen_grad.setColorAt(0.0, QColor(255, 255, 255, 45 if is_dark else 35))
+            sheen_grad.setColorAt(0.5, QColor(255, 255, 255, 12 if is_dark else 8))
+            sheen_grad.setColorAt(1.0, QColor(255, 255, 255, 0))
+            sheen_rect = QRectF(cx - r + 16, cy - r + 8, diameter - 32, (diameter / 2.0) - 12)
+            painter.setBrush(sheen_grad)
+            painter.drawEllipse(sheen_rect)
 
         # 1. Background Track
         track_color = QColor(255, 255, 255, 20) if is_dark else QColor(0, 0, 0, 16)
@@ -991,6 +1010,9 @@ class FocusTimerWidget(FocusSetupViewMixin, FocusActiveViewMixin, QFrame):
         self._refresh_rules_ui()
         self._sync_ui_state()
 
+    def update_theme_style(self) -> None:
+        self._apply_theme(ThemeManager.instance().is_dark)
+
     def _apply_theme(self, is_dark: bool) -> None:
         tm = ThemeManager.instance()
         mode = self._fm.current_mode
@@ -1010,7 +1032,8 @@ class FocusTimerWidget(FocusSetupViewMixin, FocusActiveViewMixin, QFrame):
             is_active=False,
         )
 
-        self.setStyleSheet(build_focus_stylesheet(tm, mode_color, is_dark))
+        liquid_glass = SettingsManager().liquid_glass_enabled
+        self.setStyleSheet(build_focus_stylesheet(tm, mode_color, is_dark, liquid_glass=liquid_glass))
 
     def set_preset(self, minutes: int) -> None:
         if self._fm.is_active:

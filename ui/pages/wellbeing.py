@@ -176,10 +176,19 @@ class WellbeingPage(QWidget):
         self.on_data_changed()
 
     def on_data_changed(self) -> None:
-        # Keep the bridge/rule summary fresh when the page is revisited.
+        # Keep the bridge/rule summary and Liquid Glass theme style fresh
         timer = getattr(self, "_focus_timer", None)
-        if timer is not None and hasattr(timer, "_refresh_rules_ui"):
-            try:
-                timer._refresh_rules_ui()
-            except Exception:
-                pass
+        if timer is not None:
+            if hasattr(timer, "update_theme_style"):
+                try:
+                    timer.update_theme_style()
+                except Exception:
+                    pass
+            if hasattr(timer, "_refresh_rules_ui"):
+                try:
+                    timer._refresh_rules_ui()
+                except Exception:
+                    pass
+
+    def refresh(self) -> None:
+        self.on_data_changed()

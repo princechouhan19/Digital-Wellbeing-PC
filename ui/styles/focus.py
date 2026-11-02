@@ -12,20 +12,85 @@ from ui import design_system as ds
 from ui.theme import ThemeManager
 
 
-def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> str:
+def build_focus_stylesheet(
+    tm: ThemeManager,
+    mode_color: str,
+    is_dark: bool,
+    liquid_glass: bool = True,
+) -> str:
+    """Builds the comprehensive QSS stylesheet for the Focus page.
+    Supports authentic Apple Liquid Glass aesthetic (VisionOS / macOS Sequoia glassmorphism,
+    specular refractive edges, vibrant neon accents) and clean solid dark/light fallback.
+    """
+    if liquid_glass and is_dark:
+        # ── Authentic Apple Liquid Glass Theme (Dark Glassmorphism) ───────────
+        card_bg = "rgba(24, 24, 30, 0.78)"
+        card_border = "1px solid rgba(255, 255, 255, 0.14)"
+        card_border_top = "1px solid rgba(255, 255, 255, 0.28)"
+        inset_bg = "rgba(255, 255, 255, 0.04)"
+        inset_border = "1px solid rgba(255, 255, 255, 0.08)"
+        capsule_bg = "rgba(255, 255, 255, 0.05)"
+        capsule_border = "1px solid rgba(255, 255, 255, 0.12)"
+        chip_checked_bg = "rgba(255, 255, 255, 0.14)"
+        chip_checked_border = "1px solid rgba(255, 255, 255, 0.24)"
+        sec_btn_bg = "rgba(255, 255, 255, 0.06)"
+        sec_btn_border = "1px solid rgba(255, 255, 255, 0.14)"
+        sec_btn_hover = "rgba(255, 255, 255, 0.12)"
+        start_btn_bg = f"qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {QColor(mode_color).lighter(118).name()}, stop:1 {mode_color})"
+        start_btn_border = "1px solid rgba(255, 255, 255, 0.35)"
+        stepper_bg = "rgba(255, 255, 255, 0.06)"
+        stepper_border = "1px solid rgba(255, 255, 255, 0.12)"
+    elif liquid_glass and not is_dark:
+        # ── Apple Liquid Glass Theme (Light Frost Glass) ──────────────────────
+        card_bg = "rgba(255, 255, 255, 0.78)"
+        card_border = "1px solid rgba(0, 0, 0, 0.08)"
+        card_border_top = "1px solid rgba(255, 255, 255, 0.85)"
+        inset_bg = "rgba(0, 0, 0, 0.03)"
+        inset_border = "1px solid rgba(0, 0, 0, 0.06)"
+        capsule_bg = "rgba(0, 0, 0, 0.04)"
+        capsule_border = "1px solid rgba(0, 0, 0, 0.08)"
+        chip_checked_bg = "rgba(255, 255, 255, 0.90)"
+        chip_checked_border = f"1px solid {mode_color}"
+        sec_btn_bg = "rgba(0, 0, 0, 0.04)"
+        sec_btn_border = "1px solid rgba(0, 0, 0, 0.10)"
+        sec_btn_hover = "rgba(0, 0, 0, 0.08)"
+        start_btn_bg = f"qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {mode_color}, stop:1 {QColor(mode_color).darker(108).name()})"
+        start_btn_border = "1px solid rgba(255, 255, 255, 0.40)"
+        stepper_bg = "rgba(0, 0, 0, 0.04)"
+        stepper_border = "1px solid rgba(0, 0, 0, 0.08)"
+    else:
+        # ── Classic Solid Theme (Standard Fallback) ───────────────────────────
+        card_bg = tm.color('surface')
+        card_border = f"1px solid {tm.color('border')}"
+        card_border_top = card_border
+        inset_bg = tm.color('surface_secondary')
+        inset_border = f"1px solid {tm.color('border')}"
+        capsule_bg = tm.color('surface')
+        capsule_border = f"1px solid {tm.color('border')}"
+        chip_checked_bg = tm.color('surface_elevated')
+        chip_checked_border = f"1px solid {tm.color('border')}"
+        sec_btn_bg = tm.color('surface')
+        sec_btn_border = f"1px solid {tm.color('border')}"
+        sec_btn_hover = tm.color('card_hover')
+        start_btn_bg = mode_color
+        start_btn_border = "none"
+        stepper_bg = tm.color('surface')
+        stepper_border = f"1px solid {tm.color('border')}"
+
     return f"""
             QFrame#focus_suite_root {{
                 background: transparent;
                 border: none;
             }}
             QFrame#focus_section_card {{
-                background-color: {tm.color('surface')};
-                border: 1px solid {tm.color('border')};
+                background-color: {card_bg};
+                border: {card_border};
+                border-top: {card_border_top};
                 border-radius: {ds.CARD_RADIUS}px;
             }}
             QFrame#apple_inset_card {{
-                background-color: {tm.color('surface_secondary')};
-                border: 1px solid {tm.color('border')};
+                background-color: {inset_bg};
+                border: {inset_border};
                 border-radius: 16px;
             }}
             QLabel#section_eyebrow {{
@@ -69,8 +134,8 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
                 color: #30D158;
             }}
             QFrame#guardrail_footer {{
-                background: {tm.color('surface_secondary')};
-                border: 1px solid {tm.color('border')};
+                background: {inset_bg};
+                border: {inset_border};
                 border-radius: 10px;
             }}
             QLabel#guardrail_footer_text {{
@@ -117,8 +182,8 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
             
             /* Segmented Controls */
             QFrame#segmented_capsule {{
-                background-color: {tm.color('surface')};
-                border: 1px solid {tm.color('border')};
+                background-color: {capsule_bg};
+                border: {capsule_border};
                 border-radius: {ds.RADIUS['md']}px;
             }}
             QPushButton#preset_chip {{
@@ -135,14 +200,14 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
                 background: {tm.color('surface_hover')};
             }}
             QPushButton#preset_chip:checked {{
-                background: {tm.color('surface_elevated')};
+                background: {chip_checked_bg};
                 color: {mode_color};
                 font-weight: 700;
-                border: 1px solid {tm.color('border')};
+                border: {chip_checked_border};
             }}
             QPushButton#stepper_btn {{
-                background: {tm.color('surface')};
-                border: 1px solid {tm.color('border')};
+                background: {stepper_bg};
+                border: {stepper_border};
                 border-radius: {ds.BUTTON_RADIUS}px;
                 color: {tm.color('text_sub')};
                 font-size: 12px;
@@ -150,7 +215,7 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
                 padding: 5px 10px;
             }}
             QPushButton#stepper_btn:hover {{
-                background: {tm.color('card_hover')};
+                background: {sec_btn_hover};
                 color: {tm.color('text_main')};
                 border-color: {tm.color('border_hover')};
             }}
@@ -169,8 +234,8 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
                 background-color: rgba(10, 132, 255, 0.22);
             }}
             QPushButton#quick_add_chip {{
-                background-color: {tm.color('surface')};
-                border: 1px solid {tm.color('border')};
+                background-color: {inset_bg};
+                border: {inset_border};
                 border-radius: {ds.BUTTON_RADIUS}px;
                 color: {tm.color('text_sub')};
                 font-size: 11px;
@@ -178,13 +243,13 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
                 padding: 4px 10px;
             }}
             QPushButton#quick_add_chip:hover {{
-                background-color: {tm.color('card_hover')};
+                background-color: {sec_btn_hover};
                 color: {tm.color('text_main')};
                 border-color: {tm.color('accent')};
             }}
             QLineEdit#site_search_input {{
-                background-color: {tm.color('surface')};
-                border: 1px solid {tm.color('border')};
+                background-color: {inset_bg};
+                border: {inset_border};
                 border-radius: {ds.BUTTON_RADIUS}px;
                 color: {tm.color('text_main')};
                 font-size: 11px;
@@ -205,8 +270,8 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
             
             /* Primary Buttons */
             QPushButton#primary_start_btn {{
-                background-color: {mode_color};
-                border: none;
+                background: {start_btn_bg};
+                border: {start_btn_border};
                 border-radius: 999px;
                 color: #FFFFFF;
                 font-size: 14px;
@@ -218,8 +283,8 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
                 background-color: {QColor(mode_color).lighter(112).name() if is_dark else QColor(mode_color).darker(108).name()};
             }}
             QPushButton#secondary_pill_btn {{
-                background-color: {tm.color('surface')};
-                border: 1px solid {tm.color('border')};
+                background-color: {sec_btn_bg};
+                border: {sec_btn_border};
                 border-radius: {ds.BUTTON_RADIUS_PILL}px;
                 color: {tm.color('text_sub')};
                 font-size: 13px;
@@ -227,7 +292,7 @@ def build_focus_stylesheet(tm: ThemeManager, mode_color: str, is_dark: bool) -> 
                 padding: 10px 18px;
             }}
             QPushButton#secondary_pill_btn:hover {{
-                background-color: {tm.color('card_hover')};
+                background-color: {sec_btn_hover};
                 color: {tm.color('text_main')};
             }}
             

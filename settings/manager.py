@@ -4,7 +4,7 @@ from database.repository import Repository
 
 
 class SettingsManager:
-    _BOOL_KEYS = {"autostart", "dark_mode", "minimize_to_tray", "notifications_enabled", "debug_tracking", "auto_update_enabled", "notify_updates", "name_prompt_completed"}
+    _BOOL_KEYS = {"autostart", "dark_mode", "minimize_to_tray", "notifications_enabled", "debug_tracking", "auto_update_enabled", "notify_updates", "name_prompt_completed", "liquid_glass_enabled"}
     _INT_KEYS = {"idle_threshold_s", "daily_limit_minutes"}
 
     def __init__(self) -> None:
@@ -95,6 +95,14 @@ class SettingsManager:
     @ui_density.setter
     def ui_density(self, value: str) -> None:
         self.set("ui_density", "compact" if str(value).lower() == "compact" else "comfortable")
+
+    @property
+    def liquid_glass_enabled(self) -> bool:
+        return self.get_bool("liquid_glass_enabled", True)
+
+    @liquid_glass_enabled.setter
+    def liquid_glass_enabled(self, value: bool) -> None:
+        self.set_bool("liquid_glass_enabled", value)
 
     # SleepGuard Extensions
     @property

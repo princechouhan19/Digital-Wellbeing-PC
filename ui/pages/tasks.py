@@ -68,9 +68,9 @@ class TaskEditDialog(QDialog):
         self._task = task
         self.is_edit_mode = task is not None
         self.setWindowTitle("Edit Task" if self.is_edit_mode else "New Smart Task")
-        self.setMinimumWidth(680)
-        self.setMinimumHeight(640)
-        self.resize(700, 720)
+        self.setMinimumWidth(560)
+        self.setMinimumHeight(520)
+        self.resize(640, 680)
         self.setObjectName("task_dialog")
 
         self._selected_apps: List[dict] = []
@@ -127,7 +127,7 @@ class TaskEditDialog(QDialog):
 
         # 1. Task Title & Category
         title_cat_row = QHBoxLayout()
-        title_cat_row.setSpacing(12)
+        title_cat_row.setSpacing(10)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(4)
@@ -137,7 +137,7 @@ class TaskEditDialog(QDialog):
         self._title_edit.setPlaceholderText("e.g., Gym Session, Instagram Backend Lecture")
         title_col.addWidget(title_lbl)
         title_col.addWidget(self._title_edit)
-        title_cat_row.addLayout(title_col, 3)
+        title_cat_row.addLayout(title_col, 1)
 
         cat_col = QVBoxLayout()
         cat_col.setSpacing(4)
@@ -145,10 +145,10 @@ class TaskEditDialog(QDialog):
         cat_lbl.setObjectName("field_label")
         self._cat_combo = QComboBox()
         self._cat_combo.addItems(["Health", "Study", "Work", "Routine", "Personal", "Other"])
-        self._cat_combo.setMinimumWidth(130)
+        self._cat_combo.setFixedWidth(115)
         cat_col.addWidget(cat_lbl)
         cat_col.addWidget(self._cat_combo)
-        title_cat_row.addLayout(cat_col, 1)
+        title_cat_row.addLayout(cat_col)
 
         layout.addLayout(title_cat_row)
 
@@ -169,7 +169,7 @@ class TaskEditDialog(QDialog):
         sched_layout.addLayout(time_hdr)
 
         times_row = QHBoxLayout()
-        times_row.setSpacing(12)
+        times_row.setSpacing(8)
 
         start_col = QVBoxLayout()
         start_col.setSpacing(3)
@@ -177,6 +177,7 @@ class TaskEditDialog(QDialog):
         self._start_edit = QTimeEdit()
         self._start_edit.setDisplayFormat("h:mm AP")
         self._start_edit.setTime(QTime(17, 50))  # Default 5:50 PM
+        self._start_edit.setMinimumWidth(85)
         self._start_edit.timeChanged.connect(self._on_times_changed)
         start_col.addWidget(self._start_edit)
         times_row.addLayout(start_col, 2)
@@ -192,6 +193,7 @@ class TaskEditDialog(QDialog):
         self._end_edit = QTimeEdit()
         self._end_edit.setDisplayFormat("h:mm AP")
         self._end_edit.setTime(QTime(19, 0))  # Default 7:00 PM
+        self._end_edit.setMinimumWidth(85)
         self._end_edit.timeChanged.connect(self._on_times_changed)
         end_col.addWidget(self._end_edit)
         times_row.addLayout(end_col, 2)
@@ -203,7 +205,7 @@ class TaskEditDialog(QDialog):
         self._est_spin.setRange(5, 720)
         self._est_spin.setValue(70)
         self._est_spin.setSuffix(" min")
-        self._est_spin.setMinimumWidth(95)
+        self._est_spin.setMinimumWidth(80)
         dur_col.addWidget(self._est_spin)
         times_row.addLayout(dur_col, 1)
 
@@ -225,7 +227,8 @@ class TaskEditDialog(QDialog):
             btn.setCheckable(True)
             btn.setChecked(i < 6)  # Default Mon-Sat
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            btn.setMinimumWidth(0)
+            btn.setMinimumWidth(32)
+            btn.setMaximumWidth(76)
             btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             btn.toggled.connect(self._on_day_toggled)
             self._day_buttons.append(btn)
@@ -281,6 +284,8 @@ class TaskEditDialog(QDialog):
             lbl.setStyleSheet("font-weight: 700; color: #0A84FF; font-size: 11px;")
             edit = QLineEdit()
             edit.setPlaceholderText(f"{day}: e.g. {default_gym_notes[i]}")
+            edit.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            edit.setMinimumWidth(80)
             self._day_note_edits.append(edit)
             row_box.addWidget(lbl)
             row_box.addWidget(edit, 1)
@@ -327,7 +332,11 @@ class TaskEditDialog(QDialog):
         app_picker_row.setSpacing(8)
 
         self._quick_apps_combo = QComboBox()
+        self._quick_apps_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self._quick_apps_combo.setMinimumContentsLength(10)
         self._quick_apps_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        if self._quick_apps_combo.view():
+            self._quick_apps_combo.view().setTextElideMode(Qt.TextElideMode.ElideRight)
         self._populate_quick_apps()
         app_picker_row.addWidget(self._quick_apps_combo, 1)
 

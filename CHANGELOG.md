@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.5] — 2026-11-02
+
+### Added
+- **Apple Liquid Glass Aesthetic** (`ui/styles/focus.py`, `ui/widgets/focus_timer.py`, `settings/manager.py`, `ui/pages/settings.py`):
+  - Researched Apple VisionOS and macOS Sequoia Liquid Glass design system principles: frosted translucency (`rgba(24, 24, 30, 0.78)`), optical refraction, specular highlights (`border-top: 1px solid rgba(255, 255, 255, 0.28)`), and physical functional layering.
+  - Implemented authentic Apple Liquid Glass styling on the Focus Page (`ui/widgets/focus_timer.py` and `ui/styles/focus.py`):
+    - Frosted glass cards with dual-layer specular edge lighting and drop shadows.
+    - Glass capsule pill selectors for focus modes with ambient neon glow.
+    - Tactile glass buttons with subtle optical luminescence and top specular reflection.
+    - Apple Focus Ring countdown dial with radial glass lens fill, specular reflection sheen, and vibrant neon gradient stroke.
+  - Added "Liquid Glass Aesthetic" toggle switch under Personalization / Appearance in the Settings page (`SettingsManager.liquid_glass_enabled`), allowing users to toggle between Liquid Glass and the classic solid dark/light design system.
+
+### Fixed
+- **Smart Task Dialog Horizontal Overflow & Clipping** (`ui/pages/tasks.py`):
+  - Fixed horizontal clipping in `TaskEditDialog` where Category and Duration were cut off and Saturday/Sunday were pushed off-screen.
+  - Constrained `_quick_apps_combo` with `AdjustToMinimumContentsLengthWithIcon` and text elision to prevent wide running process names from expanding the scroll viewport.
+  - Set compact responsive sizing for Category dropdown (`fixedWidth: 115px`), Start/End times (`85px`), Duration spinbox (`80px`), and 7 repeat day buttons (`min: 32px, max: 76px`).
+  - Constrained per-day note input fields to prevent placeholder text from forcing grid expansion.
+  - Dialog now fits cleanly within standard screen resolutions (down to 560px width) with zero horizontal clipping.
+- **Dynamic Island Desktop Notch Screen Centering & Smooth Expansion** (`ui/widgets/ambient_notch.py`):
+  - Anchored Dynamic Island strictly to `QApplication.primaryScreen()` instead of cursor position (`QCursor.pos()`), ensuring the notch stays locked to the physical top-center of the primary monitor across all mouse movements and multi-monitor setups.
+  - Added smooth cross-fade transitions via `QGraphicsOpacityEffect` and `QEasingCurve.Type.OutCubic` on expanded feature panels to eliminate sudden size pops when opening/closing the island.
+
 ## [4.4.4] — 2026-11-01
 
 ### Fixed

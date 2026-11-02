@@ -226,6 +226,15 @@ class SettingsPage(QWidget):
         self._sound_check.toggled.connect(self._on_sound_feedback_changed)
         app_layout.addWidget(sound_row)
 
+        # Apple Liquid Glass Aesthetic
+        self._liquid_glass_check, liquid_glass_row = self._create_toggle_row(
+            "Liquid Glass Aesthetic",
+            "Apple-inspired frosted glassmorphism, dynamic translucency, and optical specular highlights (active on Focus page)"
+        )
+        self._liquid_glass_check.setChecked(self._sm.liquid_glass_enabled)
+        self._liquid_glass_check.toggled.connect(self._on_liquid_glass_changed)
+        app_layout.addWidget(liquid_glass_row)
+
         app_layout.addStretch()
         categories.append(("Appearance", "Theme and visual mode"))
         self._stack.addWidget(self._wrap_scroll(app_page))
@@ -1197,6 +1206,10 @@ class SettingsPage(QWidget):
                 feedback.play(feedback.Sound.SUCCESS)
             except Exception:
                 pass
+        self.settings_changed.emit()
+
+    def _on_liquid_glass_changed(self, checked: bool) -> None:
+        self._sm.liquid_glass_enabled = checked
         self.settings_changed.emit()
 
     def _update_theme_btn_styles(self) -> None:

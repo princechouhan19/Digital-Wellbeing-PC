@@ -17,7 +17,9 @@ def notch(qtbot):
 
 
 def test_notch_default_idle_state(notch):
-    # Ensure idle state by resetting media detection
+    # Ensure idle state by resetting active task, focus, and media detection
+    notch._active_task = None
+    notch._focus_active = False
     notch._on_media_monitor_updated(
         status="Stopped",
         title="",

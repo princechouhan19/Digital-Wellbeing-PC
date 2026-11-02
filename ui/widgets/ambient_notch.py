@@ -1459,6 +1459,8 @@ class AmbientNotch(QWidget):
 
         self._layout.addWidget(self._expanded_container)
         self._expanded_container.setVisible(False)
+        self._expanded_opacity = QGraphicsOpacityEffect(self._expanded_container)
+        self._expanded_container.setGraphicsEffect(self._expanded_opacity)
 
         # Orbiting ControlBalls (instantiated on self for floating/orbiting animations)
         for _ in range(4):
@@ -2155,8 +2157,11 @@ class AmbientNotch(QWidget):
 
     def _setup_animations(self) -> None:
         self._anim = QPropertyAnimation(self, b"geometry")
-        self._anim.setDuration(300)
+        self._anim.setDuration(280)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._exp_opacity_anim = QPropertyAnimation(self._expanded_opacity, b"opacity")
+        self._exp_opacity_anim.setDuration(220)
+        self._exp_opacity_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
     def _set_default_cover_art(self) -> None:
         for size, lbl in [(24, self._media_thumb), (42, self._exp_thumb)]:
@@ -2229,12 +2234,12 @@ class AmbientNotch(QWidget):
             self._canvas.setGeometry(self.rect())
 
     def _update_position(self, expanded: bool) -> None:
-        screen = QApplication.screenAt(QCursor.pos()) or self.screen() or QApplication.primaryScreen()
+        # Strictly anchor to the primary screen display so the Dynamic Island stays
+        # perfectly centered at the physical top-center of the main monitor
+        screen = QApplication.primaryScreen() or self.screen()
         if not screen:
             return
         geo = screen.geometry()
-        center_x = geo.x() + geo.width() // 2
-
         if expanded:
             feat = self.features[self.current_feature_index]
             if self.is_editing_tasks:
@@ -2265,7 +2270,7 @@ class AmbientNotch(QWidget):
                 target_w = self.REST_WIDTH_IDLE
             target_h = self.REST_HEIGHT
 
-        target_x = center_x - target_w // 2
+        target_x = geo.x() + (geo.width() - target_w) // 2
         target_y = geo.y() + (0 if self.island_style == "Notch Nook" else 10)
 
         # Immediate placement on startup or before initial render
@@ -2312,10 +2317,19 @@ class AmbientNotch(QWidget):
 
             self._compact_stack.setVisible(False)
             self._expanded_container.setVisible(True)
+            if hasattr(self, "_expanded_opacity"):
+                self._expanded_opacity.setOpacity(0.0)
             self._update_expanded_panel_visibility()
             self._update_position(expanded=True)
+            if hasattr(self, "_exp_opacity_anim"):
+                self._exp_opacity_anim.stop()
+                self._exp_opacity_anim.setStartValue(0.0)
+                self._exp_opacity_anim.setEndValue(1.0)
+                self._exp_opacity_anim.start()
             self.trigger_shine_sweep()
         else:
+            if hasattr(self, "_exp_opacity_anim"):
+                self._exp_opacity_anim.stop()
             self.animate_control_balls(False)
             self._compact_stack.setVisible(True)
             self._expanded_container.setVisible(False)
