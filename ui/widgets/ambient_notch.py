@@ -643,30 +643,39 @@ class NotchCanvas(QFrame):
 
     def build_notch_path(self, rect: QRectF) -> QPainterPath:
         radius = min(rect.height() / 2.0, 18.0)
-        scoop = min(radius * 1.4, 25.0)
+        scoop = min(radius * 1.3, 24.0)
         left = rect.left() + scoop
         right = rect.right() - scoop
         top = rect.top()
         bottom = rect.bottom()
 
         path = QPainterPath()
-        path.moveTo(left - scoop, top)
+        # Top-left outer anchor
+        path.moveTo(rect.left(), top)
+        # Left concave ear (smooth continuous cubic bezier)
         path.cubicTo(
-            left - scoop * 0.05, top,
-            left, top + scoop * 0.05,
+            rect.left() + scoop * 0.55, top,
+            left, top + scoop * 0.45,
             left, top + scoop,
         )
+        # Left vertical side
         path.lineTo(left, bottom - radius)
+        # Bottom-left rounded corner
         path.quadTo(left, bottom, left + radius, bottom)
+        # Bottom edge
         path.lineTo(right - radius, bottom)
+        # Bottom-right rounded corner
         path.quadTo(right, bottom, right, bottom - radius)
+        # Right vertical side
         path.lineTo(right, top + scoop)
+        # Right concave ear (exact horizontal mirror of left ear)
         path.cubicTo(
-            right, top + scoop * 0.05,
-            right + scoop * 0.05, top,
-            right + scoop, top,
+            right, top + scoop * 0.45,
+            rect.right() - scoop * 0.55, top,
+            rect.right(), top,
         )
-        path.lineTo(left - scoop, top)
+        # Close back along top edge
+        path.lineTo(rect.left(), top)
         path.closeSubpath()
         return path
 
@@ -1000,9 +1009,9 @@ class AmbientNotch(QWidget):
     tasks_changed = Signal()
 
     # Rest Dimensions
-    REST_WIDTH_IDLE = 200
-    REST_WIDTH_TASK = 240
-    REST_WIDTH_MEDIA = 260
+    REST_WIDTH_IDLE = 230
+    REST_WIDTH_TASK = 250
+    REST_WIDTH_MEDIA = 270
     REST_WIDTH_VOLUME = 240
     REST_HEIGHT = 38
 
@@ -2146,8 +2155,8 @@ class AmbientNotch(QWidget):
 
     def _setup_animations(self) -> None:
         self._anim = QPropertyAnimation(self, b"geometry")
-        self._anim.setDuration(240)
-        self._anim.setEasingCurve(QEasingCurve.Type.OutExpo)
+        self._anim.setDuration(300)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
     def _set_default_cover_art(self) -> None:
         for size, lbl in [(24, self._media_thumb), (42, self._exp_thumb)]:
@@ -2220,7 +2229,7 @@ class AmbientNotch(QWidget):
             self._canvas.setGeometry(self.rect())
 
     def _update_position(self, expanded: bool) -> None:
-        screen = QApplication.primaryScreen()
+        screen = QApplication.screenAt(QCursor.pos()) or self.screen() or QApplication.primaryScreen()
         if not screen:
             return
         geo = screen.geometry()
@@ -2257,15 +2266,16 @@ class AmbientNotch(QWidget):
             target_h = self.REST_HEIGHT
 
         target_x = center_x - target_w // 2
-        target_y = geo.y()
+        target_y = geo.y() + (0 if self.island_style == "Notch Nook" else 10)
 
-        curr_w = self.width()
-        curr_h = self.height()
-        start_x = center_x - curr_w // 2
-        start_y = target_y
+        # Immediate placement on startup or before initial render
+        if not self.isVisible() or self.width() <= 1:
+            self.setGeometry(target_x, target_y, target_w, target_h)
+            return
 
+        curr_geom = self.geometry()
         self._anim.stop()
-        self._anim.setStartValue(QRect(start_x, start_y, curr_w, curr_h))
+        self._anim.setStartValue(curr_geom)
         self._anim.setEndValue(QRect(target_x, target_y, target_w, target_h))
         self._anim.start()
 
@@ -2273,6 +2283,7 @@ class AmbientNotch(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        self._update_position(expanded=False)
         QTimer.singleShot(250, lambda: setattr(self, "_hover_enabled", True))
 
     def enterEvent(self, event):

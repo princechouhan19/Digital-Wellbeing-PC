@@ -116,10 +116,18 @@ def test_water_intake_tracking():
     assert r2["current_ml"] == 1500
     assert len(r2["checkpoints"]) == 2
 
+    # Test custom goal setting
+    custom = repo.set_water_target(4000, today_str)
+    assert custom["target_ml"] == 4000
+    r_check = repo.get_water_intake(today_str)
+    assert r_check["target_ml"] == 4000
+
     # Reset
     repo.reset_water_intake(today_str)
     res = repo.get_water_intake(today_str)
     assert res["current_ml"] == 0
+    # Restore standard 3000 target
+    repo.set_water_target(3000, today_str)
 
 
 def test_monthly_task_stats():

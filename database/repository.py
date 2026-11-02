@@ -1465,9 +1465,43 @@ class Repository:
 
     # ─── Water Intake & Monthly Completion Analytics ─────────────────────────
 
+    def get_water_target(self) -> int:
+        """Fetch user-configured daily water goal in ml (default: 3000 ml)."""
+        try:
+            from core.settings_manager import SettingsManager
+            return SettingsManager().get_int("water_goal_ml", 3000)
+        except Exception:
+            return 3000
+
+    def set_water_target(self, target_ml: int, log_date: Optional[str] = None) -> dict:
+        """Update user's daily water target and synchronize with the active daily log."""
+        safe_target = max(500, min(10000, int(target_ml)))
+        try:
+            from core.settings_manager import SettingsManager
+            SettingsManager().set_int("water_goal_ml", safe_target)
+        except Exception:
+            pass
+
+        target_date = log_date or datetime.now().strftime("%Y-%m-%d")
+        try:
+            with self._cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO daily_water_logs (log_date, target_ml, current_ml, checkpoints_json)
+                    VALUES (?, ?, 0, '[]')
+                    ON CONFLICT(log_date) DO UPDATE SET
+                        target_ml = excluded.target_ml
+                    """,
+                    (target_date, safe_target),
+                )
+        except Exception as e:
+            logger.error("set_water_target failed: %s", e)
+        return self.get_water_intake(target_date)
+
     def get_water_intake(self, log_date: Optional[str] = None) -> dict:
         """Fetch water intake for a given date (YYYY-MM-DD), defaulting to today."""
         target_date = log_date or datetime.now().strftime("%Y-%m-%d")
+        default_target = self.get_water_target()
         try:
             with self._cursor() as cur:
                 cur.execute("SELECT * FROM daily_water_logs WHERE log_date = ?", (target_date,))
@@ -1478,21 +1512,24 @@ class Repository:
                         data["checkpoints"] = json.loads(data.get("checkpoints_json") or "[]")
                     except Exception:
                         data["checkpoints"] = []
+                    if not data.get("target_ml"):
+                        data["target_ml"] = default_target
                     return data
                 return {
                     "log_date": target_date,
-                    "target_ml": 3000,
+                    "target_ml": default_target,
                     "current_ml": 0,
                     "checkpoints": [],
                 }
         except Exception as e:
             logger.error("get_water_intake failed: %s", e)
-            return {"log_date": target_date, "target_ml": 3000, "current_ml": 0, "checkpoints": []}
+            return {"log_date": target_date, "target_ml": default_target, "current_ml": 0, "checkpoints": []}
 
     def add_water_intake(self, amount_ml: int, log_date: Optional[str] = None) -> dict:
-        """Add water intake (e.g. +500 or +1000 ml) and append a timestamp checkpoint."""
+        """Add water intake (e.g. +250, +500, +1000 ml) and append a timestamp checkpoint."""
         target_date = log_date or datetime.now().strftime("%Y-%m-%d")
         current_data = self.get_water_intake(target_date)
+        target_ml = current_data.get("target_ml") or self.get_water_target()
         new_total = max(0, current_data.get("current_ml", 0) + amount_ml)
         checkpoints = current_data.get("checkpoints", [])
         time_label = datetime.now().strftime("%I:%M %p").lstrip("0")
@@ -1503,14 +1540,15 @@ class Repository:
                 cur.execute(
                     """
                     INSERT INTO daily_water_logs (log_date, target_ml, current_ml, checkpoints_json)
-                    VALUES (?, 3000, ?, ?)
+                    VALUES (?, ?, ?, ?)
                     ON CONFLICT(log_date) DO UPDATE SET
+                        target_ml = excluded.target_ml,
                         current_ml = excluded.current_ml,
                         checkpoints_json = excluded.checkpoints_json
                     """,
-                    (target_date, new_total, json.dumps(checkpoints)),
+                    (target_date, target_ml, new_total, json.dumps(checkpoints)),
                 )
-            return {"log_date": target_date, "target_ml": 3000, "current_ml": new_total, "checkpoints": checkpoints}
+            return {"log_date": target_date, "target_ml": target_ml, "current_ml": new_total, "checkpoints": checkpoints}
         except Exception as e:
             logger.error("add_water_intake failed: %s", e)
             return current_data
@@ -1518,17 +1556,19 @@ class Repository:
     def reset_water_intake(self, log_date: Optional[str] = None) -> bool:
         """Reset water intake for the given date back to 0."""
         target_date = log_date or datetime.now().strftime("%Y-%m-%d")
+        target_ml = self.get_water_target()
         try:
             with self._cursor() as cur:
                 cur.execute(
                     """
                     INSERT INTO daily_water_logs (log_date, target_ml, current_ml, checkpoints_json)
-                    VALUES (?, 3000, 0, '[]')
+                    VALUES (?, ?, 0, '[]')
                     ON CONFLICT(log_date) DO UPDATE SET
+                        target_ml = excluded.target_ml,
                         current_ml = 0,
                         checkpoints_json = '[]'
                     """,
-                    (target_date,),
+                    (target_date, target_ml),
                 )
             return True
         except Exception as e:

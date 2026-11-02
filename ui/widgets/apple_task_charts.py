@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime
 from typing import List, Optional
 
-from PySide6.QtCore import Qt, QRectF, QPointF, Signal
+from PySide6.QtCore import Qt, QRectF, QPointF, Signal, Property, QEasingCurve, QPropertyAnimation
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -23,8 +23,10 @@ from PySide6.QtGui import (
     QPen,
 )
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QPushButton,
     QVBoxLayout,
@@ -221,8 +223,81 @@ class MonthlyTrendLineGraphWidget(QWidget):
 
 # ─── 3. Apple Health Water Intake Widget ─────────────────────────────────────
 
+class WaterCapsuleProgressBar(QWidget):
+    """Apple Health-style fluid water progress capsule with smooth gradients and milestone markers."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(14)
+        self._progress = 0.0  # 0.0 to 1.0 (or >1.0)
+        self._anim = QPropertyAnimation(self, b"progress", self)
+        self._anim.setDuration(400)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+    def get_progress(self) -> float:
+        return self._progress
+
+    def set_progress(self, val: float):
+        self._progress = max(0.0, float(val))
+        self.update()
+
+    progress = Property(float, get_progress, set_progress)
+
+    def animate_to(self, target: float):
+        self._anim.stop()
+        self._anim.setStartValue(self._progress)
+        self._anim.setEndValue(max(0.0, float(target)))
+        self._anim.start()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = float(self.width()), float(self.height())
+        r = h / 2.0
+
+        # Background track
+        track_rect = QRectF(0, 0, w, h)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(255, 255, 255, 18))
+        p.drawRoundedRect(track_rect, r, r)
+
+        # Milestone ticks (25%, 50%, 75%)
+        p.setPen(QPen(QColor(255, 255, 255, 28), 1.5))
+        for frac in (0.25, 0.50, 0.75):
+            tx = w * frac
+            p.drawLine(QPointF(tx, 2.5), QPointF(tx, h - 2.5))
+
+        # Fill
+        fill_pct = min(1.0, self._progress)
+        if fill_pct > 0.0:
+            fill_w = max(h, w * fill_pct)
+            fill_rect = QRectF(0, 0, fill_w, h)
+            grad = QLinearGradient(0, 0, fill_w, 0)
+            if self._progress >= 1.0:
+                # Goal completed! Vibrant Apple Emerald Cyan celebration
+                grad.setColorAt(0.0, QColor("#0A84FF"))
+                grad.setColorAt(0.5, QColor("#00C7BE"))
+                grad.setColorAt(1.0, QColor("#30D158"))
+            else:
+                grad.setColorAt(0.0, QColor("#0071E3"))
+                grad.setColorAt(0.65, QColor("#0A84FF"))
+                grad.setColorAt(1.0, QColor("#38BDF8"))
+
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(grad)
+            p.drawRoundedRect(fill_rect, r, r)
+
+            # High-end liquid glass sheen on upper half
+            sheen_rect = QRectF(1.0, 1.0, fill_w - 2.0, h / 2.0 - 0.5)
+            sheen_grad = QLinearGradient(0, 1.0, 0, h / 2.0)
+            sheen_grad.setColorAt(0.0, QColor(255, 255, 255, 75))
+            sheen_grad.setColorAt(1.0, QColor(255, 255, 255, 0))
+            p.setBrush(sheen_grad)
+            p.drawRoundedRect(sheen_rect, r - 1.0, r - 1.0)
+
+
 class WaterIntakeWidget(QFrame):
-    """Hydration tracker widget with 0.5L and 1.0L interactive checkpoints."""
+    """Apple Health-style hydration tracking card with customizable goals and milestone logging."""
 
     water_updated = Signal(dict)
 
@@ -231,73 +306,108 @@ class WaterIntakeWidget(QFrame):
         self.setObjectName("water_card")
         self._repo = repo
         self._data = {"target_ml": 3000, "current_ml": 0, "checkpoints": []}
+        self._block_goal_signal = False
         self._setup_ui()
         self.refresh()
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setContentsMargins(20, 16, 20, 18)
         layout.setSpacing(12)
 
-        # Header row
+        # 1. Apple Health Card Header: Category Badge + Title (Left), Goal Selector (Right)
         header = QHBoxLayout()
-        header.setSpacing(8)
+        header.setSpacing(10)
 
-        icon_lbl = QLabel("💧")
-        icon_lbl.setStyleSheet("font-size: 16px;")
-        header.addWidget(icon_lbl)
+        # Left: Water drop badge with subtle cyan aura
+        icon_badge = QLabel("💧")
+        icon_badge.setObjectName("water_icon_badge")
+        icon_badge.setFixedSize(32, 32)
+        icon_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header.addWidget(icon_badge)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(1)
+        sub_tag = QLabel("WATER INTAKE")
+        sub_tag.setObjectName("water_tag")
         title = QLabel("Daily Hydration")
         title.setObjectName("water_title")
-        self._sub_lbl = QLabel("Goal: 3,000 ml (3.0 L)")
-        self._sub_lbl.setObjectName("water_sub")
+        title_col.addWidget(sub_tag)
         title_col.addWidget(title)
-        title_col.addWidget(self._sub_lbl)
         header.addLayout(title_col, 1)
 
-        self._val_lbl = QLabel("0 / 3,000 ml")
-        self._val_lbl.setObjectName("water_val")
-        header.addWidget(self._val_lbl)
+        # Right: Interactive Goal Selector (Allows user to select 2L, 2.5L, 3L, 3.5L, 4L, 5L, or custom)
+        goal_box = QHBoxLayout()
+        goal_box.setSpacing(4)
+        goal_lbl = QLabel("Goal:")
+        goal_lbl.setObjectName("water_goal_lbl")
+        goal_box.addWidget(goal_lbl)
+
+        self._goal_combo = QComboBox()
+        self._goal_combo.setObjectName("water_goal_combo")
+        self._populate_goal_options()
+        self._goal_combo.currentIndexChanged.connect(self._on_goal_changed)
+        goal_box.addWidget(self._goal_combo)
+        header.addLayout(goal_box)
 
         layout.addLayout(header)
 
-        # Visual progress bar
-        self._bar_container = QFrame()
-        self._bar_container.setObjectName("water_bar_track")
-        self._bar_container.setFixedHeight(12)
-        bar_layout = QHBoxLayout(self._bar_container)
-        bar_layout.setContentsMargins(0, 0, 0, 0)
-        bar_layout.setSpacing(0)
+        # 2. Prominent Metrics Row (Apple SF Pro Display style)
+        metric_row = QHBoxLayout()
+        metric_row.setSpacing(8)
+        metric_row.setAlignment(Qt.AlignmentFlag.AlignBaseline)
 
-        self._bar_fill = QFrame()
-        self._bar_fill.setObjectName("water_bar_fill")
-        self._bar_fill.setFixedHeight(12)
-        bar_layout.addWidget(self._bar_fill)
-        bar_layout.addStretch()
-        layout.addWidget(self._bar_container)
+        self._val_big = QLabel("0")
+        self._val_big.setObjectName("water_val_big")
+        metric_row.addWidget(self._val_big)
 
-        # Action Checkpoint Buttons
+        self._val_sub = QLabel("ml / 3,000 ml")
+        self._val_sub.setObjectName("water_val_sub")
+        metric_row.addWidget(self._val_sub)
+
+        metric_row.addStretch(1)
+
+        self._pct_pill = QLabel("0%")
+        self._pct_pill.setObjectName("water_pct_pill")
+        metric_row.addWidget(self._pct_pill)
+
+        layout.addLayout(metric_row)
+
+        # 3. Liquid Capsule Progress Bar
+        self._progress_bar = WaterCapsuleProgressBar(self)
+        layout.addWidget(self._progress_bar)
+
+        # Sub-status text (Remaining / Goal reached)
+        self._status_lbl = QLabel("3,000 ml remaining today")
+        self._status_lbl.setObjectName("water_status_lbl")
+        layout.addWidget(self._status_lbl)
+
+        # 4. Interactive Action Checkpoints Row
         btns_row = QHBoxLayout()
         btns_row.setSpacing(8)
 
-        self._btn_500 = QPushButton("+0.5L (500 ml)")
-        self._btn_500.setObjectName("water_pill_btn")
+        self._btn_250 = QPushButton("+250 ml (Cup 🥛)")
+        self._btn_250.setObjectName("water_btn_subtle")
+        self._btn_250.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._btn_250.clicked.connect(lambda: self._on_add(250))
+        btns_row.addWidget(self._btn_250)
+
+        self._btn_500 = QPushButton("+500 ml (Bottle 💧)")
+        self._btn_500.setObjectName("water_btn_primary")
         self._btn_500.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._btn_500.clicked.connect(lambda: self._on_add(500))
         btns_row.addWidget(self._btn_500)
 
-        self._btn_1000 = QPushButton("+1.0L (1,000 ml)")
-        self._btn_1000.setObjectName("water_pill_btn_accent")
+        self._btn_1000 = QPushButton("+1.0L (Flask 🍶)")
+        self._btn_1000.setObjectName("water_btn_accent")
         self._btn_1000.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._btn_1000.clicked.connect(lambda: self._on_add(1000))
         btns_row.addWidget(self._btn_1000)
 
         self._btn_reset = QPushButton("↺")
-        self._btn_reset.setObjectName("water_reset_btn")
-        self._btn_reset.setToolTip("Reset Today's Water Intake")
-        self._btn_reset.setFixedSize(28, 28)
+        self._btn_reset.setObjectName("water_btn_reset")
+        self._btn_reset.setToolTip("Reset Today's Water Log")
+        self._btn_reset.setFixedSize(30, 30)
         self._btn_reset.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._btn_reset.clicked.connect(self._on_reset)
         btns_row.addWidget(self._btn_reset)
@@ -305,72 +415,180 @@ class WaterIntakeWidget(QFrame):
         layout.addLayout(btns_row)
         self._apply_style()
 
+    def _populate_goal_options(self) -> None:
+        self._goal_combo.clear()
+        options = [
+            ("2.0 L (2,000 ml)", 2000),
+            ("2.5 L (2,500 ml)", 2500),
+            ("3.0 L (3,000 ml)", 3000),
+            ("3.5 L (3,500 ml)", 3500),
+            ("4.0 L (4,000 ml)", 4000),
+            ("5.0 L (5,000 ml)", 5000),
+            ("Custom Goal…", -1),
+        ]
+        for label, val in options:
+            self._goal_combo.addItem(label, val)
+
     def _apply_style(self) -> None:
         self.setStyleSheet("""
             QFrame#water_card {
                 background-color: #1C1C1E;
                 border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 14px;
+                border-radius: 16px;
+            }
+            QLabel#water_icon_badge {
+                background: rgba(10, 132, 255, 0.12);
+                border: 1px solid rgba(10, 132, 255, 0.25);
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QLabel#water_tag {
+                font-size: 10px;
+                font-weight: 700;
+                color: #0A84FF;
+                letter-spacing: 0.8px;
             }
             QLabel#water_title {
-                font-size: 13px;
+                font-size: 15px;
                 font-weight: 700;
                 color: #FFFFFF;
                 letter-spacing: -0.2px;
             }
-            QLabel#water_sub {
-                font-size: 10px;
-                color: #8E8E93;
-            }
-            QLabel#water_val {
-                font-size: 14px;
-                font-weight: 700;
-                color: #38BDF8;
-            }
-            QFrame#water_bar_track {
-                background: rgba(255, 255, 255, 0.08);
-                border-radius: 6px;
-            }
-            QFrame#water_bar_fill {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007AFF, stop:1 #38BDF8);
-                border-radius: 6px;
-            }
-            QPushButton#water_pill_btn {
-                background: rgba(56, 189, 248, 0.12);
-                border: 1px solid rgba(56, 189, 248, 0.3);
-                border-radius: 8px;
-                padding: 6px 12px;
+            QLabel#water_goal_lbl {
                 font-size: 11px;
                 font-weight: 600;
-                color: #38BDF8;
+                color: #8E8E93;
             }
-            QPushButton#water_pill_btn:hover {
-                background: rgba(56, 189, 248, 0.2);
+            QComboBox#water_goal_combo {
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 8px;
+                padding: 4px 8px;
+                font-size: 11px;
+                font-weight: 600;
+                color: #FFFFFF;
             }
-            QPushButton#water_pill_btn_accent {
+            QComboBox#water_goal_combo:hover {
+                background: rgba(255, 255, 255, 0.1);
+                border-color: rgba(10, 132, 255, 0.5);
+            }
+            QComboBox#water_goal_combo::drop-down {
+                border: none;
+                width: 16px;
+            }
+            QComboBox#water_goal_combo QAbstractItemView {
+                background-color: #242426;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                selection-background-color: #0A84FF;
+                color: #FFFFFF;
+                padding: 4px;
+            }
+            QLabel#water_val_big {
+                font-size: 26px;
+                font-weight: 800;
+                color: #FFFFFF;
+                letter-spacing: -0.5px;
+            }
+            QLabel#water_val_sub {
+                font-size: 13px;
+                font-weight: 600;
+                color: #8E8E93;
+                padding-bottom: 2px;
+            }
+            QLabel#water_pct_pill {
+                background: rgba(10, 132, 255, 0.15);
+                border: 1px solid rgba(10, 132, 255, 0.35);
+                border-radius: 10px;
+                padding: 2px 10px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #0A84FF;
+            }
+            QLabel#water_status_lbl {
+                font-size: 11px;
+                font-weight: 500;
+                color: #8E8E93;
+                padding-top: 1px;
+            }
+            QPushButton#water_btn_subtle {
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 9px;
+                padding: 7px 10px;
+                font-size: 11px;
+                font-weight: 600;
+                color: #E5E5EA;
+            }
+            QPushButton#water_btn_subtle:hover {
+                background: rgba(255, 255, 255, 0.12);
+                border-color: rgba(255, 255, 255, 0.2);
+            }
+            QPushButton#water_btn_primary {
+                background: rgba(10, 132, 255, 0.15);
+                border: 1px solid rgba(10, 132, 255, 0.35);
+                border-radius: 9px;
+                padding: 7px 10px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #0A84FF;
+            }
+            QPushButton#water_btn_primary:hover {
+                background: rgba(10, 132, 255, 0.25);
+            }
+            QPushButton#water_btn_accent {
                 background: #0A84FF;
                 border: none;
-                border-radius: 8px;
-                padding: 6px 12px;
+                border-radius: 9px;
+                padding: 7px 10px;
                 font-size: 11px;
                 font-weight: 700;
                 color: #FFFFFF;
             }
-            QPushButton#water_pill_btn_accent:hover {
+            QPushButton#water_btn_accent:hover {
                 background: #0071E3;
             }
-            QPushButton#water_reset_btn {
-                background: rgba(255, 255, 255, 0.06);
+            QPushButton#water_btn_reset {
+                background: rgba(255, 255, 255, 0.05);
                 border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 8px;
+                border-radius: 9px;
                 color: #8E8E93;
-                font-size: 12px;
+                font-size: 14px;
             }
-            QPushButton#water_reset_btn:hover {
+            QPushButton#water_btn_reset:hover {
                 color: #FF453A;
                 border-color: rgba(255, 69, 58, 0.4);
+                background: rgba(255, 69, 58, 0.1);
             }
         """)
+
+    def _on_goal_changed(self, index: int) -> None:
+        if self._block_goal_signal:
+            return
+        val = self._goal_combo.currentData()
+        if val == -1:
+            # Custom goal dialog
+            curr_target = self._data.get("target_ml", 3000)
+            custom_val, ok = QInputDialog.getInt(
+                self,
+                "Custom Water Goal",
+                "Enter your daily target in milliliters (ml):",
+                value=curr_target,
+                minValue=500,
+                maxValue=10000,
+                step=250,
+            )
+            if ok and custom_val:
+                self._data = self._repo.set_water_target(custom_val)
+                self.refresh()
+                self.water_updated.emit(self._data)
+            else:
+                self.refresh()
+            return
+
+        if val and val > 0:
+            self._data = self._repo.set_water_target(val)
+            self.refresh()
+            self.water_updated.emit(self._data)
 
     def _on_add(self, ml: int) -> None:
         self._data = self._repo.add_water_intake(ml)
@@ -388,9 +606,56 @@ class WaterIntakeWidget(QFrame):
         target = self._data.get("target_ml", 3000)
         pct = min(100.0, (curr / target * 100.0) if target > 0 else 0.0)
 
-        self._val_lbl.setText(f"{curr:,} / {target:,} ml ({int(pct)}%)")
-        
-        # Adjust bar fill width based on percentage
-        total_w = self._bar_container.width()
-        fill_w = int((pct / 100.0) * max(1, total_w - 4))
-        self._bar_fill.setFixedWidth(max(10 if curr > 0 else 0, fill_w))
+        # Update big metric and subtexts
+        self._val_big.setText(f"{curr:,}")
+        self._val_sub.setText(f"ml / {target:,} ml ({(target / 1000.0):.1f} L)")
+        self._pct_pill.setText(f"{int(pct)}%")
+
+        if pct >= 100.0:
+            self._pct_pill.setStyleSheet("""
+                background: rgba(48, 209, 88, 0.18);
+                border: 1px solid rgba(48, 209, 88, 0.45);
+                border-radius: 10px;
+                padding: 2px 10px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #30D158;
+            """)
+            self._status_lbl.setText("🎉 Daily Hydration Goal Accomplished!")
+            self._status_lbl.setStyleSheet("font-size: 11px; font-weight: 700; color: #30D158;")
+        else:
+            self._pct_pill.setStyleSheet("""
+                background: rgba(10, 132, 255, 0.15);
+                border: 1px solid rgba(10, 132, 255, 0.35);
+                border-radius: 10px;
+                padding: 2px 10px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #0A84FF;
+            """)
+            rem = max(0, target - curr)
+            self._status_lbl.setText(f"{rem:,} ml remaining to hit your daily goal")
+            self._status_lbl.setStyleSheet("font-size: 11px; font-weight: 500; color: #8E8E93;")
+
+        # Animate progress capsule
+        self._progress_bar.animate_to(curr / target if target > 0 else 0.0)
+
+        # Sync goal dropdown selection
+        self._block_goal_signal = True
+        matched_idx = -1
+        for i in range(self._goal_combo.count()):
+            if self._goal_combo.itemData(i) == target:
+                matched_idx = i
+                break
+        if matched_idx >= 0:
+            self._goal_combo.setCurrentIndex(matched_idx)
+        else:
+            # Custom entry
+            custom_lbl = f"Custom ({target:,} ml)"
+            # check if last item is custom or already inserted
+            if self._goal_combo.count() > 0 and self._goal_combo.itemData(self._goal_combo.count() - 1) == target:
+                self._goal_combo.setCurrentIndex(self._goal_combo.count() - 1)
+            else:
+                self._goal_combo.insertItem(self._goal_combo.count() - 1, custom_lbl, target)
+                self._goal_combo.setCurrentIndex(self._goal_combo.count() - 2)
+        self._block_goal_signal = False
