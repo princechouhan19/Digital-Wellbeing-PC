@@ -151,8 +151,9 @@ def test_safe_emergency_exit_cooldown(temp_repo, qapp):
         fm.stop_focus()
 
 
-def test_fragmentation_nudge_threshold_and_cooldown(qapp):
+def test_fragmentation_nudge_threshold_and_cooldown(qapp, monkeypatch):
     from protection.attention_nudge import AttentionNudgeController
+    monkeypatch.setattr("tracker.idle.get_idle_seconds", lambda: 0.0)
 
     class FakeEngine:
         def get_switch_count_since(self, minutes, now=None):
