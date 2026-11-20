@@ -67,7 +67,8 @@ def categorize_with_reason(process_name: str, exe_path: str = "") -> tuple[AppCa
         path_lower = exe_path.lower().replace("/", "\\")
         for indicator in _GAME_PATH_INDICATORS:
             if indicator in path_lower:
-                return AppCategory.GAMING, f"Path match: {indicator.strip('\\')}", ""
+                cleaned_indicator = indicator.strip("\\")
+                return AppCategory.GAMING, f"Path match: {cleaned_indicator}", ""
 
     # Layer 2: Check Regex Rules
     for pattern, category in _RULES:

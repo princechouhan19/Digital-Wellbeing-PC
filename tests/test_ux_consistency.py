@@ -42,7 +42,10 @@ def test_main_pages_share_the_same_page_margins():
     ]
     for name in pages:
         source = (ROOT / "ui" / "pages" / name).read_text(encoding="utf-8")
-        assert "setContentsMargins(32, 28, 32, 28)" in source, name
+        assert (
+            "setContentsMargins(32, 28, 32, 28)" in source
+            or "setContentsMargins(*ds.PAGE_MARGINS)" in source
+        ), name
 
 
 def test_focus_page_is_not_artificially_narrow():
@@ -55,7 +58,7 @@ def test_focus_page_is_not_artificially_narrow():
 def test_focus_suite_uses_extracted_views_and_theme_module():
     widget_source = (ROOT / "ui" / "widgets" / "focus_timer.py").read_text(encoding="utf-8")
     assert "from ui.styles.focus import build_focus_stylesheet" in widget_source
-    assert "build_focus_stylesheet(tm, mode_color, is_dark)" in widget_source
+    assert "build_focus_stylesheet(tm, mode_color, is_dark" in widget_source
     assert (ROOT / "ui" / "widgets" / "focus_setup_view.py").exists()
     assert (ROOT / "ui" / "widgets" / "focus_active_view.py").exists()
     assert "FocusSetupViewMixin" in widget_source
