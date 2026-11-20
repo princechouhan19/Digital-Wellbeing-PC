@@ -66,6 +66,10 @@ flowchart TD
 
 ---
 
+### Experimental Rust migration status
+
+The shipped application remains Python/PySide6. `rust-core/` is an optional, dependency-free Rust `cdylib` for deterministic browser-domain recognition, website-limit domain normalization, process categorization, tracking transition selection, and normalized URL-rule selection, exposed through the versioned C ABI in `core/rust_bridge.py`. Python remains the reference/default path; native calls require `DW_USE_RUST_CORE=1` and fall back to Python if the library is missing or incompatible. Rust selects tracking actions and matching URL rules; the Python coordinator still owns Win32 sampling, timestamps, URL parsing, SQLite, callbacks, rule persistence and side effects. The core does not replace the tracker coordinator, database, platform protection features, or UI. See [`RUST_MIGRATION_RESEARCH.md`](RUST_MIGRATION_RESEARCH.md) and [`RUST_CORE.md`](RUST_CORE.md).
+
 ## 2. Core Subsystems
 
 ### A. Tracker Subsystem (`tracker/`)
@@ -77,7 +81,7 @@ The tracking engine runs independently of the user interface on a dedicated back
    - Resolves the process ID with `win32process.GetWindowThreadProcessId()`.
    - Obtains the full executable binary path using `win32process.QueryFullProcessImageNameW()` (or `psutil` as a fallback).
    - Reads the Unicode window title and identifies the root application name.
-   - Maps process executables to categories (`AppCategory`) using rule-based heuristics in `tracker/categorizer.py`.
+   - Maps process executables to categories (`AppCategory`) through the memoized Python reference in `tracker/categorizer.py`, with an opt-in Rust implementation checked against a shared categorization corpus.
 
 2. **Idle Detection (`tracker/idle.py`):**
    - Queries `GetLastInputInfo()` to compute milliseconds since the last physical input event (keystroke, mouse movement, click). Samples are cached for 2 s in the tracking loop.

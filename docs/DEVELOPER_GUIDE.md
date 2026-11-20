@@ -208,3 +208,27 @@ This performs the following steps:
 pyinstaller digital_wellbeing.spec --clean --noconfirm
 ```
 The output directory will be placed at `dist/DigitalWellbeing/`.
+
+---
+
+## 9. Optional Rust Core (Experimental)
+
+The experimental Rust library provides browser-title/domain helpers, website-limit domain normalization, process categorization, a deterministic tracking-session transition selector, and normalized host/path URL-rule selection. Python still owns the UI, foreground/event collection, URL parsing, rule persistence, SQLite, and operating-system side effects; its reference implementations remain the default/fallback unless native use is explicitly requested.
+
+```powershell
+cargo test --manifest-path rust-core/Cargo.toml
+cargo build --manifest-path rust-core/Cargo.toml --release
+$env:DW_USE_RUST_CORE = "1"
+$env:DW_RUST_CORE_LIBRARY = (Resolve-Path rust-core/target/release/digital_wellbeing_core.dll)
+python -m pytest -q tests/test_rust_core.py tests/test_categorizer_rust.py tests/test_tracking_transitions.py tests/test_url_rules_rust.py tests/test_website_limits_rust.py
+python tools/benchmark_rust_core.py
+```
+
+After parity tests and the benchmark have been reviewed, an opt-in packaged build can include the native library:
+
+```powershell
+$env:DW_BUILD_RUST_CORE = "1"
+python build.py
+```
+
+Use `DW_USE_RUST_CORE=0` to force the Python fallback. A separate prerelease Windows ZIP is built by the `Rust Experimental Build` workflow; its `Run Digital Wellbeing (Rust Experimental).bat` launcher opts into the native DLL, while the normal executable uses Python. Read [`RUST_CORE.md`](RUST_CORE.md) for the ABI, fallback behavior and test steps, and [`RUST_MIGRATION_RESEARCH.md`](RUST_MIGRATION_RESEARCH.md) for the broader research and staged migration plan.

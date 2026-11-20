@@ -9,6 +9,7 @@ __pycache__/
 *.dll
 
 # C extensions / build objects
+/rust-core/target/
 *.obj
 *.o
 *.a

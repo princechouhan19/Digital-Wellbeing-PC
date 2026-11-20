@@ -1,0 +1,58 @@
+# Browser window title<TAB>expected domain (- means no match)
+YouTube - Google Chrome	youtube.com
+Google Search - Google Chrome	google.com
+GitHub - princechouhan19/Digital-Wellbeing-PC - Microsoft Edge	github.com
+Reddit: The front page of the internet - Google Chrome	reddit.com
+Twitter / X - Google Chrome	twitter.com
+X - status - Google Chrome	twitter.com
+Instagram - Google Chrome	instagram.com
+Facebook - Google Chrome	facebook.com
+Netflix - Google Chrome	netflix.com
+Twitch - Vivaldi	twitch.tv
+Discord - Mozilla Firefox	discord.com
+Amazon - Google Chrome	amazon.com
+Wikipedia - Brave	wikipedia.org
+LinkedIn - Google Chrome	linkedin.com
+Stackoverflow - Google Chrome	stackoverflow.com
+OpenAI - Google Chrome	chatgpt.com
+Claude - Anthropic - Google Chrome	claude.ai
+Notion – The all-in-one workspace - Brave	notion.so
+Figma - Google Chrome	figma.com
+WhatsApp Web - Google Chrome	whatsapp.com
+Telegram Web - Google Chrome	telegram.org
+Slack - Google Chrome	slack.com
+Spotify - Google Chrome	spotify.com
+TikTok - Google Chrome	tiktok.com
+Pinterest - Google Chrome	pinterest.com
+Quora - Google Chrome	quora.com
+Zoom - Google Chrome	zoom.us
+Prime Video - Microsoft Edge	primevideo.com
+PrimeVideo - Google Chrome	primevideo.com
+Disney+ - Google Chrome	disneyplus.com
+DisneyPlus - Google Chrome	disneyplus.com
+Hotstar - Google Chrome	disneyplus.com
+Coursera - Google Chrome	coursera.org
+Udemy - Google Chrome	udemy.com
+LeetCode - Google Chrome	leetcode.com
+Medium - Google Chrome	medium.com
+Substack - Google Chrome	substack.com
+DuckDuckGo - Google Chrome	duckduckgo.com
+Bing - Google Chrome	bing.com
+Canva - Google Chrome	canva.com
+ChatGPT - Mozilla Firefox	chatgpt.com
+Reddit: The front page of the internet - Google Chrome	reddit.com
+Welcome to example.com - Microsoft Edge	example.com
+python.org - Official Documentation - Google Chrome	python.org
+Title and 3 more pages - Work - Microsoft Edge	-
+Title and 2 more pages - Profile 9 - Microsoft Edge	-
+Title and 1 more page - Personal - Microsoft Edge	-
+Title - Profile 2 - Microsoft Edge	-
+New Tab - Microsoft Edge	-
+Settings - Google Chrome	-
+example.xyz - Google Chrome	example.xyz
+example.cloud - Google Chrome	example.cloud
+www.example.dev - Vivaldi	example.dev
+foo.example.co.uk - Chromium	example.co
+example.com:443 - Brave	example.com
+myreddit.com - Google Chrome	myreddit.com
+subreddit - Google Chrome	-

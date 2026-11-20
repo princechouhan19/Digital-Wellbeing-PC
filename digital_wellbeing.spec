@@ -1,8 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
 import sys
+from pathlib import Path
 
 block_cipher = None
+
+binaries = []
+rust_core_dll = Path('rust-core/target/release/digital_wellbeing_core.dll')
+if os.environ.get('DW_BUILD_RUST_CORE', '').strip() == '1' and rust_core_dll.is_file():
+    # Only present when DW_BUILD_RUST_CORE=1 was used for this build.
+    binaries.append((str(rust_core_dll), '.'))
 
 datas = [
     ('assets', 'assets'),
@@ -38,7 +45,7 @@ hiddenimports = [
 a = Analysis(
     ['main.py'],
     pathex=[os.path.abspath('.')],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

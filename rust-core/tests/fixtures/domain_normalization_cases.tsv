@@ -1,0 +1,17 @@
+# raw domain-or-URL<TAB>normalized output (- denotes empty input/output)
+-	-
+example.com	example.com
+  HTTPS://WWW.YouTube.com/watch?v=1 	youtube.com
+http://github.com/owner/repo	github.com
+WWW.REDDIT.COM/r/python	reddit.com
+claude.ai/chat/123	claude.ai
+m.youtube.com	m.youtube.com
+reddit.com:443	reddit.com
+..Example.com..	example.com
+https://www.example.com:443/path?q=1#fragment	example.com
+example.com?next=https://other.com	example.com
+www.sub.example.com	sub.example.com
+ÄPFEL.de	äpfel.de
+example.com#fragment/path	example.com
+HTTP://EXAMPLE.COM	example.com
+not a host	not a host

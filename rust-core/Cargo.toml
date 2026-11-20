@@ -1,0 +1,15 @@
+[package]
+name = "digital-wellbeing-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+publish = false
+
+[lib]
+name = "digital_wellbeing_core"
+crate-type = ["rlib", "cdylib"]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

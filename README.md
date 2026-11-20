@@ -236,6 +236,8 @@ flowchart TD
 
 For full architectural details, consult the [Architecture Documentation](docs/ARCHITECTURE.md).
 
+**Rust migration status:** the app remains Python/PySide6. An experimental, opt-in Rust core covers browser-title/domain recognition, website-limit domain normalization, process categorization, the deterministic tracking transition policy, and normalized URL-rule selection behind a versioned C ABI. Python remains the default/reference/fallback; the UI, OS integrations, URL parsing and persistence remain Python. See the [research and staged migration plan](docs/RUST_MIGRATION_RESEARCH.md) and [Rust core build guide](docs/RUST_CORE.md) for the experimental Windows download and test instructions.
+
 ---
 
 ## Installation
@@ -370,6 +372,8 @@ digital-wellbeing/
 
 - 📘 [**User Guide**](docs/USER_GUIDE.md): Complete end-user manual for all features and settings.
 - 📐 [**Architecture Guide**](docs/ARCHITECTURE.md): Deep dive into subsystems, threading, and data models.
+- 🦀 [**Rust Migration Research & Plan**](docs/RUST_MIGRATION_RESEARCH.md): Discord sources, Rust performance papers, migration findings and rollout stages.
+- ⚙️ [**Experimental Rust Core**](docs/RUST_CORE.md): Build, test, benchmark and opt in to the native helper.
 - 🛠️ [**Developer Guide**](docs/DEVELOPER_GUIDE.md): Development setup, coding guidelines, and testing.
 - 💻 [**CLI Reference**](docs/CLI_REFERENCE.md): Command line flags and headless service documentation.
 - 🔍 [**Troubleshooting**](docs/TROUBLESHOOTING.md): Solutions for permissions, antivirus false positives, and Windows Hello.

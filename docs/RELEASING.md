@@ -76,6 +76,17 @@ The workflow expects these repository secrets:
 Without them the release is still produced, but Windows SmartScreen will warn.
 Do not commit `cert.pfx` or the password.
 
+## Experimental Rust test build (separate prerelease)
+
+The experimental Rust build is deliberately separate from the normal product release and does not change the production tag or auto-updater. After Rust core and Python/ctypes parity checks pass, create a uniquely named tag on the current tested commit:
+
+```powershell
+git tag rust-experimental-v4.4.5-YYYY-MM-DD
+git push origin rust-experimental-v4.4.5-YYYY-MM-DD
+```
+
+Pushing a `rust-experimental-*` tag runs `.github/workflows/rust-experimental.yml`. It tests/builds the native core on Windows, runs parity tests, bundles the optional DLL into a portable app, and publishes an unsigned GitHub prerelease with a SHA-256 checksum and helper microbenchmark report (not a full-app performance claim). Use the experimental `.bat` launcher to opt into Rust; the normal executable retains Python fallback. This package uses the app's normal local profile/database, so testers should back up important local data first.
+
 ## Known limitations
 
 - The custom PyInstaller setup wizard is used because Inno Setup is not required

@@ -1,0 +1,12 @@
+# url_host<TAB>url_path<TAB>default_action<TAB>rules (action,enabled,host,path;...)<TAB>expected_action<TAB>expected_index
+youtube.com	/shorts/abc	allow	block,1,youtube.com,/shorts;allow,1,youtube.com,-	block	0
+reddit.com	/r/programming	block	block,1,reddit.com,/r;allow,1,reddit.com,/r/programming	allow	1
+old.reddit.com	/r/all	allow	block,1,reddit.com,/r/all;allow,1,old.reddit.com,/r/all	allow	1
+reddit.com	/r/all	allow	allow,1,reddit.com,/r/all;block,1,reddit.com,/r/all	block	1
+youtube.com	/shorts	block	block,0,youtube.com,/shorts;allow,1,youtube.com,-	allow	1
+youtube.com	/shorts2	allow	block,1,youtube.com,/shorts	allow	-1
+notreddit.com	/r/all	allow	block,1,reddit.com,/r/all	allow	-1
+x.com	/	block	-	block	-1
+youtube.com	/education/lesson	block	block,1,youtube.com,-;allow,1,youtube.com,/education	allow	1
+old.reddit.com	/r/programming	allow	allow,1,old.reddit.com,/r;block,1,reddit.com,/r/programming	block	1
+reddit.com	/r/other	allow	block,1,reddit.com,/r/all	allow	-1

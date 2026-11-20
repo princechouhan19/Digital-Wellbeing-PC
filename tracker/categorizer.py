@@ -4,6 +4,7 @@ import re
 from functools import lru_cache
 
 from core.constants import AppCategory
+from core.rust_bridge import categorize_process as _rust_categorize_process
 
 _GAME_PATH_INDICATORS = (
     "\\steamapps\\common\\",
@@ -57,8 +58,7 @@ _LAUNCHER_KEYWORDS = {
 }
 
 
-@lru_cache(maxsize=1024)
-def categorize_with_reason(process_name: str, exe_path: str = "") -> tuple[AppCategory, str, str]:
+def _categorize_with_reason_python(process_name: str, exe_path: str = "") -> tuple[AppCategory, str, str]:
     name_lower = process_name.lower()
     name = name_lower.removesuffix(".exe")
 
@@ -83,6 +83,47 @@ def categorize_with_reason(process_name: str, exe_path: str = "") -> tuple[AppCa
             return category, game_reason, launcher_reason
 
     return AppCategory.OTHER, "", ""
+
+
+_CATEGORY_BY_RUST_CODE = {
+    0: AppCategory.OTHER,
+    1: AppCategory.BROWSER,
+    2: AppCategory.PROGRAMMING,
+    3: AppCategory.GAMING,
+    4: AppCategory.COMMUNICATION,
+    5: AppCategory.PRODUCTIVITY,
+    6: AppCategory.ENTERTAINMENT,
+    7: AppCategory.SYSTEM,
+    8: AppCategory.UTILITIES,
+    9: AppCategory.EDUCATION,
+    10: AppCategory.SOCIAL,
+}
+
+
+@lru_cache(maxsize=1024)
+def categorize_with_reason(process_name: str, exe_path: str = "") -> tuple[AppCategory, str, str]:
+    native_result = _rust_categorize_process(process_name, exe_path)
+    if native_result is None:
+        return _categorize_with_reason_python(process_name, exe_path)
+
+    category_code, reason_kind, reason_value = native_result
+    category = _CATEGORY_BY_RUST_CODE.get(category_code)
+    if category is None:
+        return _categorize_with_reason_python(process_name, exe_path)
+
+    if reason_kind == 0:
+        if category == AppCategory.GAMING:
+            return _categorize_with_reason_python(process_name, exe_path)
+        return category, "", ""
+    if category != AppCategory.GAMING:
+        return _categorize_with_reason_python(process_name, exe_path)
+    if reason_kind == 1:
+        return category, f"Path match: {reason_value}", ""
+    if reason_kind == 2:
+        return category, "", f"Launcher regex match ({reason_value})"
+    if reason_kind == 3:
+        return category, f"Game regex match ({_RULES[2][0].pattern})", ""
+    return _categorize_with_reason_python(process_name, exe_path)
 
 
 @lru_cache(maxsize=1024)

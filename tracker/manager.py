@@ -24,6 +24,7 @@ from tracker.foreground import ForegroundApp, apps_are_same, get_foreground_app,
 from tracker.idle import get_idle_seconds
 from tracker.media import MediaDetectionEngine
 from tracker.session import SessionEvent, SessionMonitor
+from tracker.transitions import TrackingTransition, select_transition
 from tracker.win_events import ForegroundEventWatcher
 
 _MIN_SESSION_DURATION_S = 1.0
@@ -353,13 +354,21 @@ class TrackingManager:
         # update heartbeats, and only react to idle-state changes.
         if not needs_foreground:
             if idle != self._current_is_idle and self._current_app is not None:
-                app = self._current_app
-                url = getattr(app, "url", "")
-                self._end_current_session(reason="idle_switch")
-                self._end_website_session(now)
-                self._start_session(app, now, idle, reason="idle_switch")
-                if url and not idle:
-                    self._start_website_session(app.process_name, url, now)
+                transition = select_transition(
+                    has_current_app=True,
+                    same_process=True,
+                    idle_changed=True,
+                    title_changed=False,
+                    fullscreen_game=False,
+                )
+                if transition == TrackingTransition.IDLE_SWITCH:
+                    app = self._current_app
+                    url = getattr(app, "url", "")
+                    self._end_current_session(reason="idle_switch")
+                    self._end_website_session(now)
+                    self._start_session(app, now, idle, reason="idle_switch")
+                    if url and not idle:
+                        self._start_website_session(app.process_name, url, now)
             self._maybe_heartbeat(now)
             return
 
@@ -393,17 +402,49 @@ class TrackingManager:
         title_changed = self._current_app is not None and fg.window_title != self._current_app.window_title
         idle_changed = idle != self._current_is_idle
         is_fullscreen_game = self._current_is_fullscreen and self._current_category == AppCategory.GAMING
+        session_duration_s = (
+            (now - self._session_start).total_seconds()
+            if title_changed and self._session_start
+            else 0.0
+        )
+        transition = (
+            select_transition(
+                has_current_app=self._current_app is not None,
+                same_process=same_process,
+                idle_changed=idle_changed,
+                title_changed=title_changed,
+                fullscreen_game=is_fullscreen_game,
+                session_duration_s=session_duration_s,
+            )
+            if (
+                self._current_app is None
+                or not same_process
+                or idle_changed
+                or title_changed
+            )
+            else TrackingTransition.KEEP
+        )
 
-        # If process changed or idle state changed: transition to new session
-        if self._current_app is None or not same_process or idle_changed:
+        # Process and idle switches take precedence over title handling.
+        if transition in (
+            TrackingTransition.START,
+            TrackingTransition.APP_SWITCH,
+            TrackingTransition.IDLE_SWITCH,
+        ):
+            reason = (
+                "new_foreground"
+                if transition == TrackingTransition.START
+                else "app_switch"
+                if transition == TrackingTransition.APP_SWITCH
+                else "idle_switch"
+            )
             if self._current_app is not None:
-                reason = "app_switch" if not same_process else "idle_switch"
                 TrackingAuditor.log_poll_event(self._current_app, "EndSession", reason=reason, session_id=self._current_session_id)
                 self._end_current_session(reason=reason)
                 self._end_website_session(now)
 
             TrackingAuditor.log_poll_event(fg, "StartSession", reason="new_foreground")
-            self._start_session(fg, now, idle, reason="new_foreground" if self._current_app is None else reason)
+            self._start_session(fg, now, idle, reason=reason)
             
             url = getattr(fg, "url", "")
             if url and not idle:
@@ -421,7 +462,7 @@ class TrackingManager:
             # For fullscreen games, NEVER split the session on title change.
             # Games frequently change titles during gameplay (loading screens,
             # round transitions, etc.) and splitting creates cumulative time gaps.
-            if is_fullscreen_game:
+            if transition == TrackingTransition.FULLSCREEN_TITLE_UPDATE:
                 # Just update the title in-place without splitting
                 logger.debug(
                     "[TRACKING] Fullscreen game title change suppressed (no split). "
@@ -438,7 +479,7 @@ class TrackingManager:
                     except Exception as exc:
                         logger.warning("Failed to update session title in DB: %s", exc)
             # For non-games: split into contiguous sub-session if previous session ran for at least 2 seconds
-            elif self._session_start and (now - self._session_start).total_seconds() >= 2.0:
+            elif transition == TrackingTransition.TITLE_SPLIT:
                 TrackingAuditor.log_poll_event(self._current_app, "EndSession", reason="title_split", session_id=self._current_session_id)
                 self._end_current_session(reason="title_split", capped_end_time=now)
                 TrackingAuditor.log_poll_event(fg, "StartSession", reason="title_split")

@@ -5,7 +5,12 @@ Architecture:
 1. Fast Title Matching (<0.05 ms, synchronous, memoised):
    Inspects the foreground browser window title across Chrome, Edge, Brave,
    Firefox, etc. and matches known services / explicit domain patterns.
-2. Background UIA Fallback (single worker, coalesced, cached):
+2. Optional Rust parser (explicit opt-in):
+   A dependency-free cdylib can parse the deterministic title/domain step via
+   `ctypes`. Python remains the reference implementation and fallback; native
+   use is gated by `DW_USE_RUST_CORE=1` until Windows parity and performance
+   measurements justify enabling it.
+3. Background UIA Fallback (single worker, coalesced, cached):
    Queries the browser address bar via UI Automation when the title has no
    usable domain. Requests are queued per window (latest request wins), results
    are cached with positive/negative TTLs, and repeated failures back off
@@ -24,6 +29,7 @@ from functools import lru_cache
 from typing import Dict, Optional, Tuple
 
 from core.logger import logger
+from core.rust_bridge import extract_domain_from_title as _rust_extract_domain_from_title
 
 from tracker.foreground import BROWSER_PROCESSES
 
@@ -153,8 +159,8 @@ def clean_browser_title(title: str) -> str:
     return cleaned
 
 
-@lru_cache(maxsize=1024)
-def _extract_domain_cached(title: str) -> str:
+def _extract_domain_python(title: str) -> str:
+    """Reference implementation retained as the safe Python fallback."""
     cleaned = clean_browser_title(title)
     if not cleaned or cleaned.lower() in {"new tab", "settings", "downloads", "history", "extensions", "untitled"}:
         return ""
@@ -173,6 +179,17 @@ def _extract_domain_cached(title: str) -> str:
         return dom
 
     return ""
+
+
+@lru_cache(maxsize=1024)
+def _extract_domain_cached(title: str) -> str:
+    # The native path is opt-in until the shared corpus and Windows benchmark
+    # have been run. None means unavailable/error; an empty string is a valid
+    # native result for titles without a recognizable site.
+    native_result = _rust_extract_domain_from_title(title)
+    if native_result is not None:
+        return native_result
+    return _extract_domain_python(title)
 
 
 def extract_domain_from_title(title: str, process_name: str = "") -> str:

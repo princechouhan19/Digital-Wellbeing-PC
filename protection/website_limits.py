@@ -4,6 +4,21 @@ import threading
 from typing import Dict, Optional
 from database.repository import Repository
 from core.logger import logger
+from core.rust_bridge import normalize_domain as _rust_normalize_domain
+
+
+def _normalize_domain_python(domain: str) -> str:
+    """Reference normalizer kept for default operation and native fallback."""
+    d = (domain or "").strip().lower()
+    if d.startswith("http://"):
+        d = d[7:]
+    elif d.startswith("https://"):
+        d = d[8:]
+    d = d.split("/")[0].split("?")[0].split("#")[0].split(":")[0]
+    if d.startswith("www."):
+        d = d[4:]
+    return d.strip(". ")
+
 
 class WebsiteLimitManager:
     def __init__(self, repo: Repository) -> None:
@@ -31,15 +46,10 @@ class WebsiteLimitManager:
 
     @staticmethod
     def normalize_domain(domain: str) -> str:
-        d = (domain or "").strip().lower()
-        if d.startswith("http://"):
-            d = d[7:]
-        elif d.startswith("https://"):
-            d = d[8:]
-        d = d.split("/")[0].split("?")[0].split("#")[0].split(":")[0]
-        if d.startswith("www."):
-            d = d[4:]
-        return d.strip(". ")
+        native_result = _rust_normalize_domain(domain)
+        if native_result is not None:
+            return native_result
+        return _normalize_domain_python(domain)
 
     def set_limit_rule(self, browser_process: str, domain: str, rule: Optional[dict]) -> None:
         """Set a limit rule for a website. Use None to remove."""
