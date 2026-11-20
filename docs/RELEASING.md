@@ -85,7 +85,9 @@ git tag rust-experimental-v4.4.5-YYYY-MM-DD
 git push origin rust-experimental-v4.4.5-YYYY-MM-DD
 ```
 
-Pushing a `rust-experimental-*` tag runs `.github/workflows/rust-experimental.yml`. It tests/builds the native core on Windows, runs parity tests, bundles the optional DLL into a portable app, and publishes an unsigned GitHub prerelease with a SHA-256 checksum and helper microbenchmark report (not a full-app performance claim). Use the experimental `.bat` launcher to opt into Rust; the normal executable retains Python fallback. This package uses the app's normal local profile/database, so testers should back up important local data first.
+Pushing a `rust-experimental-*` tag runs `.github/workflows/rust-experimental.yml`. It tests/builds the native core on Windows, runs parity tests, bundles the optional DLL into a portable app, and publishes an unsigned GitHub prerelease with a portable ZIP, setup `.exe`, SHA-256 checksums, and helper microbenchmark report (not a full-app performance claim). The setup adds a `Digital Wellbeing (Rust Experimental)` shortcut to opt into Rust; the normal executable retains Python fallback. This package uses the app's normal local profile/database, so testers should back up important local data first.
+
+To add the installer to an already-published experimental prerelease, manually run the `Rust Experimental Build` workflow on the desired source branch and provide that prerelease's existing `rust-experimental-*` tag as `release_tag`. The workflow adds the setup `.exe` and its checksum without replacing the existing ZIP or its checksum.
 
 ## Known limitations
 

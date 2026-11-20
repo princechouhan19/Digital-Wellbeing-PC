@@ -231,4 +231,4 @@ $env:DW_BUILD_RUST_CORE = "1"
 python build.py
 ```
 
-Use `DW_USE_RUST_CORE=0` to force the Python fallback. A separate prerelease Windows ZIP is built by the `Rust Experimental Build` workflow; its `Run Digital Wellbeing (Rust Experimental).bat` launcher opts into the native DLL, while the normal executable uses Python. Read [`RUST_CORE.md`](RUST_CORE.md) for the ABI, fallback behavior and test steps, and [`RUST_MIGRATION_RESEARCH.md`](RUST_MIGRATION_RESEARCH.md) for the broader research and staged migration plan.
+Use `DW_USE_RUST_CORE=0` to force the Python fallback. A separate prerelease Windows ZIP and setup `.exe` are built by the `Rust Experimental Build` workflow; the package provides a `Digital Wellbeing (Rust Experimental)` shortcut and a `Run Digital Wellbeing (Rust Experimental).bat` launcher to opt into the native DLL, while the normal executable uses Python. Read [`RUST_CORE.md`](RUST_CORE.md) for the ABI, fallback behavior and test steps, and [`RUST_MIGRATION_RESEARCH.md`](RUST_MIGRATION_RESEARCH.md) for the broader research and staged migration plan.

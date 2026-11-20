@@ -199,18 +199,20 @@ class InstallWorker(QThread):
                 self.msleep(1)
 
         self.step.emit("Updating system shortcuts…", 82)
-        def lnk(dest):
+        def lnk(dest, target=None):
             dest_p = Path(dest)
             dest_p.parent.mkdir(parents=True, exist_ok=True)
-            target_exe = str(t / EXE)
+            target_path = Path(target) if target else t / EXE
+            target_file = str(target_path)
+            app_icon = str(t / EXE)
             # 1. Native COM shortcut
             try:
                 import win32com.client
                 ws = win32com.client.Dispatch("WScript.Shell")
                 s = ws.CreateShortcut(str(dest_p))
-                s.TargetPath = target_exe
+                s.TargetPath = target_file
                 s.WorkingDirectory = str(t)
-                s.IconLocation = f"{target_exe},0"
+                s.IconLocation = f"{app_icon},0"
                 s.Save()
                 return
             except Exception:
@@ -218,16 +220,22 @@ class InstallWorker(QThread):
             # 2. PowerShell fallback
             try:
                 cmd = ("$ws=New-Object -ComObject WScript.Shell;"
-                       f"$s=$ws.CreateShortcut('{dest_p}');$s.TargetPath='{target_exe}';"
-                       f"$s.WorkingDirectory='{t}';$s.IconLocation='{target_exe},0';$s.Save()")
+                       f"$s=$ws.CreateShortcut('{dest_p}');$s.TargetPath='{target_file}';"
+                       f"$s.WorkingDirectory='{t}';$s.IconLocation='{app_icon},0';$s.Save()")
                 subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd], capture_output=True)
             except Exception:
                 pass
             
         smenu = Path(os.environ.get("APPDATA", "")) / "Microsoft/Windows/Start Menu/Programs"
         lnk(str(smenu / "Digital Wellbeing.lnk"))
+        rust_launcher = t / "Run Digital Wellbeing (Rust Experimental).bat"
+        if rust_launcher.is_file():
+            lnk(str(smenu / "Digital Wellbeing (Rust Experimental).lnk"), rust_launcher)
         if opts.get("desktop"):
-            lnk(str(Path(os.environ.get("USERPROFILE", "")) / "Desktop" / "Digital Wellbeing.lnk"))
+            desktop = Path(os.environ.get("USERPROFILE", "")) / "Desktop"
+            lnk(str(desktop / "Digital Wellbeing.lnk"))
+            if rust_launcher.is_file():
+                lnk(str(desktop / "Digital Wellbeing (Rust Experimental).lnk"), rust_launcher)
             
         self.step.emit("Registering application in Windows…", 88)
         kb = int(total // 1024)
@@ -940,7 +948,12 @@ class Installer(QWidget):
             self._auto_close_timer.stop()
         if self.launch_cb.isChecked():
             try:
-                subprocess.Popen([str(self.target / EXE)], cwd=str(self.target),
+                rust_launcher = self.target / "Run Digital Wellbeing (Rust Experimental).bat"
+                if rust_launcher.is_file():
+                    command = ["cmd.exe", "/c", str(rust_launcher)]
+                else:
+                    command = [str(self.target / EXE)]
+                subprocess.Popen(command, cwd=str(self.target),
                                  creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
             except Exception:
                 pass

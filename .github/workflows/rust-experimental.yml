@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "rust-experimental-*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing experimental release tag to add the Windows installer to
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -62,6 +68,7 @@ jobs:
         shell: pwsh
         env:
           DW_BUILD_RUST_CORE: "1"
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
         run: |
           python -m PyInstaller digital_wellbeing.spec --clean --noconfirm
           $appDir = "dist\DigitalWellbeing"
@@ -104,7 +111,11 @@ jobs:
           '@ | Set-Content "$appDir\EXPERIMENTAL-RUST-TESTING.md" -Encoding utf8
 
           $version = (Get-Content "version.json" -Raw | ConvertFrom-Json).version
-          $releaseLabel = $env:GITHUB_REF_NAME -replace '^rust-experimental-', ''
+          $releaseTag = $env:RELEASE_TAG
+          if (!$releaseTag.StartsWith("rust-experimental-")) {
+            throw "Release tag must start with rust-experimental-."
+          }
+          $releaseLabel = $releaseTag -replace '^rust-experimental-', ''
           if (!$releaseLabel.StartsWith("v$version-")) {
             throw "Experimental tag must be rust-experimental-v$version-<label>."
           }
@@ -124,19 +135,91 @@ jobs:
           "app_version=$version" >> $env:GITHUB_OUTPUT
           "release_label=$releaseLabel" >> $env:GITHUB_OUTPUT
 
+      - name: Build experimental Windows installer
+        id: setup
+        shell: pwsh
+        env:
+          ZIP_PATH: ${{ steps.package.outputs.zip_path }}
+          RELEASE_LABEL: ${{ steps.package.outputs.release_label }}
+        run: |
+          $appDir = "dist\DigitalWellbeing"
+          if (!(Test-Path "$appDir\Run Digital Wellbeing (Rust Experimental).bat")) {
+            throw "The Rust experimental launcher is missing from the portable app."
+          }
+
+          python -m PyInstaller installer/uninstaller.spec --clean --noconfirm
+          if ($LASTEXITCODE -ne 0) { throw "Failed to build the uninstaller payload." }
+          $uninstallerPath = "dist\Uninstall Digital Wellbeing.exe"
+          if (!(Test-Path $uninstallerPath)) {
+            throw "The uninstaller executable was not produced."
+          }
+
+          $payload = "build\rust-experimental-installer-payload"
+          if (Test-Path $payload) { Remove-Item $payload -Recurse -Force }
+          New-Item -ItemType Directory -Force $payload | Out-Null
+          Copy-Item "$appDir\*" $payload -Recurse -Force
+          Copy-Item $uninstallerPath $payload -Force
+          $env:DW_PAYLOAD = (Resolve-Path $payload).Path
+
+          python -m PyInstaller installer/installer.spec --clean --noconfirm
+          if ($LASTEXITCODE -ne 0) { throw "Failed to build the Windows setup executable." }
+          $builtSetup = "dist\Digital Wellbeing Setup.exe"
+          if (!(Test-Path $builtSetup)) {
+            throw "The Windows setup executable was not produced."
+          }
+
+          $setupName = "DigitalWellbeing-Rust-Experimental-$env:RELEASE_LABEL-Setup.exe"
+          $setupPath = "dist/$setupName"
+          Copy-Item $builtSetup $setupPath -Force
+          if ((Get-Item $setupPath).Length -lt 1) {
+            throw "The Windows setup executable is empty."
+          }
+
+          $zipName = Split-Path $env:ZIP_PATH -Leaf
+          $zipHash = (Get-FileHash -LiteralPath $env:ZIP_PATH -Algorithm SHA256).Hash.ToLower()
+          $setupHash = (Get-FileHash -LiteralPath $setupPath -Algorithm SHA256).Hash.ToLower()
+          $checksumPath = "dist/SHA256SUMS-Rust-Experimental-$env:RELEASE_LABEL.txt"
+          @("$zipHash  $zipName", "$setupHash  $setupName") | Set-Content $checksumPath -Encoding ascii
+          $setupChecksumPath = "dist/SHA256SUMS-Rust-Experimental-$env:RELEASE_LABEL-SETUP.txt"
+          "$setupHash  $setupName" | Set-Content $setupChecksumPath -Encoding ascii
+
+          "setup_path=$setupPath" >> $env:GITHUB_OUTPUT
+          "checksum_path=$checksumPath" >> $env:GITHUB_OUTPUT
+          "setup_checksum_path=$setupChecksumPath" >> $env:GITHUB_OUTPUT
+
       - name: Publish experimental GitHub prerelease
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: "Digital Wellbeing Rust Experimental v${{ steps.package.outputs.app_version }} (${{ steps.package.outputs.release_label }})"
           body: |
-            **Experimental test build — Windows x64.** This ZIP contains the current Python/PySide6 application with an optional Rust core; it is not a full Rust rewrite or a production release.
+            **Experimental test build — Windows x64.** The portable ZIP and setup executable contain the current Python/PySide6 application with an optional Rust core; this is not a full Rust rewrite or a production release.
 
-            Run `Run Digital Wellbeing (Rust Experimental).bat` to opt into native selectors. Launching `DigitalWellbeing.exe` directly uses Python. The package uses the normal local app profile/database; back up important data before testing. It is unsigned, so Windows SmartScreen may warn.
+            The setup `.exe` installs the app and adds two Start menu shortcuts: **Digital Wellbeing** uses the Python reference/fallback, while **Digital Wellbeing (Rust Experimental)** opts into native selectors. The ZIP can also be extracted and run with `Run Digital Wellbeing (Rust Experimental).bat`; launching `DigitalWellbeing.exe` directly uses Python.
 
-            See `EXPERIMENTAL-RUST-TESTING.md` in the ZIP and `docs/RUST_CORE.md` in the source repository for scope and test notes. The SHA-256 file and helper microbenchmark report are attached. The microbenchmark is from a GitHub-hosted runner and is not a full-app performance claim.
+            The package uses the normal local app profile/database; back up important data before testing. It is unsigned, so Windows SmartScreen may warn. See `EXPERIMENTAL-RUST-TESTING.md` in the ZIP and `docs/RUST_CORE.md` in the source repository for scope and test notes. The SHA-256 file covers the ZIP and setup executable. The attached helper microbenchmark is from a GitHub-hosted runner and is not a full-app performance claim.
           prerelease: true
           files: |
             ${{ steps.package.outputs.zip_path }}
-            ${{ steps.package.outputs.checksum_path }}
+            ${{ steps.setup.outputs.setup_path }}
+            ${{ steps.setup.outputs.checksum_path }}
             ${{ steps.package.outputs.benchmark_path }}
+
+      - name: Add installer to existing experimental prerelease
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: "Digital Wellbeing Rust Experimental v${{ steps.package.outputs.app_version }} (${{ steps.package.outputs.release_label }})"
+          body: |
+            **Experimental test build — Windows x64.** The portable ZIP and setup executable contain the current Python/PySide6 application with an optional Rust core; this is not a full Rust rewrite or a production release.
+
+            The setup `.exe` installs the app and adds two Start menu shortcuts: **Digital Wellbeing** uses the Python reference/fallback, while **Digital Wellbeing (Rust Experimental)** opts into native selectors. The ZIP can also be extracted and run with `Run Digital Wellbeing (Rust Experimental).bat`; launching `DigitalWellbeing.exe` directly uses Python.
+
+            The package uses the normal local app profile/database; back up important data before testing. It is unsigned, so Windows SmartScreen may warn. See `EXPERIMENTAL-RUST-TESTING.md` in the ZIP and `docs/RUST_CORE.md` in the source repository for scope and test notes. A SHA-256 file for the setup executable is attached. The helper microbenchmark is from a GitHub-hosted runner and is not a full-app performance claim.
+          prerelease: true
+          overwrite_files: true
+          files: |
+            ${{ steps.setup.outputs.setup_path }}
+            ${{ steps.setup.outputs.setup_checksum_path }}
