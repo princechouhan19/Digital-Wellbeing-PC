@@ -226,7 +226,9 @@ class ControlBall(QPushButton):
                 webbrowser.open(self.action_cmd)
             else:
                 try:
-                    subprocess.Popen(self.action_cmd, shell=True)
+                    import shlex
+                    args = shlex.split(self.action_cmd, posix=False) if isinstance(self.action_cmd, str) else self.action_cmd
+                    subprocess.Popen(args, shell=False)
                 except Exception as exc:
                     logger.debug("Failed executing action %s: %s", self.action_cmd, exc)
 
@@ -1938,7 +1940,9 @@ class AmbientNotch(QWidget):
             webbrowser.open(cmd)
         else:
             try:
-                subprocess.Popen(cmd, shell=True)
+                import shlex
+                args = shlex.split(cmd, posix=False) if isinstance(cmd, str) else cmd
+                subprocess.Popen(args, shell=False)
             except Exception as e:
                 logger.debug("Failed executing action %s: %s", cmd, e)
 

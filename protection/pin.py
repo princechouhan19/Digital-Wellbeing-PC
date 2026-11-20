@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 import threading
 from typing import Optional
@@ -62,7 +63,7 @@ class PINManager:
                 salt = bytes.fromhex(salt_hex)
                 expected_hash = bytes.fromhex(hash_hex)
                 actual_hash = self._hash_pin(pin, salt)
-                return actual_hash == expected_hash
+                return hmac.compare_digest(actual_hash, expected_hash)
             except ValueError:
                 logger.error("Failed to decode PIN salt/hash")
                 return False

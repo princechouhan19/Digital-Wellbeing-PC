@@ -223,7 +223,11 @@ class Updater(QObject):
             # Option A: Asset companion file (e.g. DigitalWellbeingSetup-X.Y.Z.exe.sha256, *.sha256)
             for a in assets:
                 a_name = a.get("name", "")
-                if a_name.endswith(".sha256") or a_name in ("SHA256SUMS", "checksums.txt"):
+                if (
+                    a_name.endswith(".sha256")
+                    or a_name in ("SHA256SUMS", "checksums.txt")
+                    or (a_name.startswith("SHA256SUMS-") and a_name.endswith(".txt"))
+                ):
                     if installer_name and installer_name in a_name:
                         checksum_url = a.get("browser_download_url")
                         checksum_id = a.get("id")
