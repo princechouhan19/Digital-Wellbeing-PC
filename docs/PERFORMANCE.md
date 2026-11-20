@@ -76,10 +76,11 @@ indefinitely — a better reliability/CPU trade-off than “events or bust”.
 
 ---
 
-## 3. B — Native extension: re-scoped, not built
+## 3. B — Native code: broad extension deferred; narrow Rust core is experimental
 
-The roadmap proposed compiling `dw_native.pyd` (C/Rust) for process enumeration
-and UI Automation. After profiling, this was deliberately **not** pursued:
+The v4.2 roadmap proposed compiling `dw_native.pyd` (C/Rust) for process
+enumeration and UI Automation. After profiling, a broad CPython extension was
+deliberately **not** pursued for these reasons:
 
 1. **The expensive Win32 calls are already native.** `GetForegroundWindow`,
    `QueryFullProcessImageNameW`, `GetLastInputInfo`, and `XInputGetState` are
@@ -91,15 +92,21 @@ and UI Automation. After profiling, this was deliberately **not** pursued:
    section C attacks the actual cost.
 3. **Packaging cost is high and recurring.** A CPython-ABI `.pyd` must be
    rebuilt for every Python minor version, signed, and added to PyInstaller's
-   `binaries` list. This project ships a single Windows installer from GitHub
-   Actions; adding a native toolchain to that path is a large reliability risk
-   for a measured saving of microseconds.
-4. **The < 15 MB RAM target is unattainable for this stack** (see above).
+   `binaries` list. The app should not take on that recurring build risk for a
+   measured saving of microseconds.
+4. **The < 15 MB RAM target is unattainable for this Qt stack** (see above).
 
-Instead, the same goals were met with zero build-system risk: cached process
-lookups, memoised title parsing, throttled controller probes, and a single
-coalescing UIA worker. If a native helper is ever justified, it should be a
-separate opt-in package with an ABI-free IPC boundary, not a required `.pyd`.
+This remains the decision for Win32 calls, COM/UIA and the PySide6 UI. The new
+Rust migration starts more narrowly: `rust-core/` is a dependency-free
+`cdylib` for deterministic browser-domain helpers, website-limit domain
+normalization, process categorization, tracking-session transition selection,
+and normalized URL-rule selection,
+accessed through a versioned C ABI rather than the CPython ABI. It is explicitly
+opt-in, retains the Python reference/fallback, and must pass the shared behavior
+corpora and an end-to-end benchmark that includes FFI overhead before it can be
+enabled by default in a release. Python still owns URL parsing, persistence,
+platform effects, and the UI.
+No runtime win is claimed yet; see [`RUST_CORE.md`](RUST_CORE.md).
 
 ---
 

@@ -1,0 +1,13 @@
+# has_current_app<TAB>same_process<TAB>idle_changed<TAB>title_changed<TAB>fullscreen_game<TAB>session_duration_ms<TAB>expected_action_code
+0	0	0	0	0	0	1
+1	0	0	0	0	0	2
+1	1	1	0	0	5000	3
+1	1	0	0	0	0	0
+1	1	0	1	1	2000	4
+1	1	0	1	0	0	6
+1	1	0	1	0	1999	6
+1	1	0	1	0	2000	5
+1	1	0	1	0	2001	5
+1	1	1	1	1	5000	3
+1	0	1	1	1	5000	2
+1	1	0	0	1	0	0

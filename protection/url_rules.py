@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import unquote, urlsplit
 
+from core.rust_bridge import select_url_rule as _rust_select_url_rule
+
 _SETTING_KEY = "focus_url_rules"
 _VALID_ACTIONS = ("allow", "block")
 _HOST_RE = re.compile(r"^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$")
@@ -293,9 +295,50 @@ class UrlRuleEngine:
         if not normalized:
             return UrlDecision(default_action, "No URL supplied", None, "", "")
 
+        rule_list = list(rules or [])
+        url_host, url_path = _split_host_path(normalized)
+        native_rules: list[tuple[str, str, str, bool]] = []
+        native_compatible = bool(rule_list)
+        for rule in rule_list:
+            if not rule.enabled:
+                native_rules.append(("", "", "allow", False))
+                continue
+            if rule.action not in _VALID_ACTIONS:
+                native_compatible = False
+                break
+            rule_host, rule_path = _split_host_path(rule.pattern)
+            native_rules.append((rule_host, rule_path, rule.action, True))
+
+        if native_compatible:
+            native_result = _rust_select_url_rule(
+                url_host,
+                url_path,
+                default_action,
+                native_rules,
+            )
+            if native_result is not None:
+                action, matched_index = native_result
+                if matched_index is None:
+                    return UrlDecision(
+                        default_action,
+                        f"Default {default_action} for {domain or 'this page'}",
+                        None,
+                        normalized,
+                        domain,
+                    )
+                best = rule_list[matched_index]
+                if best.action == action:
+                    return UrlDecision(
+                        best.action,
+                        f"{best.action.title()} rule: {best.pattern}",
+                        best.pattern,
+                        normalized,
+                        domain,
+                    )
+
         best: Optional[UrlRule] = None
         best_key = (-1, -1, 0)
-        for rule in rules or []:
+        for rule in rule_list:
             if not rule.enabled:
                 continue
             if not _matches(normalized, rule.pattern):

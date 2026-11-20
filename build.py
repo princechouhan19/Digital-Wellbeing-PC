@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 import glob
+import shutil
 from pathlib import Path
 
 def get_version():
@@ -105,6 +106,29 @@ def sign_file(file_path):
     else:
         print(f"Successfully signed {file_path}.")
 
+def build_rust_core_if_requested():
+    """Build the optional native core only when explicitly enabled."""
+    if os.environ.get("DW_BUILD_RUST_CORE", "").strip() != "1":
+        return False
+
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("DW_BUILD_RUST_CORE=1 but cargo was not found on PATH.")
+
+    manifest = Path("rust-core") / "Cargo.toml"
+    if not manifest.is_file():
+        raise FileNotFoundError(f"Rust core manifest not found: {manifest}")
+
+    print("Building the optional Rust core in release mode...")
+    result = subprocess.run(
+        [cargo, "build", "--manifest-path", str(manifest), "--release"],
+        check=False,
+    )
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
+    return True
+
+
 def run_pyinstaller():
     print("Running PyInstaller...")
     cmd = [sys.executable, "-m", "PyInstaller", "digital_wellbeing.spec", "--clean", "--noconfirm"]
@@ -177,6 +201,7 @@ if __name__ == "__main__":
     print(f"--- Starting Release Build for v{v} ---")
     update_file_version_info(v)
     update_manifest_version(v)
+    build_rust_core_if_requested()
     run_pyinstaller()
     # Ensure assets directory is present directly in dist folder alongside _internal
     dist_dir = Path("dist") / "DigitalWellbeing"

@@ -1,0 +1,142 @@
+name: Rust Experimental Build
+
+on:
+  push:
+    tags:
+      - "rust-experimental-*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rust-experimental-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test Rust core
+        run: cargo test --manifest-path rust-core/Cargo.toml
+
+      - name: Build Rust core release DLL
+        run: cargo build --manifest-path rust-core/Cargo.toml --release
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install app and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Verify native Python/Rust parity
+        run: python -m pytest -q tests/test_rust_core.py tests/test_categorizer_rust.py tests/test_tracking_transitions.py tests/test_url_rules_rust.py tests/test_website_limits_rust.py
+        env:
+          DW_USE_RUST_CORE: "1"
+          DW_REQUIRE_RUST_CORE: "1"
+          DW_RUST_CORE_LIBRARY: ${{ github.workspace }}\rust-core\target\release\digital_wellbeing_core.dll
+
+      - name: Benchmark native helper paths
+        shell: pwsh
+        run: |
+          python tools/benchmark_rust_core.py 2>&1 | Tee-Object -FilePath rust-core-benchmark.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        env:
+          DW_USE_RUST_CORE: "1"
+          DW_REQUIRE_RUST_CORE: "1"
+          DW_RUST_CORE_LIBRARY: ${{ github.workspace }}\rust-core\target\release\digital_wellbeing_core.dll
+
+      - name: Build experimental portable app
+        id: package
+        shell: pwsh
+        env:
+          DW_BUILD_RUST_CORE: "1"
+        run: |
+          python -m PyInstaller digital_wellbeing.spec --clean --noconfirm
+          $appDir = "dist\DigitalWellbeing"
+          if (!(Test-Path "$appDir\DigitalWellbeing.exe")) {
+            throw "PyInstaller did not produce the portable app."
+          }
+          $rustDll = Get-ChildItem $appDir -Filter "digital_wellbeing_core.dll" -Recurse | Select-Object -First 1
+          if (!$rustDll) {
+            throw "The Rust DLL was not bundled in the experimental app."
+          }
+          if (!(Test-Path "rust-core-benchmark.txt")) {
+            throw "The native benchmark report is missing."
+          }
+          Copy-Item "rust-core-benchmark.txt" "$appDir\RUST-EXPERIMENTAL-BENCHMARK.txt" -Force
+          if (Test-Path "assets") {
+            Copy-Item "assets" "$appDir\assets" -Recurse -Force
+          }
+
+          @'
+          @echo off
+          setlocal
+          set "DW_USE_RUST_CORE=1"
+          "%~dp0DigitalWellbeing.exe" %*
+          '@ | Set-Content "$appDir\Run Digital Wellbeing (Rust Experimental).bat" -Encoding ascii
+
+          @'
+          # Digital Wellbeing — Experimental Rust build
+
+          This is an unsigned Windows x64 test build of the existing Python/PySide6 app with the optional Rust core bundled. It is not a full Rust rewrite or a normal production release.
+
+          ## Run
+
+          1. Extract the ZIP to a folder you control.
+          2. Run `Run Digital Wellbeing (Rust Experimental).bat` to opt into native Rust selectors.
+          3. Run `DigitalWellbeing.exe` directly to use the Python reference/fallback instead.
+
+          The experimental launcher uses the app's normal local profile and database. Back up important local data before testing. No schema migration is performed by this build. The Rust path remains opt-in, and missing/incompatible native code falls back to Python.
+
+          This build is unsigned, so Windows SmartScreen may warn. Review the attached SHA-256 checksum before running it. Report problems with the exact Windows version, steps to reproduce, and whether the experimental launcher or regular executable was used.
+          '@ | Set-Content "$appDir\EXPERIMENTAL-RUST-TESTING.md" -Encoding utf8
+
+          $version = (Get-Content "version.json" -Raw | ConvertFrom-Json).version
+          $releaseLabel = $env:GITHUB_REF_NAME -replace '^rust-experimental-', ''
+          if (!$releaseLabel.StartsWith("v$version-")) {
+            throw "Experimental tag must be rust-experimental-v$version-<label>."
+          }
+          $zipName = "DigitalWellbeing-Rust-Experimental-$releaseLabel.zip"
+          $zipPath = "dist/$zipName"
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path "$appDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
+
+          $checksumPath = "dist/SHA256SUMS-Rust-Experimental-$releaseLabel.txt"
+          $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zipName" | Set-Content $checksumPath -Encoding ascii
+          $benchmarkPath = "dist/RUST-EXPERIMENTAL-BENCHMARK-$releaseLabel.txt"
+          Copy-Item "rust-core-benchmark.txt" $benchmarkPath -Force
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+          "checksum_path=$checksumPath" >> $env:GITHUB_OUTPUT
+          "benchmark_path=$benchmarkPath" >> $env:GITHUB_OUTPUT
+          "app_version=$version" >> $env:GITHUB_OUTPUT
+          "release_label=$releaseLabel" >> $env:GITHUB_OUTPUT
+
+      - name: Publish experimental GitHub prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Digital Wellbeing Rust Experimental v${{ steps.package.outputs.app_version }} (${{ steps.package.outputs.release_label }})"
+          body: |
+            **Experimental test build — Windows x64.** This ZIP contains the current Python/PySide6 application with an optional Rust core; it is not a full Rust rewrite or a production release.
+
+            Run `Run Digital Wellbeing (Rust Experimental).bat` to opt into native selectors. Launching `DigitalWellbeing.exe` directly uses Python. The package uses the normal local app profile/database; back up important data before testing. It is unsigned, so Windows SmartScreen may warn.
+
+            See `EXPERIMENTAL-RUST-TESTING.md` in the ZIP and `docs/RUST_CORE.md` in the source repository for scope and test notes. The SHA-256 file and helper microbenchmark report are attached. The microbenchmark is from a GitHub-hosted runner and is not a full-app performance claim.
+          prerelease: true
+          files: |
+            ${{ steps.package.outputs.zip_path }}
+            ${{ steps.package.outputs.checksum_path }}
+            ${{ steps.package.outputs.benchmark_path }}

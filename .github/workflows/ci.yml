@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "arena/**"]
   pull_request:
     branches: ["main"]
 
@@ -31,3 +31,32 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+  rust-core:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test Rust core
+        run: cargo test --manifest-path rust-core/Cargo.toml
+
+      - name: Build Rust core release library
+        run: cargo build --manifest-path rust-core/Cargo.toml --release
+
+      - name: Set up Python for C-ABI parity test
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install minimal bridge-test dependencies
+        run: python -m pip install pytest psutil pywin32
+
+      - name: Verify Rust/Python parity through ctypes
+        run: python -m pytest -q tests/test_rust_core.py tests/test_tracking_transitions.py tests/test_categorizer_rust.py tests/test_url_rules_rust.py tests/test_website_limits_rust.py
+        env:
+          DW_USE_RUST_CORE: "1"
+          DW_REQUIRE_RUST_CORE: "1"

@@ -1,0 +1,43 @@
+# process_name<TAB>exe_path<TAB>category<TAB>reason_kind (none/path/launcher/game)<TAB>reason_value (use - for an empty reason_value)
+chrome.exe		Browser	none	-
+notepad++.exe		Programming	none	-
+steam.exe		Gaming	launcher	steam
+RiotClientServices.exe		Gaming	launcher	riotclientservices
+eldenring.exe		Gaming	game	-
+unknown.exe	C:\Games\Indie\unknown.exe	Gaming	path	games
+unins000.exe	C:\Games\Game\unins000.exe	Other	none	-
+teams.exe		Communication	none	-
+winword.exe		Productivity	none	-
+vlc.exe		Entertainment	none	-
+taskmgr.exe		System	none	-
+7zFM.exe		Utilities	none	-
+anki.exe		Education	none	-
+reddit.exe		Social	none	-
+unknown.exe		Other	none	-
+discord_chrome.exe		Browser	none	-
+steamcode.exe		Programming	none	-
+unknown.exe	C:/Program Files/EPIC GAMES/Fortnite/game.exe	Gaming	path	epic games
+chrome.exe	C:\SteamLibrary\steamapps\common\MyGame\chrome.exe	Gaming	path	steamapps\common
+adobe_reader.exe		Education	none	-
+reader_adobe.exe		Other	none	-
+x.exe		Other	none	-
+x.exe.exe		Social	none	-
+valorant-win64-shipping.exe	C:\Program Files\Riot Games\Valorant\live\game.exe	Gaming	path	riot games
+foobar.exe		Entertainment	none	-
+acroRd32.exe		Productivity	none	-
+fortniteclient-win64-shipping.exe		Gaming	launcher	fortniteclient-win64-shipping
+servicehost.exe		Other	none	-
+unknown.exe	C:\Users\a\Ubisoft\Ubisoft Game Launcher\games\x.exe	Gaming	path	ubisoft\ubisoft game launcher\games
+unknown.exe	C:\gog galaxy\games\x.exe	Gaming	path	gog galaxy\games
+unknown.exe	D:\SteamApps\common\Installed Game\game.exe	Gaming	path	steamapps\common
+unknown.exe	C:\Program Files\XboxGames\App\game.exe	Gaming	path	xboxgames
+unknown.exe	C:\Program Files\EA Games\App\game.exe	Gaming	path	ea games
+unknown.exe	C:\Origin Games\App\game.exe	Gaming	path	origin games
+unknown.exe	C:\Program Files\Blizzard\App\game.exe	Gaming	path	blizzard
+unknown.exe	C:\BattleNet\App\game.exe	Gaming	path	battlenet
+dxsetup.exe	C:\Games\Game\dxsetup.exe	Other	none	-
+msedge.exe		Browser	none	-
+powershell.exe		System	none	-
+Outlook.exe		Communication	none	-
+Calc.exe		Other	none	-
+Some.App.EXE		Other	none	-
