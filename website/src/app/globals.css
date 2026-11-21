@@ -383,13 +383,131 @@
     position: absolute;
     inset-block: 0;
     inset-inline-start: 0;
+    inline-size: var(--meter-value, 100%);
     border-radius: inherit;
     background: var(--accent);
-    transition: inline-size 0.6s var(--ease-out), background-color 0.4s linear;
+    transform: scaleX(var(--meter-progress, 1));
+    transform-origin: left center;
+    transition: transform 0.75s var(--ease-out), background-color 0.4s linear;
   }
 
   .meter__fill[data-over="true"] {
     background: var(--alert);
+  }
+
+  /* Quota meters fill only once, when their group first enters the viewport,
+     then hold. The progress itself is a custom property resolved into a
+     transform, so the work stays on the compositor. The 90ms per row delay
+     reads left to right, the way a quota list is read. */
+  @media (prefers-reduced-motion: no-preference) {
+    .js.motion [data-meter-group] .meter__fill {
+      transition-delay: calc(var(--i, 0) * 90ms + 140ms), 0ms;
+    }
+
+    .js.motion [data-meter-group]:not(.is-in) .meter__fill {
+      --meter-progress: 0;
+    }
+  }
+
+  /* A spent quota is the point of the product: the row goes red and the
+     quota line is struck through. Static visitors get the finished state. */
+  .quota-row__app {
+    color: var(--muted);
+  }
+
+  .quota-row__ratio {
+    color: var(--ink);
+  }
+
+  .quota-row[data-over="true"] .quota-row__app,
+  .quota-row[data-over="true"] .quota-row__ratio {
+    color: var(--alert);
+  }
+
+  .quota-row[data-over="true"] .quota-row__ratio {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
+
+  /* Hero boot: rows settle in 60ms apart, the meters follow, and the spent
+     quota lands after its bar is full. data-boot flips to "off" once the
+     sequence is over, so live row advance never replays it. */
+  @keyframes ledger-row-in {
+    from {
+      opacity: 0;
+      translate: 0 10px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+
+  @keyframes quota-spend {
+    to {
+      color: var(--alert);
+    }
+  }
+
+  @keyframes quota-spend-line {
+    to {
+      color: var(--alert);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+  }
+
+  @keyframes meter-spend {
+    to {
+      background: var(--alert);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .js.motion .ledger-panel[data-boot="on"] .ledger-row {
+      animation: ledger-row-in 0.5s var(--ease-out) both;
+      animation-delay: calc(var(--i, 0) * 60ms + 60ms);
+    }
+
+    .js.motion .ledger-panel[data-boot="on"] .quota-row {
+      --spend-delay: calc(var(--i, 0) * 90ms + 920ms);
+    }
+
+    .js.motion .ledger-panel[data-boot="on"] .quota-row .quota-row__app {
+      color: var(--muted);
+    }
+
+    .js.motion .ledger-panel[data-boot="on"] .quota-row .quota-row__ratio {
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .js.motion .ledger-panel[data-boot="on"] .quota-row .meter__fill {
+      background: var(--accent);
+    }
+
+    .js.motion .ledger-panel[data-boot="on"] .quota-row[data-over="true"] .quota-row__app {
+      animation: quota-spend 0.3s linear var(--spend-delay) forwards;
+    }
+
+    .js.motion .ledger-panel[data-boot="on"] .quota-row[data-over="true"] .quota-row__ratio {
+      animation: quota-spend-line 0.25s linear var(--spend-delay) forwards;
+    }
+
+    .js.motion .ledger-panel[data-boot="on"] .quota-row[data-over="true"] .meter__fill {
+      animation: meter-spend 0.2s linear var(--spend-delay) forwards;
+    }
+  }
+
+  /* If the OS setting changes mid-session, the class on <html> is stale; these
+     keep the finished state authoritative. */
+  @media (prefers-reduced-motion: reduce) {
+    .ledger-row,
+    .quota-row .quota-row__app,
+    .quota-row .quota-row__ratio,
+    .quota-row .meter__fill {
+      animation: none !important;
+    }
   }
 
   /* ---- Documentation prose ------------------------------------------------
@@ -598,17 +716,25 @@
     }
   }
 
-  /* Hidden-before-reveal exists only when JS runs and motion is allowed. */
-  .js.reveal-ready .reveal {
-    opacity: 0;
-    translate: 0 1.25rem;
-  }
+  /* ---- Choreography ------------------------------------------------------
+     Everything below is opt-in twice: the boot script must have added
+     html.motion (JS present, reduced motion not requested), and the element
+     must have been marked by the observer. No JS, or reduced motion, and each
+     rule resolves to its finished state. */
 
-  .js.reveal-ready .reveal.is-in {
-    opacity: 1;
-    translate: 0 0;
-    transition: opacity 0.7s var(--ease-out), translate 0.7s var(--ease-out);
-    transition-delay: var(--reveal-delay, 0ms);
+  /* Scroll reveals: settle up 20px, once, staggered by reading order. */
+  @media (prefers-reduced-motion: no-preference) {
+    .js.reveal-ready .reveal {
+      opacity: 0;
+      translate: 0 1.25rem;
+    }
+
+    .js.reveal-ready .reveal.is-in {
+      opacity: 1;
+      translate: 0 0;
+      transition: opacity 0.7s var(--ease-out), translate 0.7s var(--ease-out);
+      transition-delay: var(--reveal-delay, 0ms);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -616,6 +742,60 @@
       opacity: 1;
       translate: none;
     }
+
+    /* If the OS setting changes after load, html.motion is stale. Resolve every
+       choreographed path to its finished state instead of waiting for an
+       observer that no longer animates anything. */
+    .js.motion .reveal.rule-draw::before,
+    .js.motion .reveal .rule-draw::before {
+      transform: scaleY(1);
+    }
+
+    .js.motion [data-meter-group]:not(.is-in) .meter__fill {
+      --meter-progress: 1;
+    }
+  }
+
+  /* Rule lines: a left edge that draws down the row it belongs to. Reuses the
+     .row-link::before idea, and the same 120ms lag as a settled row. */
+  .rule-draw {
+    position: relative;
+  }
+
+  .rule-draw::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: -0.75rem;
+    inline-size: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    transform-origin: top center;
+    transform: scaleY(1);
+  }
+
+  .rule-draw--alert::before {
+    background: var(--alert);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .js.motion .reveal .rule-draw::before,
+    .js.motion .reveal.rule-draw::before {
+      transform: scaleY(0);
+    }
+
+    .js.motion .reveal.is-in .rule-draw::before,
+    .js.motion .reveal.is-in.rule-draw::before {
+      transform: scaleY(1);
+      transition: transform 0.55s var(--ease-out);
+      transition-delay: calc(var(--reveal-delay, 0ms) + 120ms);
+    }
+  }
+
+  /* Readout figures: tabular digits inside a fixed measure, so counting up
+     cannot reflow the row it sits in. */
+  .count {
+    display: inline-block;
   }
 
   /* Footer and utility links: vertical padding widens the hit area to 40px

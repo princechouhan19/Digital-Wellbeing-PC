@@ -4,7 +4,9 @@ Landing page for Digital Wellbeing for Windows, the local-first screen time
 tracker. Next.js App Router, TypeScript, Tailwind CSS v4, and two self-hosted
 fonts. No analytics, no third-party client scripts, no cookies.
 
-Live at [digitalwellbeing.vercel.app](https://digitalwellbeing.vercel.app).
+Live at [digital-wellbeing-pc.vercel.app](https://digital-wellbeing-pc.vercel.app).
+The two older hosts, `digitalwellbeing.vercel.app` and
+`notyourwellbeing.vercel.app`, answer with a permanent redirect to it.
 
 ---
 
@@ -45,6 +47,21 @@ npm test                        # download route, stats route, site config
 - Two rules that are easy to break: no em dashes or en dashes in visible copy,
   and every quota number must come from a real source (the release asset, the
   benchmark document, or the version file).
+- Scroll entrances: put `reveal` on the blocks and `data-stagger` on their
+  parent. `src/components/system/motion.tsx` assigns the delays by reading
+  order. The CSS only hides a `.reveal` when `html.motion` and
+  `html.reveal-ready` are both present, so reduced motion and no-JS visitors
+  get the finished page.
+
+## Canonical host
+
+`site.url` in `src/data/site.ts` and `url` in `src/config/site.ts` are the two
+sources of truth for `https://digital-wellbeing-pc.vercel.app`, and
+`src/__tests__/site-config.test.ts` fails if they drift. Metadata, JSON-LD,
+the sitemap, robots.txt, llms.txt and the footer read from them
+(`robots.ts` and the footer derive the host directly). The two retired hosts,
+`digitalwellbeing.vercel.app` and `notyourwellbeing.vercel.app`, answer with a
+301 in `next.config.ts`.
 
 ## Documentation pages
 

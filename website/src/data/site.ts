@@ -24,7 +24,7 @@ export const site = {
   version: "4.4.5",
   releaseDate: "2 November 2026",
   installerSize: "181 MB",
-  url: "https://digitalwellbeing.vercel.app",
+  url: "https://digital-wellbeing-pc.vercel.app",
   description:
     "A local screen time tracker for Windows that acts on what it records: focus sessions, daily app quotas, biometric locks and a hosts-level web filter.",
   developer: "Prince Chouhan",

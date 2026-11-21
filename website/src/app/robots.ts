@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next'
+import { site } from '@/data/site'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -9,6 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/api/'],
       },
     ],
-    sitemap: 'https://digitalwellbeing.vercel.app/sitemap.xml',
+    // Derived from site.url so the canonical host is changed in one place.
+    sitemap: `${site.url}/sitemap.xml`,
   }
 }

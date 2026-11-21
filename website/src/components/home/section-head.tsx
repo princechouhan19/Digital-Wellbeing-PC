@@ -15,7 +15,7 @@ export function SectionHead({
   intro?: React.ReactNode
 }) {
   return (
-    <div className="grid gap-3 border-t border-line pt-6 md:grid-cols-12 md:gap-8">
+    <div className="reveal grid gap-3 border-t border-line pt-6 md:grid-cols-12 md:gap-8">
       <p className="micro md:col-span-2 md:pt-2">
         {index ? `${index} · ` : ""}
         {label}
