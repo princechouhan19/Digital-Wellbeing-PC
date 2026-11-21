@@ -233,3 +233,161 @@ export const colophon = [
   "Type: Schibsted Grotesk and JetBrains Mono, self-hosted, SIL Open Font License.",
   "No analytics, no cookies, no third-party scripts on this page.",
 ];
+
+/* ==========================================================================
+   Documentation library
+   Source files: /docs/*.md in the repository root are copied into
+   src/content/docs at build time (see README). Everything here that is not a
+   topic label comes from the repository. Where a source page is stale, the
+   page notes the current release instead of repeating the old number.
+   ========================================================================== */
+
+export type DocTopic = "start" | "use" | "protect" | "build" | "fix" | "source";
+
+export const docTopics: { id: DocTopic; label: string; note: string }[] = [
+  { id: "start", label: "Start here", note: "Install, first run, what the app writes" },
+  { id: "use", label: "Every day", note: "Focus, quotas, locks, bedtime" },
+  { id: "protect", label: "Protections", note: "Hosts filtering, locks, parental guards" },
+  { id: "build", label: "Build from source", note: "Python, PySide6, installer" },
+  { id: "fix", label: "Fix a problem", note: "Hosts, biometrics, browser domains" },
+  { id: "source", label: "Read the source", note: "Architecture, CLI, releases" },
+];
+
+export const docsIndex = {
+  title: "Documentation",
+  lead:
+    "Twelve documents from the repository, rendered here unchanged in substance. The application ships no account system, so everything that matters is in these files.",
+  note: `Written against version ${site.version}. Where a document still names an older build, the page says so in a note and points the version at the current release. The changelog keeps every number exactly as it shipped.`,
+  quick: [
+    { t: "Install it", d: "Installer, SmartScreen prompt, first-run wizard.", href: "/docs/user-guide" },
+    { t: "Set a quota", d: "Daily limits on an app or a domain.", href: "/docs/user-guide#10-app-website-timers" },
+    { t: "Stop the network call", d: "The two requests that leave your machine.", href: "/docs/user-guide#12-safebrowse-content-shield" },
+    { t: "Restore the hosts file", d: "Backup file and the two commands.", href: "/docs/troubleshooting#1-hosts-file-safebrowse-issues" },
+    { t: "Run from source", d: "Python 3.11 and newer, pip, python main.py.", href: "/docs/developer-guide" },
+    { t: "Cut a release", d: "Version bump, build script, checksums.", href: "/docs/releasing" },
+  ],
+};
+
+export type DocPage = {
+  slug: string
+  title: string
+  summary: string
+  topic: DocTopic
+  file: string
+  /** Words in the repository file, rounded down to the nearest ten. */
+  words: number
+  /** Set when the source document names an older version than the release. */
+  stale?: string
+  /** Extra page-level facts kept next to the prose. */
+  aside?: { k: string; v: string }[]
+};
+
+export const docPages: DocPage[] = [
+  {
+    slug: "privacy",
+    title: "Privacy policy",
+    summary: "What is stored, where it lives, and the two requests that can leave the machine.",
+    topic: "protect",
+    file: "PRIVACY.md",
+    words: 890,
+    stale: "The header names v4.3.2 and later; the current release is v4.4.5.",
+  },
+  {
+    slug: "changelog",
+    title: "Changelog",
+    summary: "Every release from 4.0.0 to 4.4.5, in the order it shipped.",
+    topic: "source",
+    file: "CHANGELOG.md",
+    words: 3900,
+    aside: [
+      { k: "Current release", v: `${site.version}` },
+      { k: "Released", v: "2 November 2026" },
+      { k: "Format", v: "Keep a Changelog" },
+      { k: "Versions in file", v: "4.0.0 to 4.4.5" },
+    ],
+  },
+  {
+    slug: "user-guide",
+    title: "User guide",
+    summary: "The whole interface, page by page, plus exports, backups and the FAQ.",
+    topic: "start",
+    file: "docs/USER_GUIDE.md",
+    words: 2120,
+    stale: "The source file still says v4.4.0 and names the 4.4.1 installer. The current release is v4.4.5.",
+  },
+  {
+    slug: "troubleshooting",
+    title: "Troubleshooting",
+    summary: "Hosts file access, Windows Hello, browser domains, autostart, updates.",
+    topic: "fix",
+    file: "docs/TROUBLESHOOTING.md",
+    words: 620,
+  },
+  {
+    slug: "cli-reference",
+    title: "Command line",
+    summary: "Six flags: tray mode, headless service, and the elevated helper.",
+    topic: "source",
+    file: "docs/CLI_REFERENCE.md",
+    words: 440,
+  },
+  {
+    slug: "developer-guide",
+    title: "Developer guide",
+    summary: "Python, dependencies, the Aurora design system, page checklist, packaging.",
+    topic: "build",
+    file: "docs/DEVELOPER_GUIDE.md",
+    words: 710,
+  },
+  {
+    slug: "architecture",
+    title: "Architecture",
+    summary: "Tracking threads, the repository layer, the elevated helper, the schema.",
+    topic: "source",
+    file: "docs/ARCHITECTURE.md",
+    words: 1960,
+  },
+  {
+    slug: "performance",
+    title: "Performance",
+    summary: "Benchmarks for start-up, memory, idle CPU and tracker wakeups.",
+    topic: "source",
+    file: "docs/PERFORMANCE.md",
+    words: 1520,
+    stale: "Measured on v4.2. The figures on the home page are the ones this document reports.",
+  },
+  {
+    slug: "attention-wellness",
+    title: "Attention and wellness",
+    summary: "Sub-path filters, fragmentation index, circadian warm-up, strict lockout.",
+    topic: "use",
+    file: "docs/ATTENTION_WELLNESS.md",
+    words: 1760,
+  },
+  {
+    slug: "releasing",
+    title: "Releasing",
+    summary: "Bump the version, build the installer, publish checksums.",
+    topic: "build",
+    file: "docs/RELEASING.md",
+    words: 360,
+    stale: "The bump example in this document uses 4.3.1. The last line of the file is the source of truth for the current version.",
+  },
+  {
+    slug: "ux-guidelines",
+    title: "Interface rules",
+    summary: "Spacing, colour, motion and copy rules the desktop app follows.",
+    topic: "build",
+    file: "docs/UX_GUIDELINES.md",
+    words: 430,
+  },
+  {
+    slug: "qa-app-locker",
+    title: "App Locker QA",
+    summary: "The test matrix behind the biometric and PIN lock.",
+    topic: "protect",
+    file: "docs/QA_APP_LOCKER.md",
+    words: 1120,
+    stale: "This checklist still names the 4.3.2 installer. It describes behaviour, so the steps hold, but the build it was written against is older than the current release.",
+  },
+];

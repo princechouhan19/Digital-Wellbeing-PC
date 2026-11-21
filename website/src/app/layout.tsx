@@ -75,8 +75,14 @@ export const metadata: Metadata = {
     description: site.description,
     images: ["/opengraph-image"],
   },
+  // The real application icon from assets/icons, not a drawn stand-in.
   icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }, { url: "/logo.png", sizes: "512x512" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "16x16 24x24 32x32 48x48 64x64" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/logo.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   robots: { index: true, follow: true },

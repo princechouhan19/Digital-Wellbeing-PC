@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { site, colophon, footerNote } from "@/data/site"
-import { MeterMark } from "@/components/layout/navbar"
+import { AppMark } from "@/components/layout/navbar"
 
 export function Footer() {
   return (
@@ -8,7 +8,7 @@ export function Footer() {
       <div className="shell grid gap-10 py-14 md:grid-cols-12 md:py-16">
         <div className="md:col-span-5">
           <div className="flex items-center gap-2.5">
-            <MeterMark />
+            <AppMark size={22} />
             <span className="text-[0.9375rem] font-semibold tracking-tight">{site.name}</span>
           </div>
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
@@ -26,11 +26,12 @@ export function Footer() {
         <nav aria-label="Product" className="md:col-span-2">
           <p className="micro">Sections</p>
           <ul className="mt-2 space-y-0 text-sm text-muted">
-            <li><a className="link-inline tap" href="#record">Record</a></li>
-            <li><a className="link-inline tap" href="#controls">Controls</a></li>
-            <li><a className="link-inline tap" href="#screens">Screens</a></li>
-            <li><a className="link-inline tap" href="#readout">Readout</a></li>
-            <li><a className="link-inline tap" href="#install">Install</a></li>
+            <li><Link className="link-inline tap" href="/#record">Record</Link></li>
+            <li><Link className="link-inline tap" href="/#controls">Controls</Link></li>
+            <li><Link className="link-inline tap" href="/#screens">Screens</Link></li>
+            <li><Link className="link-inline tap" href="/#readout">Readout</Link></li>
+            <li><Link className="link-inline tap" href="/#install">Install</Link></li>
+            <li><Link className="link-inline tap" href="/docs">Docs</Link></li>
           </ul>
         </nav>
 

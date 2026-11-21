@@ -391,6 +391,156 @@
   .meter__fill[data-over="true"] {
     background: var(--alert);
   }
+
+  /* ---- Documentation prose ------------------------------------------------
+     One reading column. Rules are hairlines, headings sit on the same left
+     edge as the body, and nothing is boxed except code and tables. */
+  .doc {
+    max-width: 42rem;
+  }
+
+  .doc-p {
+    margin-top: 0.875rem;
+    color: var(--ink);
+    font-size: 1rem;
+    line-height: 1.72;
+    text-wrap: pretty;
+  }
+
+  .doc h2 + .doc-p,
+  .doc h3 + .doc-p,
+  .doc h4 + .doc-p {
+    margin-top: 0.75rem;
+  }
+
+  .doc-ul,
+  .doc-ol {
+    margin-top: 0.875rem;
+    padding-inline-start: 1.125rem;
+    display: grid;
+    gap: 0.4375rem;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+  }
+
+  .doc-ul {
+    list-style: none;
+  }
+
+  .doc-ul > li {
+    position: relative;
+    padding-inline-start: 0.5rem;
+  }
+
+  .doc-ul > li::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: -0.5rem;
+    inset-block-start: 0.62em;
+    inline-size: 0.3rem;
+    block-size: 1px;
+    background: var(--line-strong);
+  }
+
+  .doc-ul > li[data-task]::before {
+    display: none;
+  }
+
+  .doc-ol {
+    list-style: decimal;
+    padding-inline-start: 1.5rem;
+  }
+
+  .doc-ol > li::marker {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .doc-code {
+    font-family: var(--font-mono);
+    font-size: 0.8125em;
+    padding: 0.1em 0.35em;
+    border-radius: 0.3rem;
+    background: color-mix(in oklab, var(--ink) 8%, transparent);
+    color: var(--ink);
+    /* Long paths must break, or one token sets the whole grid's min width. */
+    overflow-wrap: anywhere;
+  }
+
+  /* Inline links inside long prose: taller hit area without moving the line. */
+  .doc .link-inline {
+    display: inline-block;
+    padding-block: 0.1875rem;
+    margin-block: -0.1875rem;
+  }
+
+  .doc-table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .doc-table th {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    text-align: start;
+    padding: 0.5rem 0.75rem 0.5rem 0;
+    border-bottom: 1px solid var(--line-strong);
+    vertical-align: bottom;
+  }
+
+  .doc-table td {
+    padding: 0.5625rem 0.75rem 0.5625rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  .doc-table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .doc-quote {
+    margin-block: 1.5rem;
+    padding-inline-start: 1rem;
+    border-inline-start: 2px solid var(--line-strong);
+    color: var(--muted);
+  }
+
+  .doc-quote--alert {
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.625rem;
+    background: var(--panel);
+  }
+
+  .doc-quote--alert .micro {
+    color: var(--alert);
+  }
+
+  /* Contents rail: a plain list of anchors, current one marked by the rule. */
+  .doc-rail a {
+    display: block;
+    overflow-wrap: anywhere;
+    padding-block: 0.45rem;
+    padding-inline-start: 0.65rem;
+    border-inline-start: 1px solid var(--line);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--muted);
+    transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+  }
+
+  .doc-rail a:hover,
+  .doc-rail a:focus-visible {
+    color: var(--ink);
+    border-color: var(--accent);
+  }
 }
 
 @layer utilities {
