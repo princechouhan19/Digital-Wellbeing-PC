@@ -33,7 +33,10 @@ export default async function DocPage({ params }: Params) {
   const source = markdownFor(slug)
   if (!page || !source) notFound()
 
-  const { nodes } = renderMarkdown(source, { keepVersions: page.slug === "changelog" })
+  const { nodes } = renderMarkdown(source, {
+    keepVersions: page.slug === "changelog",
+    file: page.file,
+  })
   const rail = outline(source)
   const index = docPages.findIndex((p) => p.slug === slug)
   const next = docPages[index + 1]

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { site } from "@/data/site"
+import { diagramFor } from "./diagrams"
 
 /**
  * A small Markdown renderer for the repository's own documentation.
@@ -109,9 +110,13 @@ const ALERT_NAMES: Record<string, string> = {
 
 export function renderMarkdown(
   markdown: string,
-  options: { keepVersions?: boolean } = {},
+  options: { keepVersions?: boolean; file?: string } = {},
 ): { nodes: ReactNode[]; headings: Heading[] } {
   const keep = options.keepVersions ?? false
+  // Diagrams are bound to the last heading, so a new section cannot inherit
+  // the figure of the section above it.
+  let section = ""
+  const counts: Record<string, { n: number }> = {}
   const lines = markdown.replace(/\r\n/g, "\n").split("\n")
   const nodes: ReactNode[] = []
   const headings: Heading[] = []
@@ -136,6 +141,9 @@ export function renderMarkdown(
     used.set(id, seen + 1)
     if (seen) id = `${id}-${seen}`
     headings.push({ level, text: text.replace(/`/g, ""), id })
+    // Only an H2 starts a new diagram section. A document may put its figure
+    // under an H3 inside that section.
+    if (level === 2) section = text.replace(/`/g, "").trim()
     const content = inline(text, `h${key}`, keep)
     const cls =
       level === 1
@@ -171,22 +179,26 @@ export function renderMarkdown(
       i++
       while (i < lines.length && !/^\s*```/.test(lines[i])) body.push(lines[i++])
       i++
-      // A Mermaid diagram is source, not a diagram a reader can use. Keep it
-      // closed so it does not interrupt the prose; the file is linked below.
+      // A Mermaid block is replaced by the figure it describes, drawn in the
+      // site's own tokens. Unknown blocks are dropped rather than shown as
+      // source: a reader cannot use graph syntax.
       if (lang === "mermaid") {
-        nodes.push(
-          <details key={`mermaid-${key++}`} className="my-6 rounded-lg border border-line bg-panel">
-            <summary className="cursor-pointer px-4 py-2.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
-              Diagram source, {body.length} lines
-            </summary>
-            <pre
-              tabIndex={0}
-              className="overflow-x-auto border-t border-line px-4 py-3.5 text-[0.75rem] leading-relaxed"
-            >
-              <code className="font-mono">{body.join("\n")}</code>
-            </pre>
-          </details>,
-        )
+        if (options.file) {
+          counts[section] = counts[section] ?? { n: 0 }
+          const figure = diagramFor(options.file, section, counts[section])
+          if (figure) nodes.push(<div key={`figure-${key++}`}>{figure}</div>)
+        }
+        continue
+      }
+      // ```text blocks in these documents are terminal art: a page layout
+      // drawn in box characters. Drawing them would break the reading column,
+      // so the block is swapped for the figure it describes, or dropped.
+      if (lang === "text") {
+        if (options.file) {
+          counts[section] = counts[section] ?? { n: 0 }
+          const figure = diagramFor(options.file, section, counts[section])
+          if (figure) nodes.push(<div key={`figure-${key++}`}>{figure}</div>)
+        }
         continue
       }
       nodes.push(
@@ -372,6 +384,19 @@ export function renderMarkdown(
       i++
     }
     const text = para.join(" ")
+    // A remote image in a copied document would make the build depend on
+    // someone else's network. Render a plain link instead.
+    if (/^!\[[^\]]*\]\(https?:\/\/[^)]+\)$/.test(text)) {
+      const remote = text.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)!
+      nodes.push(
+        <p key={`img-remote-${key++}`} className="doc-p">
+          <a href={remote[2]} className="link-inline" rel="noreferrer" target="_blank">
+            {remote[1] || remote[2]}
+          </a>
+        </p>,
+      )
+      continue
+    }
     const image = text.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
     if (image) {
       const alt = image[1]

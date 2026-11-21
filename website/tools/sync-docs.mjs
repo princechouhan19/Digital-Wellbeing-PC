@@ -30,6 +30,7 @@ const sources = [
   "docs/UX_GUIDELINES.md",
   "docs/QA_APP_LOCKER.md",
   "PRIVACY.md",
+  "ROADMAP.md",
   "CHANGELOG.md",
 ]
 

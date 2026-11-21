@@ -158,6 +158,26 @@ file name. The layout reuses the site's grid (contents rail in the first three
 columns, prose in the last nine, capped at 42rem), and prose uses two type
 sizes only: 16/1.72 body and monospace for code, file names and figures.
 
+### Diagrams
+
+Five figures are drawn as components in `src/components/docs/diagrams/`, in
+the site's own tokens, so they follow the light and dark theme and stay sharp
+at any size. Text stays real text: selectable, searchable, and read by a screen
+reader in document order.
+
+- `ARCHITECTURE.md` section 1: the four layers, with the privilege boundary in
+  alert tone. Section 2B: one unlock, as three outcomes. Section 3: the three
+  threads and the process boundary.
+- `ATTENTION_WELLNESS.md` section 5: the Focus page layout. `ROADMAP.md`:
+  milestones, marked shipped or not yet scheduled.
+- The renderer swaps a ```mermaid fence for the figure registered to the H2 it
+  sits under, and drops a ```text block that is only terminal art. Neither
+  original is shown as source: a reader cannot use graph syntax, and the
+  loaded fonts would not line up box characters. Unknown blocks are dropped,
+  never dumped.
+- A figure is not a screenshot. Nothing here claims to be a captured render of
+  the running app; the screenshot section already carries those.
+
 Three decisions worth keeping in a redesign:
 
 - The page states provenance above the title. Where a source document names an
@@ -201,3 +221,4 @@ Documentation pass, added after the first three:
 | Tap targets under 24 px, doc pages | none |
 | Contents rail on a phone | folded into a disclosure; 30 anchors would push the article 2,000 px down |
 | Home page after the icon and nav change | unchanged: 0 FAIL, 796 ms phone LCP, CLS 0, no console errors |
+| Diagrams, 16 page and viewport combinations | 0 axe violations in both themes; wide figures take focus and scroll on a phone instead of shrinking below legible size |

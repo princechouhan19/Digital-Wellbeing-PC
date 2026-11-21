@@ -31,6 +31,7 @@ npm test                        # download route, stats route, site config
 | `src/app/docs/` | The documentation section: an index and one page per document. |
 | `src/content/docs.generated.ts` | Generated copy of the Markdown. Never edit by hand. |
 | `src/components/docs/markdown.tsx` | The Markdown to JSX renderer used by the doc pages. |
+| `src/components/docs/diagrams/` | The five drawn figures, and the map from source file and heading to figure. |
 | `tools/sync-docs.mjs` | Copies `docs/*.md`, `PRIVACY.md` and `CHANGELOG.md` into the site. |
 | `src/app/llms.txt/route.ts` | Plain-text index of the product and the docs for tools that read sites. |
 | `src/fonts/` | Schibsted Grotesk and JetBrains Mono woff2 (SIL OFL), loaded with `next/font/local`. |
@@ -55,6 +56,10 @@ source of truth:
    `npm run build` runs it for you; `npm run docs:check` fails when it is stale.
 3. Titles, summaries, topic grouping and the "written against an older build"
    notes live in `docPages` in `src/data/site.ts`.
+
+Mermaid fences and terminal-art ```text blocks are replaced by the drawn figure
+registered to their heading in `src/components/docs/diagrams/index.tsx`. Add a
+figure there before adding graph syntax to a document, or the block is dropped.
 
 Version references inside the rendered documents are pointed at the current
 release, except on the changelog, where every old number is the point. Icons

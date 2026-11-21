@@ -256,7 +256,7 @@ export const docTopics: { id: DocTopic; label: string; note: string }[] = [
 export const docsIndex = {
   title: "Documentation",
   lead:
-    "Twelve documents from the repository, rendered here unchanged in substance. The application ships no account system, so everything that matters is in these files.",
+    "Thirteen documents from the repository, rendered here unchanged in substance. The application ships no account system, so everything that matters is in these files.",
   note: `Written against version ${site.version}. Where a document still names an older build, the page says so in a note and points the version at the current release. The changelog keeps every number exactly as it shipped.`,
   quick: [
     { t: "Install it", d: "Installer, SmartScreen prompt, first-run wizard.", href: "/docs/user-guide" },
@@ -264,6 +264,7 @@ export const docsIndex = {
     { t: "Stop the network call", d: "The two requests that leave your machine.", href: "/docs/user-guide#12-safebrowse-content-shield" },
     { t: "Restore the hosts file", d: "Backup file and the two commands.", href: "/docs/troubleshooting#1-hosts-file-safebrowse-issues" },
     { t: "Run from source", d: "Python 3.11 and newer, pip, python main.py.", href: "/docs/developer-guide" },
+    { t: "See how it fits together", d: "Four layers, one elevated helper.", href: "/docs/architecture#diagram-architecture" },
     { t: "Cut a release", d: "Version bump, build script, checksums.", href: "/docs/releasing" },
   ],
 };
@@ -283,6 +284,18 @@ export type DocPage = {
 };
 
 export const docPages: DocPage[] = [
+  {
+    slug: "roadmap",
+    title: "Roadmap",
+    summary: "What has shipped, what the phone companion needs, and what is not scheduled.",
+    topic: "source",
+    file: "ROADMAP.md",
+    words: 1500,
+    aside: [
+      { k: "Shipped", v: `up to ${site.version}` },
+      { k: "Format", v: "Milestones, then feature detail" },
+    ],
+  },
   {
     slug: "privacy",
     title: "Privacy policy",
