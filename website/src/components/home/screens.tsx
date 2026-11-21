@@ -35,8 +35,10 @@ export function Screens() {
                 sizes="(max-width: 768px) 100vw, 720px"
                 loading={isActive ? "eager" : "lazy"}
                 aria-hidden={!isActive}
-                className={`object-cover object-top transition-opacity duration-300 ${
-                  isActive ? "opacity-100" : "opacity-0"
+                className={`object-cover object-top transition-[opacity,translate] duration-[380ms] ease-[var(--ease-out)] ${
+                  isActive
+                    ? "translate-y-0 opacity-100"
+                    : "pointer-events-none translate-y-2 opacity-0"
                 }`}
               />
             )

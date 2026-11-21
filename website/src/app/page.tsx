@@ -6,6 +6,7 @@ import { Screens } from "@/components/home/screens"
 import { Motion } from "@/components/system/motion"
 import { SectionHead } from "@/components/home/section-head"
 import { ButtonFill } from "@/components/system/button-fill"
+import { CountUp } from "@/components/home/count-up"
 
 export default function Home() {
   return (
@@ -76,10 +77,10 @@ export default function Home() {
 
       {/* The argument, set as a pull quote instead of a card grid. */}
       <section className="border-b border-line bg-panel/50">
-        <div className="shell grid gap-8 py-16 md:grid-cols-12 md:py-24">
-          <p className="micro md:col-span-2">The problem</p>
-          <div className="md:col-span-10">
-            <blockquote className="text-[clamp(1.375rem,3.4vw,2.25rem)] font-medium leading-[1.22] tracking-[-0.02em] text-balance">
+        <div className="shell grid gap-8 py-16 md:grid-cols-12 md:py-24" data-stagger>
+          <p className="reveal micro md:col-span-2">The problem</p>
+          <div className="md:col-span-10" data-stagger>
+            <blockquote className="reveal text-[clamp(1.375rem,3.4vw,2.25rem)] font-medium leading-[1.22] tracking-[-0.02em] text-balance">
               <p>
                 A browser extension can be disabled in two clicks. A productivity score can be
                 ignored in one glance.{" "}
@@ -88,7 +89,7 @@ export default function Home() {
                 window.
               </p>
             </blockquote>
-            <div className="mt-9 grid gap-6 border-t border-line pt-6 sm:grid-cols-3">
+            <div className="reveal mt-9 grid gap-6 border-t border-line pt-6 sm:grid-cols-3">
               {[
                 ["Process level", "An app that is not running cannot be clicked back to."],
                 ["Local only", "One SQLite file, in your own app data folder."],
@@ -106,7 +107,7 @@ export default function Home() {
 
       {/* Register. What is written, and what is never written. */}
       <section id="record" className="border-b border-line">
-        <div className="shell py-16 md:py-24">
+        <div className="shell py-16 md:py-24" data-stagger>
           <SectionHead
             index="01"
             label="What is recorded"
@@ -114,16 +115,16 @@ export default function Home() {
             intro="Four things are written to the database, and all of them are about which window was in front and for how long. Nothing you type, read, or look at is stored."
           />
 
-          <div className="mt-12 grid gap-8 md:grid-cols-12">
-            <div className="md:col-span-5">
-              <div className="rounded-lg border border-line bg-panel px-4 py-3">
+          <div className="mt-12 grid gap-8 md:grid-cols-12" data-stagger>
+            <div className="md:col-span-5" data-stagger>
+              <div className="reveal rounded-lg border border-line bg-panel px-4 py-3">
                 <p className="micro">On disk</p>
                 <p className="mt-1.5 break-all font-mono text-[0.75rem] text-ink">
                   {register.storage}
                 </p>
                 <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">{register.exportNote}</p>
               </div>
-              <div className="mt-8 border-t border-line pt-4">
+              <div className="reveal mt-8 border-t border-line pt-4">
                 <p className="micro">The two network calls that exist</p>
                 <dl className="mt-3">
                   {register.network.map((n) => (
@@ -155,16 +156,16 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="md:col-span-7">
-              <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                <div>
+            <div className="md:col-span-7" data-stagger>
+              <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2" data-stagger>
+                <div className="reveal">
                   <p className="flex items-center gap-2 border-b border-line pb-2 text-[0.8125rem] font-semibold">
                     <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
                     Written
                   </p>
-                  <dl>
+                  <dl data-stagger>
                     {register.written.map((r) => (
-                      <div key={r.field} className="border-b border-line py-3 last:border-b-0">
+                      <div key={r.field} className="reveal rule-draw border-b border-line py-3 last:border-b-0">
                         <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.1em] text-ink">
                           {r.field}
                         </dt>
@@ -173,16 +174,16 @@ export default function Home() {
                     ))}
                   </dl>
                 </div>
-                <div>
+                <div className="reveal">
                   <p className="flex items-center gap-2 border-b border-line pb-2 text-[0.8125rem] font-semibold">
                     <span className="h-1.5 w-1.5 rounded-full bg-alert" aria-hidden="true" />
                     Never
                   </p>
-                  <ul>
+                  <ul data-stagger>
                     {register.never.map((n) => (
                       <li
                         key={n}
-                        className="flex items-start gap-2 border-b border-line py-2.5 text-[0.8125rem] leading-relaxed text-muted last:border-b-0"
+                        className="reveal flex items-start gap-2 border-b border-line py-2.5 text-[0.8125rem] leading-relaxed text-muted last:border-b-0"
                       >
                         <span aria-hidden="true" className="mt-[0.65em] block h-px w-2 shrink-0 bg-alert/70" />
                         {n}
@@ -192,19 +193,21 @@ export default function Home() {
                 </div>
               </div>
 
-              <figure className="mt-8 overflow-hidden rounded-lg border border-line bg-[#0b0f14] text-[#e6edf3]">
-                <figcaption className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-white/60">
-                  <span className="truncate">drivers\etc\hosts</span>
-                  <span className="shrink-0 text-[#2ad59b]">focus block</span>
-                </figcaption>
-                <pre className="overflow-x-auto px-4 py-4 font-mono text-[0.6875rem] leading-[1.7] md:text-[0.75rem]">
-                  <code>{hostsBlock}</code>
-                </pre>
-              </figure>
-              <p className="mt-3 text-[0.75rem] leading-relaxed text-muted">
-                Focus Mode writes a delimited section into the hosts file, flushes the DNS cache, and
-                removes the section when the session ends. The rest of the file is left alone.
-              </p>
+              <div className="reveal rule-draw rule-draw--alert">
+                <figure className="mt-8 overflow-hidden rounded-lg border border-line bg-[#0b0f14] text-[#e6edf3]">
+                  <figcaption className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-white/60">
+                    <span className="truncate">drivers\etc\hosts</span>
+                    <span className="shrink-0 text-[#2ad59b]">focus block</span>
+                  </figcaption>
+                  <pre className="overflow-x-auto px-4 py-4 font-mono text-[0.6875rem] leading-[1.7] md:text-[0.75rem]">
+                    <code>{hostsBlock}</code>
+                  </pre>
+                </figure>
+                <p className="mt-3 text-[0.75rem] leading-relaxed text-muted">
+                  Focus Mode writes a delimited section into the hosts file, flushes the DNS cache, and
+                  removes the section when the session ends. The rest of the file is left alone.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -212,14 +215,14 @@ export default function Home() {
 
       {/* Controls. An index of verbs, each answered with real app evidence. */}
       <section id="controls" className="border-b border-line bg-panel/50">
-        <div className="shell py-16 md:py-24">
+        <div className="shell py-16 md:py-24" data-stagger>
           <SectionHead
             index="02"
             label="Four controls"
             title="Recording is the easy half. These are the ones that act."
             intro="Choose a control to see the screen it lives on. All four run from the same tracker, so none of them can be talked past."
           />
-          <div className="mt-12">
+          <div className="reveal mt-12">
             <Controls />
           </div>
         </div>
@@ -227,7 +230,7 @@ export default function Home() {
 
       {/* Screens. The register of what the app actually looks like. */}
       <section id="screens" className="border-b border-line">
-        <div className="shell py-16 md:py-24">
+        <div className="shell py-16 md:py-24" data-stagger>
           <SectionHead
             index="03"
             label="Screens"
@@ -235,8 +238,8 @@ export default function Home() {
             intro="Each page opens on a different question. The dashboard answers what today cost, usage answers when, insights answers whether it is getting worse."
           />
 
-          <div className="mt-12 grid gap-8 md:grid-cols-12">
-            <div className="md:col-span-4">
+          <div className="mt-12 grid gap-8 md:grid-cols-12" data-stagger>
+            <div className="reveal md:col-span-4">
               <p className="text-[0.8125rem] leading-relaxed text-muted">
                 Everything below is the real interface, captured in dark mode at 1500 by 1000 pixels.
                 Select a page to inspect it.
@@ -246,7 +249,7 @@ export default function Home() {
                 it, with the same charts and contrast.
               </p>
             </div>
-            <div className="md:col-span-8">
+            <div className="reveal md:col-span-8">
               <Screens />
             </div>
           </div>
@@ -255,26 +258,26 @@ export default function Home() {
 
       {/* Readout. Measured numbers, attributed to the owner's own benchmark. */}
       <section id="readout" className="border-b border-line bg-panel/50">
-        <div className="shell py-16 md:py-24">
+        <div className="shell py-16 md:py-24" data-stagger>
           <SectionHead
             index="04"
             label="Readout"
             title="What it costs to run."
             intro="A permanent background process earns its place only if it stays invisible. These are the numbers the project measures itself against."
           />
-          <dl className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="reveal mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
             {readout.map((r) => (
               <div key={r.label} className="bg-ground p-5">
                 <dt className="text-[0.8125rem] font-medium">{r.label}</dt>
                 <dd className="mt-2 flex items-baseline gap-1 font-mono text-[2rem] leading-none tracking-tight text-ink tnum">
-                  {r.value}
+                  <CountUp value={r.value} />
                   <span className="text-[0.875rem] text-muted">{r.unit}</span>
                 </dd>
                 <dd className="mt-1 text-[0.75rem] leading-relaxed text-muted">{r.note}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-4 max-w-2xl text-[0.75rem] leading-relaxed text-muted">
+          <p className="reveal mt-4 max-w-2xl text-[0.75rem] leading-relaxed text-muted">
             Figures come from the project&apos;s own benchmark document, measured on Windows 11 with
             Python 3.12 and Qt 6.12. They are medians, not promises, and they will move with your
             hardware.
@@ -284,16 +287,16 @@ export default function Home() {
 
       {/* Install. The real steps, including the uncomfortable one. */}
       <section id="install" className="border-b border-line">
-        <div className="shell py-16 md:py-24">
+        <div className="shell py-16 md:py-24" data-stagger>
           <SectionHead
             index="05"
             label="Install"
             title="Three steps, one of them awkward."
             intro="No account, no email, no subscription. The installer is the only thing between you and a running tracker."
           />
-          <div className="mt-12 grid gap-10 md:grid-cols-12">
-            <div className="md:col-span-7">
-              <ol>
+          <div className="mt-12 grid gap-10 md:grid-cols-12" data-stagger>
+            <div className="md:col-span-7" data-stagger>
+              <ol className="reveal">
                 {install.steps.map((s) => (
                   <li key={s.k} className="ledger grid-cols-[2.5rem_1fr]">
                     <span className="ledger__n pt-0.5">{s.k}</span>
@@ -304,7 +307,7 @@ export default function Home() {
                   </li>
                 ))}
               </ol>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="reveal mt-8 flex flex-col gap-3 sm:flex-row">
                 <a href="/api/download" className="btn btn--primary" data-fill>
                   <DownloadGlyph />
                   <span>Download {site.version}</span>
@@ -320,7 +323,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="md:col-span-5">
+            <div className="reveal md:col-span-5">
               <div className="rounded-xl border border-line">
                 <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
                   <Image src="/logo.png" alt="" width={20} height={20} className="h-5 w-5" />
@@ -349,12 +352,12 @@ export default function Home() {
       {/* Closing statement: the last page of the register. */}
       <section className="relative overflow-hidden border-b border-line bg-panel/50">
         <div aria-hidden="true" className="grid-field absolute inset-0 -z-10 opacity-60" />
-        <div className="shell py-20 md:py-28">
-          <p className="micro">Ready when you are</p>
-          <h2 className="mt-6 max-w-[18ch] text-[clamp(2.25rem,7vw,5rem)] leading-[0.95] tracking-[-0.04em]">
+        <div className="shell py-20 md:py-28" data-stagger>
+          <p className="reveal micro">Ready when you are</p>
+          <h2 className="reveal mt-6 max-w-[18ch] text-[clamp(2.25rem,7vw,5rem)] leading-[0.95] tracking-[-0.04em]">
             Install it once. Then let the machine hold the line.
           </h2>
-          <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="reveal mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
             <a href="/api/download" className="btn btn--primary" data-fill>
               <DownloadGlyph />
               <span>Download for Windows</span>
@@ -364,7 +367,7 @@ export default function Home() {
               <span>Star on GitHub</span>
             </a>
           </div>
-          <dl className="mt-14 grid gap-6 border-t border-line pt-6 text-[0.75rem] sm:grid-cols-3">
+          <dl className="reveal mt-14 grid gap-6 border-t border-line pt-6 text-[0.75rem] sm:grid-cols-3">
             <div>
               <dt className="micro">Version</dt>
               <dd className="mt-1 font-mono text-ink">

@@ -12,7 +12,7 @@ export const siteConfig = {
   version: "4.4.5",
   stage: "Public Release",
   license: "MIT",
-  url: "https://digitalwellbeing.vercel.app",
+  url: "https://digital-wellbeing-pc.vercel.app",
   links: {
     github: "https://github.com/princechouhan19/Digital-Wellbeing-PC",
     releases: "https://github.com/princechouhan19/Digital-Wellbeing-PC/releases",

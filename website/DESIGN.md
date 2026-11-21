@@ -83,11 +83,12 @@ decoration.
   reads as ruled bands, the way a ledger page does.
 - **Shape:** one radius family (8px for small, 12px for panels, pill for
   actions). Hairlines at 1px everywhere.
-- **Motion:** one CSS transition family, `cubic-bezier(0.16, 1, 0.3, 1)`. The
-  only autonomous motion is the breathing status dot and the hero ledger's row
-  advance (2.4s, paused offscreen, stopped under reduced motion, and paused when
-  the tab is hidden). Reveal-on-scroll is gated on `html.reveal-ready`, which is
-  only added by the client observer, so a no-JS visitor sees a finished page.
+- **Motion:** one CSS transition family, `cubic-bezier(0.16, 1, 0.3, 1)`, and
+  the choreography in the section below. The only autonomous motion is the
+  breathing status dot and the hero ledger's row advance (2.4s, paused
+  offscreen, stopped under reduced motion, and paused when the tab is hidden).
+  Every entrance is gated on `html.motion` and `html.reveal-ready`, both added
+  by client code, so a no-JS visitor sees a finished page.
 - **Interactions:** primary actions fill from the pointer's entry point
   (`clip-path: circle()`), navigation letters roll, list rows draw a left edge,
   inline links are underlined at rest. Interactive screens use a vertical tab
@@ -95,6 +96,50 @@ decoration.
   an `aria-live` caption.
 - **Reduced motion:** the ledger stops advancing and reports `paused`, the
   breathing dot stops, rolls become underlines, reveals never hide.
+
+## Motion system
+
+The metaphor is record, so motion shows a state change a system monitor would
+log: a row appears, a bar fills, a limit is crossed, a rule is written. Nothing
+floats, nothing loops on scroll, nothing follows the cursor. There is no scroll
+listener: one `IntersectionObserver` (`src/components/system/motion.tsx`) adds
+`is-in` once per element and unobserves it. Everything it drives is a CSS
+transition or keyframe.
+
+Progress is carried in custom properties (`--meter-progress`, `--reveal-delay`,
+`--i`), resolved into `transform`, `opacity` and `translate`. That keeps the
+animated properties compositor-friendly and out of the scroll thread. No
+animation library is installed; the page still ships zero third-party client
+JavaScript.
+
+| Set piece | What moves | Trigger | Timing |
+|---|---|---|---|
+| Hero boot: ledger rows | opacity 0 to 1, settle up 10px | first paint, CSS keyframes under `html.motion` | 500ms per row, 60ms apart |
+| Hero boot: daily quotas | bar `scaleX` 0 to value, left to right | the quota group enters the viewport | 750ms per bar, 90ms apart, 140ms in |
+| Quota limit crossed | row label and ratio to `--alert`, ratio struck through, spent bar to `--alert` | fixed delay after that bar is full | starts at 920ms plus 90ms per row, 300ms to land |
+| Section reveals | opacity 0 to 1, settle up 20px | `is-in` from the observer | 700ms, 70ms stagger, capped at six steps |
+| Rule lines | 2px left rule scales from 0 to 1 in Y | the block's `is-in` | 550ms, 120ms after the block |
+| Screen inspector | outgoing screen fades, incoming fades and settles 8px | chip press | 380ms |
+| Readout figures | 0 to value, digits only | the figure enters the viewport | 900ms cubic ease-out, then the exact server string |
+
+Why it suits the subject: the hero sequence is the product's promise in about a
+second. Rows arrive one at a time, the meters fill in reading order, and the
+first bar that passes its limit turns its row red with the quota line struck
+through. A visitor who does nothing sees a working monitor, not a slideshow.
+
+States:
+
+- **Reduced motion:** `html.motion` is never added, so no rule below applies.
+  Every element renders in its finished state: all 35 reveals visible, meters
+  full, spent quotas red and struck, no running animation. The boot sequence is
+  skipped rather than shortened.
+- **No JavaScript:** `html.js` and `html.motion` are both absent. Nothing is
+  hidden, the boot keyframes never start, and the full page reads as finished.
+- **Runtime change:** if the OS reduced-motion setting flips after load, media
+  queries inside `globals.css` resolve the reveals, rules and meters to their
+  finished state even though the class on `<html>` is stale.
+- **Tab hidden:** the live ledger pause is unchanged; entrance animations are
+  not tied to visibility.
 
 ## What was removed from the previous site, and why
 
@@ -195,17 +240,17 @@ Three decisions worth keeping in a redesign:
 | Check | Result |
 |---|---|
 | Audit (semantics, SEO, metadata, weight) | 0 FAIL, 0 WARN |
-| Axe, desktop and phone | 0 violations at every impact level |
+| Axe, desktop and phone, / and two doc pages | 0 violations at every impact level |
 | Console errors, failed requests | none |
-| Desktop LCP / CLS | 136 to 168 ms / 0 |
-| Phone LCP / CLS (4x CPU, slow 4G) | 760 to 790 ms / 0.0007 |
-| Scroll FPS, desktop | 52 to 53 measured in headless software rendering (60 in a GPU browser) |
+| Desktop LCP / CLS | 200 ms / 0.0001 |
+| Phone LCP / CLS (4x CPU, slow 4G) | 760 to 792 ms / 0 |
+| Scroll FPS, desktop | 60 measured in headless Chromium, p95 frame 16.7 ms |
 | Horizontal overflow, 390 px | none |
 | Tap targets under 24 px | none |
 | Keyboard | skip link first, 2 px accent outline on every stop, arrow keys move between control tabs |
-| Reduced motion | nothing hidden, nothing moving, ledger labelled "sample day" |
-| No JavaScript | h1 and full document present, page reads as finished |
-| Transfer | about 281 KB total, about 185 KB of that is JS gzipped |
+| Reduced motion | nothing hidden, nothing moving, meters full, spent quotas struck, ledger labelled "sample day" |
+| No JavaScript | h1 and full document present, 0 of 35 reveals hidden, final figures, page reads as finished |
+| Transfer | about 297 KB total measured in CDP encoded bytes, against 295 KB for the base commit with the same method |
 | 404 | HTTP 404 with the concept's own copy |
 
 Final pass removed one accessory: the repeated numbered list beside the screen
@@ -222,3 +267,25 @@ Documentation pass, added after the first three:
 | Contents rail on a phone | folded into a disclosure; 30 anchors would push the article 2,000 px down |
 | Home page after the icon and nav change | unchanged: 0 FAIL, 796 ms phone LCP, CLS 0, no console errors |
 | Diagrams, 16 page and viewport combinations | 0 axe violations in both themes; wide figures take focus and scroll on a phone instead of shrinking below legible size |
+
+Motion pass, production build, measured after the choreography landed. Base
+commit numbers were taken from the same build and the same harness:
+
+| Check | Result |
+|---|---|
+| Hero boot | rows reach full opacity one at a time, 60 ms apart, from 180 to 780 ms |
+| Quota fill | three bars animate from 0 to their value left to right after the group enters view |
+| Limit crossed | the spent row turns `--alert` and the quota line is struck through as its bar finishes, 300 ms to land, and it stays that way |
+| Section reveals | 35 of 35 `.reveal` elements reach `is-in`; delays resolve to 0 to 350 ms in 70 ms steps |
+| Rule lines | 5 rules finish at `scaleY(1)`, four in accent and the hosts figure in alert |
+| Screen inspector | mid-swap measured at opacity 0.29 with a 5.6 px settle on the incoming screen; settles at 1 / 0 |
+| Count-up | ends on 74, 0.08, 0.5 and 2.0, the exact strings in `site.ts` |
+| Reduced motion | 0 of 35 reveals hidden, 0 animations running, meters full, spent quotas struck |
+| No JavaScript | 8 sections, 7,255 characters of copy, 0 of 35 reveals hidden, final figures |
+| Console errors | none on /, /docs, /docs/architecture in any state |
+| Horizontal overflow, 390 px | none after the rule lines and the 8 px screen settle |
+| Tap targets under 24 px | none |
+| Transfer delta | +2 KB against the base commit, no new dependencies |
+| npm test / tsc / eslint | 8 passing / clean / clean |
+
+The third QA table, documentation pass, above is unchanged.

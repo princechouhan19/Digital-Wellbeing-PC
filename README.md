@@ -15,7 +15,7 @@ Digital Wellbeing tracks your screen time, protects your attention, and filters 
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-30D158.svg?style=flat-square)](PRIVACY.md)
 [![License](https://img.shields.io/badge/License-MIT-FF9F0A.svg?style=flat-square)](LICENSE)
 
-[**Download Installer (v4.4.5)**](https://digitalwellbeing.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digitalwellbeing.vercel.app)
+[**Download Installer (v4.4.5)**](https://digital-wellbeing-pc.vercel.app) • [**User Guide**](docs/USER_GUIDE.md) • [**Architecture**](docs/ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md) • [**Contributing**](CONTRIBUTING.md) • [**Website**](https://digital-wellbeing-pc.vercel.app)
 
 </div>
 
@@ -241,7 +241,7 @@ For full architectural details, consult the [Architecture Documentation](docs/AR
 ## Installation
 
 ### Standard Windows Installer (Recommended)
-Download and run the installer from the [Releases page](https://digitalwellbeing.vercel.app):
+Download and run the installer from the [Releases page](https://digital-wellbeing-pc.vercel.app):
 ```text
 DigitalWellbeingSetup-4.4.1.exe
 ```

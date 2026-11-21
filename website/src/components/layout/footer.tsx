@@ -60,7 +60,7 @@ export function Footer() {
           <p>{footerNote}</p>
           <p className="font-mono">
             <Link className="link-inline tap" href="/">
-              digitalwellbeing.vercel.app
+              {site.url.replace(/^https?:\/\//, "")}
             </Link>
           </p>
         </div>
