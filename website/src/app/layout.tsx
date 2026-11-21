@@ -1,134 +1,150 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
+import localFont from "next/font/local"
 import "./globals.css"
-import { siteConfig } from "@/config/site"
+import { site } from "@/data/site"
 import { Navbar } from "@/components/layout/navbar"
 import { Footer } from "@/components/layout/footer"
-import { Analytics } from "@vercel/analytics/react"
-import { SpeedInsights } from "@vercel/speed-insights/next"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
+const grotesk = localFont({
+  src: "../fonts/schibsted-grotesk-latin.woff2",
+  variable: "--font-grotesk",
+  weight: "400 900",
+  display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+})
+
+const mono = localFont({
+  src: "../fonts/jetbrains-mono-latin.woff2",
+  variable: "--font-jbmono",
+  weight: "400 800",
+  display: "swap",
+  fallback: ["ui-monospace", "SFMono-Regular", "monospace"],
+})
 
 export const viewport: Viewport = {
-  themeColor: "#080a0d",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f4f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#080a0d" },
+  ],
+  width: "device-width",
+  initialScale: 1,
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteConfig.url),
+  metadataBase: new URL(site.url),
   title: {
-    default: "Digital Wellbeing for Windows",
-    template: `%s · Digital Wellbeing`,
+    default: "Digital Wellbeing for Windows · screen time you can act on",
+    template: "%s · Digital Wellbeing",
   },
-  description: siteConfig.description,
+  description: site.description,
   keywords: [
-    "Digital Wellbeing",
-    "Digital Wellbeing Windows",
     "digital wellbeing Windows",
     "Windows screen time tracker",
-    "screen time control Windows",
-    "Focus Mode Windows",
     "app blocker Windows",
     "app timer Windows",
+    "focus mode Windows",
+    "app locker Windows Hello",
+    "local-first screen time",
     "SleepGuard",
-    "app locker Windows",
-    "attention control app",
-    "productivity Windows",
-    "local-first wellbeing",
-    "privacy-first screen time",
+    "hosts file website blocker",
   ],
-  authors: [{ name: siteConfig.developer }],
-  alternates: {
-    canonical: "https://digitalwellbeing.vercel.app/",
-  },
-  icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-  },
+  authors: [{ name: site.developer, url: site.repository }],
+  creator: site.developer,
+  alternates: { canonical: "/" },
+  applicationName: "Digital Wellbeing",
+  category: "productivity",
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://digitalwellbeing.vercel.app/",
-    title: "Digital Wellbeing for Windows",
-    description:
-      "Understand your computer usage. Block distractions. Set limits. Protect your attention with Digital Wellbeing.",
-    siteName: "Digital Wellbeing",
+    url: site.url,
+    siteName: site.name,
+    title: "Digital Wellbeing for Windows · screen time you can act on",
+    description: site.description,
     images: [
       {
-        url: "/logo.png",
-        width: 1254,
-        height: 1254,
-        alt: "Digital Wellbeing for Windows",
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Digital Wellbeing for Windows: a foreground ledger of applications and time",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Digital Wellbeing for Windows",
-    description:
-      "Understand your computer usage. Block distractions. Set limits. Protect your attention with Digital Wellbeing.",
-    images: ["/logo.png"],
+    description: site.description,
+    images: ["/opengraph-image"],
   },
+  // The real application icon from assets/icons, not a drawn stand-in.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "16x16 24x24 32x32 48x48 64x64" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/logo.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  robots: { index: true, follow: true },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const softwareAppJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "Digital Wellbeing",
-    alternateName: "Digital Wellbeing for Windows",
-    url: "https://digitalwellbeing.vercel.app/",
-    downloadUrl: "https://digitalwellbeing.vercel.app/api/download",
-    operatingSystem: "Windows 10, Windows 11",
-    applicationCategory: "ProductivityApplication",
-    description: siteConfig.description,
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
-    },
-  }
+/** Runs before first paint: theme from storage (or the OS), motion flag for reveals. */
+const bootScript = `(function(){var d=document.documentElement;try{var t=localStorage.getItem("dw-theme");if(!t){t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}d.setAttribute("data-theme",t)}catch(e){d.setAttribute("data-theme","light")}d.classList.add("js");if(window.matchMedia("(prefers-reduced-motion: no-preference)").matches){d.classList.add("motion")}})()`
 
-  const websiteJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "Digital Wellbeing",
-    url: "https://digitalwellbeing.vercel.app/",
-    description: siteConfig.description,
-    potentialAction: {
-      "@type": "SearchAction",
-      target: "https://digitalwellbeing.vercel.app/",
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: site.fullName,
+      alternateName: site.name,
+      url: site.url,
+      downloadUrl: `${site.url}/api/download`,
+      installUrl: `${site.url}/api/download`,
+      softwareVersion: site.version,
+      operatingSystem: "Windows 10, Windows 11",
+      applicationCategory: "UtilitiesApplication",
+      applicationSubCategory: "Screen time and attention control",
+      fileSize: "190MB",
+      license: "https://opensource.org/licenses/MIT",
+      sameAs: site.repository,
+      author: { "@type": "Person", name: site.developer },
+      description: site.description,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD", availability: "https://schema.org/InStock" },
+      featureList: [
+        "Foreground application and website tracking stored in a local SQLite database",
+        "Focus sessions with a process allowlist and hosts-file domain blocking",
+        "Daily per-application time quotas",
+        "App Locker with Windows Hello or a hashed local PIN",
+        "SleepGuard bedtime inactivity handling",
+        "CSV export of every recorded session",
+      ],
     },
-  }
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: site.name,
+      url: site.url,
+      inLanguage: "en",
+    },
+  ]
 
   return (
-    <html lang="en" className="dark scroll-smooth" style={{ colorScheme: "dark" }}>
+    <html lang="en" data-theme="light" className={`${grotesk.variable} ${mono.variable}`}>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("dw-website-theme")||localStorage.getItem("dw-website-theme");if(t==="light"||(!t&&window.matchMedia&&!window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.classList.remove("dark");document.documentElement.classList.add("light");document.documentElement.style.colorScheme="light";}else{document.documentElement.classList.remove("light");document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}}catch(e){}})();`
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={`${inter.variable} min-h-screen bg-background font-sans antialiased text-foreground selection:bg-dw-emerald/20 selection:text-white`}>
+      <body>
+        <a className="skip-link" href="#main">
+          Skip to content
+        </a>
         <Navbar />
-        {children}
+        <main id="main">{children}</main>
         <Footer />
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   )

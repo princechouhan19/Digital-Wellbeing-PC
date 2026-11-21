@@ -1,11 +1,17 @@
+/**
+ * Canonical product facts, kept in one place because the API routes and the tests
+ * read from here. All visible marketing copy lives in `src/data/site.ts`.
+ */
 export const siteConfig = {
   name: "Digital Wellbeing",
   fullName: "Digital Wellbeing for Windows",
-  tagline: "Your time. Your rules.",
-  description: "Digital Wellbeing is a digital wellbeing and attention-control app for Windows that helps you understand your computer usage and actively control distractions with Focus Mode, App Timer, App Locker, SleepGuard, and Insights.",
+  tagline: "Control your machine. Not the other way around.",
+  description:
+    "Digital Wellbeing is a local screen time tracker and distraction blocker for Windows 10 and 11, with focus sessions, daily app quotas and biometric app locks.",
   developer: "Prince Chouhan",
-  version: "4.3.2",
+  version: "4.4.5",
   stage: "Public Release",
+  license: "MIT",
   url: "https://digitalwellbeing.vercel.app",
   links: {
     github: "https://github.com/princechouhan19/Digital-Wellbeing-PC",
@@ -18,4 +24,3 @@ export const siteConfig = {
       "https://github.com/princechouhan19/Digital-Wellbeing-PC/issues",
   },
 };
-

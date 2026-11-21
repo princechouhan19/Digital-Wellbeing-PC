@@ -1,122 +1,159 @@
 "use client"
-import { useState, useEffect } from "react"
-import Link from "next/link"
+
 import Image from "next/image"
-import { siteConfig } from "@/config/site"
-import { Sun, Moon, Download } from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useState } from "react"
+import { useTheme } from "@/components/system/browser-state"
+import { site } from "@/data/site"
 
-export function Navbar() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark")
+const links = [
+  { href: "/#record", label: "Record" },
+  { href: "/#controls", label: "Controls" },
+  { href: "/#screens", label: "Screens" },
+  { href: "/docs", label: "Docs" },
+]
 
-  const applyTheme = (t: "dark" | "light") => {
-    if (t === "light") {
-      document.documentElement.classList.add("light")
-      document.documentElement.classList.remove("dark")
-      document.documentElement.style.colorScheme = "light"
-    } else {
-      document.documentElement.classList.add("dark")
-      document.documentElement.classList.remove("light")
-      document.documentElement.style.colorScheme = "dark"
-    }
-  }
+/** Below 640px the nav collapses into one row of text links, still 40px tall. */
+const mobileLinks = [...links, { href: "/#install", label: "Install" }]
 
-  useEffect(() => {
-    const saved = (localStorage.getItem("dw-website-theme")) as "dark" | "light" | null
-    const initial = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-    setTheme(initial)
-    applyTheme(initial)
-  }, [])
-
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark"
-    setTheme(next)
-    localStorage.setItem("dw-website-theme", next)
-    applyTheme(next)
-  }
+function ThemeToggle() {
+  const [theme, setTheme] = useTheme()
 
   return (
-    <header className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
-      <nav className="glass-island rounded-full p-2 pl-4 pr-2 flex items-center justify-between gap-4 md:gap-8 pointer-events-auto max-w-3xl w-full shadow-xl transition-all duration-300">
-        {/* Left: Canonical Logo + Name */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="relative w-7 h-7 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
-            <Image
-              src="/logo.png"
-              alt="Digital Wellbeing"
-              width={28}
-              height={28}
-              className="object-contain"
-              priority
-            />
-          </div>
-          <span className="font-bold text-sm tracking-wider text-slate-900 dark:text-foreground">
-            DIGITAL WELLBEING
+    <button
+      type="button"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      aria-label={`${theme === "dark" ? "Night" : "Day"}, switch appearance`}
+      className="group inline-flex h-9 items-center gap-2 rounded-full border border-line px-3 text-[0.75rem] font-medium text-muted transition-colors hover:border-line-strong hover:text-ink max-sm:h-10 max-sm:px-3.5"
+    >
+      <span aria-hidden="true" className="relative block h-3 w-3">
+        <span
+          className="absolute inset-0 rounded-full border border-current transition-transform duration-500 ease-[var(--ease-out)] group-hover:rotate-90"
+          style={{ background: theme === "dark" ? "currentColor" : "transparent" }}
+        />
+      </span>
+      <span className="hidden tnum sm:inline">{theme === "dark" ? "Night" : "Day"}</span>
+    </button>
+  )
+}
+
+export function Navbar() {
+  const pathname = usePathname()
+  const onDocs = pathname?.startsWith("/docs") ?? false
+  const [open, setOpen] = useState(false)
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-line bg-ground/85 backdrop-blur-md">
+      <div className="shell flex h-14 items-center justify-between gap-4">
+        <Link href="/" className="-ml-1 flex min-w-0 items-center gap-2.5 py-2">
+          <Image
+            src="/images/mark.png"
+            alt=""
+            width={128}
+            height={128}
+            className="h-7 w-auto shrink-0"
+            priority
+          />
+          <span className="truncate text-[0.875rem] font-semibold tracking-tight sm:text-[0.9375rem]">
+            Digital Wellbeing
           </span>
+          <span className="micro hidden md:inline">v{site.version}</span>
         </Link>
 
-        {/* Center: Navigation Links */}
-        <div className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-700 dark:text-foreground/70">
-          <Link
-            href="#product"
-            className="hover:text-slate-950 dark:hover:text-foreground transition-colors duration-200"
-          >
-            Product
-          </Link>
-          <Link
-            href="#capabilities"
-            className="hover:text-slate-950 dark:hover:text-foreground transition-colors duration-200"
-          >
-            Capabilities
-          </Link>
-          <Link
-            href="#themes"
-            className="hover:text-slate-950 dark:hover:text-foreground transition-colors duration-200"
-          >
-            Themes
-          </Link>
-          <Link
-            href="#privacy"
-            className="hover:text-slate-950 dark:hover:text-foreground transition-colors duration-200"
-          >
-            Privacy
-          </Link>
-        </div>
+        <nav aria-label="Sections" className="hidden items-center gap-6 text-[0.8125rem] font-medium md:flex">
+          {links.map((l) => {
+            const current = l.href === "/docs" && onDocs
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                aria-current={current ? "page" : undefined}
+                className={`px-1 py-2.5 transition-colors hover:text-ink ${current ? "text-ink" : "text-muted"}`}
+              >
+                <span className="roll">
+                  <span>{l.label}</span>
+                  <span aria-hidden="true">{l.label}</span>
+                </span>
+              </Link>
+            )
+          })}
+        </nav>
 
-        {/* Right: Theme Toggle & CTA Pill */}
         <div className="flex items-center gap-2">
-          {/* Theme toggle */}
-          <button
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-            className="p-2 rounded-full text-slate-700 dark:text-foreground/70 hover:text-slate-950 dark:hover:text-foreground hover:bg-black/[0.05] dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
-            title={theme === "dark" ? "Switch to Light Theme" : "Switch to Dark Theme"}
-          >
-            {theme === "dark" ? (
-              <Sun className="w-4 h-4 text-dw-amber" />
-            ) : (
-              <Moon className="w-4 h-4 text-indigo-600" />
-            )}
-          </button>
-
-          <Link
-            href={siteConfig.links.github}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden sm:inline-flex text-xs font-medium text-slate-700 dark:text-foreground/70 hover:text-slate-950 dark:hover:text-foreground transition-colors px-2.5 py-1.5"
-          >
-            GitHub
-          </Link>
-
+          <ThemeToggle />
           <a
             href="/api/download"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer bg-slate-900 text-white dark:bg-foreground dark:text-background hover:opacity-90 shadow-md glow-emerald"
-            title="Download Digital Wellbeing for Windows"
+            aria-label="Download for Windows"
+            className="btn btn--primary h-9 min-h-0 px-4 py-0 text-[0.8125rem] max-sm:h-10 max-sm:w-10 max-sm:justify-center max-sm:px-0"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download</span>
+            <span className="max-sm:hidden">Download</span>
+            <svg className="btn__arrow" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none">
+              <path d="M6 1v10M2 7l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </a>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls="nav-small"
+            aria-label={open ? "Close menu" : "Open menu"}
+            className="-mr-2 inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:text-ink md:hidden"
+          >
+            <span aria-hidden="true" className="relative block h-3 w-4">
+              <span
+                className="absolute inset-x-0 top-0 h-px bg-current transition-transform duration-300 ease-[var(--ease-out)]"
+                style={{ transform: open ? "translateY(6px) rotate(45deg)" : undefined }}
+              />
+              <span
+                className="absolute inset-x-0 top-1.5 h-px bg-current transition-opacity duration-200"
+                style={{ opacity: open ? 0 : 1 }}
+              />
+              <span
+                className="absolute inset-x-0 top-3 h-px bg-current transition-transform duration-300 ease-[var(--ease-out)]"
+                style={{ transform: open ? "translateY(-6px) rotate(-45deg)" : undefined }}
+              />
+            </span>
+          </button>
         </div>
-      </nav>
+      </div>
+
+      {/* Small screens: the same five destinations, in one ruled row. */}
+      <div
+        id="nav-small"
+        hidden={!open}
+        className="border-t border-line bg-panel md:hidden"
+      >
+        <nav aria-label="Sections" className="shell grid grid-cols-2 gap-x-4 py-2">
+          {mobileLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={() => setOpen(false)}
+              className="flex min-h-11 items-center justify-between border-b border-line text-[0.875rem] text-muted last:border-b-0"
+            >
+              {l.label}
+              <span aria-hidden="true" className="font-mono text-[0.6875rem]">
+                →
+              </span>
+            </Link>
+          ))}
+        </nav>
+      </div>
     </header>
+  )
+}
+
+/** The product's real app mark, used at footer scale. */
+export function AppMark({ size = 20 }: { size?: number }) {
+  return (
+    <Image
+      src="/images/mark.png"
+      alt=""
+      width={128}
+      height={128}
+      style={{ height: size, width: "auto" }}
+      className="shrink-0"
+    />
   )
 }

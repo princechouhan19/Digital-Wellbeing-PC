@@ -1,436 +1,409 @@
-"use client"
-import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
-import { SoftwareDemo } from "@/components/interactive/software-demo"
-import { CapabilitiesCanvas } from "@/components/interactive/capabilities-canvas"
-import {
-  ShieldCheck,
-  Cpu,
-  Moon,
-  Sun,
-  HardDrive,
-  EyeOff,
-  Terminal,
-  Zap,
-  Palette,
-  Download,
-  Sparkles,
-  Layers,
-  Activity,
-  CheckCircle2,
-} from "lucide-react"
+import { site, hero, register, hostsBlock, readout, install } from "@/data/site"
+import { LedgerPanel } from "@/components/home/ledger-panel"
+import { Controls } from "@/components/home/controls"
+import { Screens } from "@/components/home/screens"
+import { Motion } from "@/components/system/motion"
+import { SectionHead } from "@/components/home/section-head"
+import { ButtonFill } from "@/components/system/button-fill"
 
 export default function Home() {
-  const [themeSectionMode, setThemeSectionMode] = useState<"dark" | "light">("dark")
-  const [themeSectionScreen, setThemeSectionScreen] = useState<"home" | "usage" | "focus" | "insights" | "settings">("home")
-
-  const themeScreens = {
-    home: {
-      title: "Dashboard & Realtime Activity",
-      desc: "Personalized greeting, instant glance at daily screen time, active app breakdown, and quick focus controls.",
-      dark: "/images/app/home-dark.png",
-      light: "/images/app/home-light.png",
-    },
-    usage: {
-      title: "Usage & Hourly Intensity",
-      desc: "Precise hourly active distribution, 1-day, 7-day, and 30-day activity trends, and modern category breakdowns.",
-      dark: "/images/app/usage-dark.png",
-      light: "/images/app/usage-light.png",
-    },
-    focus: {
-      title: "Focus Mode & Preflight Enforcement",
-      desc: "Process-level application allowlisting and hosts-based website distraction blocking.",
-      dark: "/images/app/focus-dark.png",
-      light: "/images/app/focus-light.png",
-    },
-    insights: {
-      title: "Foreground Intelligence & Trends",
-      desc: "Category distributions, weekly screen time patterns, and high-contrast analytical charts.",
-      dark: "/images/app/insights-dark.png",
-      light: "/images/app/insights-light.png",
-    },
-    settings: {
-      title: "Categorized Preferences & Privacy",
-      desc: "Display name customization, clean segmented theme controls, SleepGuard timing, and local database management.",
-      dark: "/images/app/settings-dark.png",
-      light: "/images/app/settings-light.png",
-    },
-  }
-
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground transition-colors duration-300">
-      <main className="flex-1">
-        
-        {/* ===================================================
-            HERO SECTION WITH LIVE INTERACTIVE SOFTWARE DEMO
-        =================================================== */}
-        <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden text-center">
-          {/* Ambient Glow / Radial Gradients */}
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[380px] bg-gradient-to-tr from-dw-emerald/15 via-dw-amber/10 to-transparent blur-[150px] pointer-events-none -z-10" />
+    <>
+      <Motion />
+      <ButtonFill />
 
-          <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="space-y-6"
-            >
-              {/* Category Pill Tag */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-100/80 dark:bg-surface border border-slate-200 dark:border-border text-[11px] font-mono uppercase tracking-[0.2em] text-slate-800 dark:text-foreground/80 backdrop-blur-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-dw-emerald animate-pulse" />
-                <span>Windows 10 & 11 (64-bit) · Native PySide6</span>
-              </div>
+      {/* Hero. The page opens on the machine answering "where did today go". */}
+      <section className="relative overflow-hidden border-b border-line">
+        <div aria-hidden="true" className="grid-field absolute inset-0 -z-10" />
+        <div className="shell grid items-start gap-12 pt-14 pb-16 lg:grid-cols-12 lg:gap-10 lg:pt-20 lg:pb-24">
+          <div className="lg:col-span-7">
+            <p className="micro flex items-center gap-2.5">
+              <span className="dot" aria-hidden="true" />
+              {hero.kicker}
+            </p>
 
-              {/* Bold Headline */}
-              <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-slate-900 dark:text-foreground leading-[1.1] max-w-4xl mx-auto">
-                Control your machine. <br />
-                <span className="text-slate-800 dark:text-foreground/80 font-semibold">
-                  Not the other way around.
-                </span>
-              </h1>
+            <h1 className="mt-6 text-[clamp(2.25rem,7.4vw,5.5rem)] leading-[0.94] tracking-[-0.04em]">
+              {hero.title[0]}
+              <br />
+              <span className="text-muted">{hero.title[1]}</span>
+            </h1>
 
-              {/* Subtext */}
-              <p className="text-base sm:text-xl text-slate-700 dark:text-foreground/75 max-w-2xl mx-auto leading-relaxed font-normal">
-                Digital Wellbeing is an Apple-grade digital wellbeing and attention-control system for Windows. It tracks your screen time, enforces boundaries, and filters the web — completely locally with zero telemetry.
-              </p>
+            <p className="mt-7 max-w-xl text-[1.0625rem] leading-relaxed text-ink/85 md:text-[1.125rem]">
+              {hero.standfirst}
+            </p>
 
-              {/* Primary Download CTAs */}
-              <div className="pt-2 pb-2 flex flex-wrap items-center justify-center gap-3">
-                <a
-                  href="/api/download"
-                  className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full text-sm sm:text-base font-semibold transition-all duration-200 bg-slate-900 text-white dark:bg-foreground dark:text-background hover:opacity-90 shadow-xl glow-emerald cursor-pointer group"
-                  title="Download for Windows"
-                >
-                  <Download className="w-5 h-5 transition-transform duration-200 group-hover:-translate-y-0.5" />
-                  <span>Download for Windows</span>
-                </a>
-                <a
-                  href="https://github.com/princechouhan19/Digital-Wellbeing-PC"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-semibold transition-all duration-200 bg-slate-100 dark:bg-surface border border-slate-200 dark:border-border text-slate-900 dark:text-foreground hover:bg-slate-200/80 dark:hover:bg-white/10"
-                >
-                  <span>View on GitHub</span>
-                </a>
-              </div>
-
-              <p className="text-xs font-mono text-slate-600 dark:text-foreground/60">
-                Windows 10 / 11 (64-bit) · Inno Setup installer · Free &amp; local-first
-              </p>
-
-              {/* Interactive App Banner / Prompt */}
-              <div className="pt-8 pb-2 flex flex-col items-center justify-center gap-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dw-emerald/10 border border-dw-emerald/30 text-[11px] font-mono text-dw-emerald font-semibold uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Interactive Live Software Demo · Click Below to Test</span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-foreground/65 max-w-md">
-                  Interact with real app pages: switch between modules, start a focus sprint, test PIN unlocking, adjust quotas, and toggle themes.
-                </p>
-              </div>
-
-              {/* ===================================================
-                  REAL INTERACTIVE SOFTWARE APPLICATION PREVIEW
-              =================================================== */}
-              <div id="product" className="scroll-mt-28">
-                <SoftwareDemo />
-              </div>
-
-              {/* Native Architecture Spec Badges */}
-              <div className="pt-4 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600 dark:text-foreground/70 font-mono">
-                <div className="flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-dw-emerald" />
-                  <span>Sub-25MB RAM Footprint</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-dw-amber" />
-                  <span>0% Idle CPU Overhead</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <HardDrive className="w-4 h-4 text-indigo-400" />
-                  <span>100% Local SQLite Storage</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <EyeOff className="w-4 h-4 text-emerald-400" />
-                  <span>Zero Cloud Telemetry</span>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            SECTION 02: CORE CAPABILITIES (INTERACTIVE CANVAS)
-        =================================================== */}
-        <section id="capabilities" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border bg-slate-50/60 dark:bg-[#07090c] relative">
-          <div className="container mx-auto px-6 max-w-6xl text-center">
-            <div className="max-w-2xl mx-auto mb-14 space-y-3">
-              <span className="text-[11px] font-mono tracking-[0.2em] text-dw-emerald uppercase font-semibold">
-                SYSTEM ARCHITECTURE
-              </span>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-foreground">
-                Engineered for focus. Tested for safety.
-              </h2>
-              <p className="text-sm md:text-base text-slate-700 dark:text-foreground/75 leading-relaxed">
-                Explore the foundational capabilities engineered to give you complete mechanical control over your operating system.
-              </p>
-            </div>
-
-            {/* Interactive Tabbed Capabilities Canvas */}
-            <CapabilitiesCanvas />
-          </div>
-        </section>
-
-        {/* ===================================================
-            SECTION 03: THEME THAT FITS YOUR WORKSPACE
-        =================================================== */}
-        <section id="themes" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border relative">
-          <div className="container mx-auto px-6 max-w-5xl">
-            <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
-              <span className="text-[11px] font-mono tracking-[0.2em] text-dw-amber uppercase font-semibold flex items-center justify-center gap-1.5">
-                <Palette className="w-3.5 h-3.5" />
-                <span>THEME THAT FITS YOUR WORKSPACE</span>
-              </span>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-foreground">
-                Crafted for day and night.
-              </h2>
-              <p className="text-sm md:text-base text-slate-700 dark:text-foreground/75 leading-relaxed">
-                Digital Wellbeing supports Dark and Light themes, with clean typography, high-contrast analytics, and soft translucent materials tailored to any ambient lighting.
-              </p>
-            </div>
-
-            {/* Screen Selector & Theme Selector Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-2 rounded-2xl glass-card border border-slate-200 dark:border-border shadow-sm">
-              {/* Screen Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto">
-                {(["home", "usage", "focus", "insights", "settings"] as const).map((scr) => (
-                  <button
-                    key={scr}
-                    onClick={() => setThemeSectionScreen(scr)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold capitalize cursor-pointer transition-all ${
-                      themeSectionScreen === scr
-                        ? "bg-slate-900 text-white dark:bg-foreground/10 dark:text-foreground border border-slate-800 dark:border-border shadow-xs"
-                        : "text-slate-700 dark:text-foreground/70 hover:text-slate-950 dark:hover:text-foreground"
-                    }`}
-                  >
-                    {scr}
-                  </button>
-                ))}
-              </div>
-
-              {/* Mode Toggle */}
-              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-surface border border-slate-200 dark:border-border">
-                <button
-                  onClick={() => setThemeSectionMode("dark")}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 ${
-                    themeSectionMode === "dark"
-                      ? "bg-slate-900 text-white dark:bg-white/[0.12] dark:text-foreground border border-slate-800 dark:border-white/20 shadow-xs"
-                      : "text-slate-700 dark:text-foreground/70 hover:text-slate-950 dark:hover:text-foreground"
-                  }`}
-                >
-                  <Moon className="w-3 h-3 text-indigo-400" />
-                  <span>Dark</span>
-                </button>
-                <button
-                  onClick={() => setThemeSectionMode("light")}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 ${
-                    themeSectionMode === "light"
-                      ? "bg-dw-emerald/15 text-dw-emerald-dark dark:text-dw-emerald border border-dw-emerald/30 shadow-xs font-bold"
-                      : "text-slate-700 dark:text-foreground/70 hover:text-slate-950 dark:hover:text-foreground"
-                  }`}
-                >
-                  <Sun className="w-3 h-3 text-dw-amber" />
-                  <span>Light</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Showcase Display Card */}
-            <div className="glass-card rounded-3xl p-3 md:p-5 border border-slate-200 dark:border-border shadow-xl space-y-4">
-              <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-border aspect-[16/10] md:aspect-[16/9]">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={`${themeSectionScreen}-${themeSectionMode}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="relative w-full h-full"
-                  >
-                    <Image
-                      src={themeScreens[themeSectionScreen][themeSectionMode]}
-                      alt={`${themeScreens[themeSectionScreen].title} in ${themeSectionMode} mode`}
-                      fill
-                      sizes="(max-width: 1200px) 100vw, 1200px"
-                      className="object-cover object-top"
-                    />
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              <div className="pt-2 px-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-foreground">{themeScreens[themeSectionScreen].title}</span>
-                  <span className="text-slate-700 dark:text-foreground/75 ml-2 font-normal hidden md:inline">{themeScreens[themeSectionScreen].desc}</span>
-                </div>
-                <span className="font-mono text-slate-600 dark:text-foreground/65 text-[11px]">
-                  Windows Desktop Application · {themeSectionMode === "dark" ? "Aurora Dark" : "Aurora Light"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            SECTION 04: PHILOSOPHY & DIGITAL WELLBEING STORY
-        =================================================== */}
-        <section id="philosophy" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border bg-slate-50/60 dark:bg-[#07090c] relative">
-          <div className="container mx-auto px-6 max-w-5xl">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-              <div className="lg:col-span-6 space-y-6 text-left">
-                <span className="text-[11px] font-mono tracking-[0.2em] text-dw-amber uppercase font-semibold">
-                  HONEST WELLBEING
-                </span>
-                <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-foreground leading-tight">
-                  Why conventional blockers fail.
-                </h2>
-                <div className="space-y-4 text-sm md:text-base text-slate-700 dark:text-foreground/80 leading-relaxed">
-                  <p>
-                    Conventional website blockers ask you to negotiate with yourself every ten minutes. They rely on browser extensions you can disable in two clicks, and barrage you with patronizing &quot;productivity scores&quot;.
-                  </p>
-                  <p>
-                    Willpower is a finite resource. When you are mentally exhausted at 4:00 PM, you will click past an extension block every single time.
-                  </p>
-                  <p>
-                    Digital Wellbeing operates on a mechanical principle: <strong>if the distracting app is locked or suspended at the process level, there is nothing left to negotiate.</strong> You return to your work because there is nothing else on the table.
-                  </p>
-                </div>
-              </div>
-
-              <div className="lg:col-span-6">
-                <div className="space-y-4">
-                  <div className="p-6 rounded-2xl glass-card border border-slate-200 dark:border-border text-left">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-dw-amber" />
-                      <span>Zero Friction Negotiation</span>
-                    </h4>
-                    <p className="text-xs text-slate-700 dark:text-foreground/75 mt-2 leading-relaxed">
-                      Lock your game clients and social platforms into Deep Focus sessions. The barrier is physical and intentional, not psychological.
-                    </p>
-                  </div>
-
-                  <div className="p-6 rounded-2xl glass-card border border-slate-200 dark:border-border text-left">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Terminal className="w-4 h-4 text-dw-emerald" />
-                      <span>Protected Process Architecture</span>
-                    </h4>
-                    <p className="text-xs text-slate-700 dark:text-foreground/75 mt-2 leading-relaxed">
-                      Windows system processes (`explorer.exe`, `dwm.exe`, background services) are strictly immune to termination, keeping your PC stable.
-                    </p>
-                  </div>
-
-                  <div className="p-6 rounded-2xl glass-card border border-slate-200 dark:border-border text-left">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Moon className="w-4 h-4 text-indigo-500" />
-                      <span>Circadian Sleep Guard</span>
-                    </h4>
-                    <p className="text-xs text-slate-700 dark:text-foreground/75 mt-2 leading-relaxed">
-                      Prevents late-night passive video bingeing by safely sleeping the computer when user inactivity is verified.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            SECTION 05: PRIVACY GUARANTEE
-        =================================================== */}
-        <section id="privacy" className="scroll-mt-28 py-24 md:py-32 border-t border-slate-200 dark:border-border relative">
-          <div className="container mx-auto px-6 max-w-5xl">
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-              <span className="text-[11px] font-mono tracking-[0.2em] text-dw-emerald uppercase font-semibold">
-                PRIVACY FIRST · LOCAL ONLY
-              </span>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-foreground">
-                Your data never leaves your hard drive.
-              </h2>
-              <p className="text-sm md:text-base text-slate-700 dark:text-foreground/75 leading-relaxed">
-                Privacy is not a feature we toggle on. It is the fundamental architecture of Digital Wellbeing.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-              <div className="p-6 rounded-2xl glass-card border border-slate-200 dark:border-border space-y-3">
-                <HardDrive className="w-6 h-6 text-dw-emerald" />
-                <h4 className="text-base font-bold text-slate-900 dark:text-foreground">100% Local SQLite</h4>
-                <p className="text-xs text-slate-700 dark:text-foreground/75 leading-relaxed">
-                  Every application timestamp and session event is committed directly to a local SQLite database in your user folder.
-                </p>
-              </div>
-
-              <div className="p-6 rounded-2xl glass-card border border-slate-200 dark:border-border space-y-3">
-                <EyeOff className="w-6 h-6 text-dw-amber" />
-                <h4 className="text-base font-bold text-slate-900 dark:text-foreground">No Telemetry or Tracking</h4>
-                <p className="text-xs text-slate-700 dark:text-foreground/75 leading-relaxed">
-                  No telemetry pings, no usage beacons, no analytics servers, and no third-party data broker partnerships.
-                </p>
-              </div>
-
-              <div className="p-6 rounded-2xl glass-card border border-slate-200 dark:border-border space-y-3">
-                <ShieldCheck className="w-6 h-6 text-indigo-500" />
-                <h4 className="text-base font-bold text-slate-900 dark:text-foreground">No Account Required</h4>
-                <p className="text-xs text-slate-700 dark:text-foreground/75 leading-relaxed">
-                  The desktop app functions completely offline without sign-in, cloud sync, or remote dependencies.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            SECTION 06: GET THE APP / DOWNLOAD CTA
-        =================================================== */}
-        <section className="py-24 md:py-36 border-t border-slate-200 dark:border-border bg-slate-50/60 dark:bg-[#07090c] relative overflow-hidden text-center">
-          <div className="container mx-auto px-6 max-w-3xl space-y-8">
-            <div className="w-16 h-16 rounded-full mx-auto relative flex-shrink-0 mb-4">
-              <Image
-                src="/logo.png"
-                alt="Digital Wellbeing logo"
-                width={64}
-                height={64}
-                className="object-contain"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-foreground">
-                Experience intentional computing.
-              </h2>
-              <p className="text-sm md:text-base text-slate-700 dark:text-foreground/75 max-w-lg mx-auto leading-relaxed">
-                Digital Wellbeing is free to download and local-first. No account, email signup, or cloud sync is required.
-              </p>
-            </div>
-
-            <div className="pt-4 flex flex-col items-center gap-3">
-              <a
-                href="/api/download"
-                className="inline-flex items-center gap-3 px-8 py-4 rounded-full text-sm sm:text-base font-semibold transition-all duration-200 bg-slate-900 text-white dark:bg-foreground dark:text-background hover:opacity-90 shadow-xl glow-emerald cursor-pointer group"
-                title="Download for Windows"
-              >
-                <Download className="w-5 h-5 transition-transform duration-200 group-hover:-translate-y-0.5" />
-                <span>Download for Windows</span>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <a href="/api/download" className="btn btn--primary" data-fill>
+                <DownloadGlyph />
+                <span>{hero.primaryCta}</span>
               </a>
-              <p className="text-[11px] font-mono text-slate-600 dark:text-foreground/65 font-medium">
-                Windows 10 / Windows 11 (64-bit) · Independent Software
+              <a href={site.repository} rel="noreferrer" className="btn btn--ghost" data-fill>
+                <GithubGlyph />
+                <span>{hero.secondaryCta}</span>
+              </a>
+            </div>
+
+            <dl className="mt-10 grid max-w-lg grid-cols-2 gap-x-6 gap-y-4 border-t border-line pt-5 text-[0.8125rem] sm:grid-cols-4">
+              <div>
+                <dt className="micro">Installer</dt>
+                <dd className="mt-1 font-mono text-ink">{site.installerSize}</dd>
+              </div>
+              <div>
+                <dt className="micro">Runtime</dt>
+                <dd className="mt-1 font-mono text-ink">bundled</dd>
+              </div>
+              <div>
+                <dt className="micro">Network</dt>
+                <dd className="mt-1 font-mono text-ink">off by default</dd>
+              </div>
+              <div>
+                <dt className="micro">Licence</dt>
+                <dd className="mt-1 font-mono text-ink">{site.license}</dd>
+              </div>
+            </dl>
+            <p className="mt-4 text-[0.75rem] text-muted">{hero.installNote}</p>
+          </div>
+
+          <div className="lg:col-span-5">
+            <LedgerPanel />
+            <p className="mt-3 font-mono text-[0.6875rem] leading-relaxed text-muted">
+              A scripted sample day. The tracker writes this locally, one row per focus change.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* The argument, set as a pull quote instead of a card grid. */}
+      <section className="border-b border-line bg-panel/50">
+        <div className="shell grid gap-8 py-16 md:grid-cols-12 md:py-24">
+          <p className="micro md:col-span-2">The problem</p>
+          <div className="md:col-span-10">
+            <blockquote className="text-[clamp(1.375rem,3.4vw,2.25rem)] font-medium leading-[1.22] tracking-[-0.02em] text-balance">
+              <p>
+                A browser extension can be disabled in two clicks. A productivity score can be
+                ignored in one glance.{" "}
+                <span className="text-muted">Willpower is the wrong mechanism.</span> This one
+                intervenes at the process table, the hosts file, and the timer that closes the
+                window.
+              </p>
+            </blockquote>
+            <div className="mt-9 grid gap-6 border-t border-line pt-6 sm:grid-cols-3">
+              {[
+                ["Process level", "An app that is not running cannot be clicked back to."],
+                ["Local only", "One SQLite file, in your own app data folder."],
+                ["Reversible", "Every block and suspension is undone on exit."],
+              ].map(([t, d]) => (
+                <div key={t}>
+                  <p className="text-[0.8125rem] font-semibold text-ink">{t}</p>
+                  <p className="mt-1 text-[0.8125rem] leading-relaxed text-muted">{d}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Register. What is written, and what is never written. */}
+      <section id="record" className="border-b border-line">
+        <div className="shell py-16 md:py-24">
+          <SectionHead
+            index="01"
+            label="What is recorded"
+            title="A register, not a transcript."
+            intro="Four things are written to the database, and all of them are about which window was in front and for how long. Nothing you type, read, or look at is stored."
+          />
+
+          <div className="mt-12 grid gap-8 md:grid-cols-12">
+            <div className="md:col-span-5">
+              <div className="rounded-lg border border-line bg-panel px-4 py-3">
+                <p className="micro">On disk</p>
+                <p className="mt-1.5 break-all font-mono text-[0.75rem] text-ink">
+                  {register.storage}
+                </p>
+                <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">{register.exportNote}</p>
+              </div>
+              <div className="mt-8 border-t border-line pt-4">
+                <p className="micro">The two network calls that exist</p>
+                <dl className="mt-3">
+                  {register.network.map((n) => (
+                    <div key={n.call} className="border-b border-line py-3 last:border-b-0">
+                      <dt className="text-[0.8125rem] font-semibold">{n.call}</dt>
+                      <dd className="mt-1 text-[0.75rem] leading-relaxed text-muted">{n.when}</dd>
+                      <dd className="mt-1 font-mono text-[0.6875rem] leading-relaxed text-muted">
+                        sends: {n.sent}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-3 text-[0.75rem] leading-relaxed text-muted">
+                  Everything else happens on your disk. The privacy policy in the repository lists
+                  each table and field.
+                </p>
+                <p className="mt-4 text-[0.75rem] leading-relaxed text-muted">
+                  Tracking starts with Windows and stays in the tray. The uninstaller closes the app
+                  and can remove the database and profile settings with it, or leave them for a
+                  reinstall.
+                </p>
+                <a
+                  href={`${site.repository}/blob/main/PRIVACY.md`}
+                  rel="noreferrer"
+                  className="link-inline tap mt-2 text-[0.8125rem] text-muted"
+                >
+                  Read the privacy policy
+                </a>
+              </div>
+            </div>
+
+            <div className="md:col-span-7">
+              <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                <div>
+                  <p className="flex items-center gap-2 border-b border-line pb-2 text-[0.8125rem] font-semibold">
+                    <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+                    Written
+                  </p>
+                  <dl>
+                    {register.written.map((r) => (
+                      <div key={r.field} className="border-b border-line py-3 last:border-b-0">
+                        <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.1em] text-ink">
+                          {r.field}
+                        </dt>
+                        <dd className="mt-1 text-[0.8125rem] leading-relaxed text-muted">{r.text}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+                <div>
+                  <p className="flex items-center gap-2 border-b border-line pb-2 text-[0.8125rem] font-semibold">
+                    <span className="h-1.5 w-1.5 rounded-full bg-alert" aria-hidden="true" />
+                    Never
+                  </p>
+                  <ul>
+                    {register.never.map((n) => (
+                      <li
+                        key={n}
+                        className="flex items-start gap-2 border-b border-line py-2.5 text-[0.8125rem] leading-relaxed text-muted last:border-b-0"
+                      >
+                        <span aria-hidden="true" className="mt-[0.65em] block h-px w-2 shrink-0 bg-alert/70" />
+                        {n}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <figure className="mt-8 overflow-hidden rounded-lg border border-line bg-[#0b0f14] text-[#e6edf3]">
+                <figcaption className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-white/60">
+                  <span className="truncate">drivers\etc\hosts</span>
+                  <span className="shrink-0 text-[#2ad59b]">focus block</span>
+                </figcaption>
+                <pre className="overflow-x-auto px-4 py-4 font-mono text-[0.6875rem] leading-[1.7] md:text-[0.75rem]">
+                  <code>{hostsBlock}</code>
+                </pre>
+              </figure>
+              <p className="mt-3 text-[0.75rem] leading-relaxed text-muted">
+                Focus Mode writes a delimited section into the hosts file, flushes the DNS cache, and
+                removes the section when the session ends. The rest of the file is left alone.
               </p>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-      </main>
-    </div>
+      {/* Controls. An index of verbs, each answered with real app evidence. */}
+      <section id="controls" className="border-b border-line bg-panel/50">
+        <div className="shell py-16 md:py-24">
+          <SectionHead
+            index="02"
+            label="Four controls"
+            title="Recording is the easy half. These are the ones that act."
+            intro="Choose a control to see the screen it lives on. All four run from the same tracker, so none of them can be talked past."
+          />
+          <div className="mt-12">
+            <Controls />
+          </div>
+        </div>
+      </section>
+
+      {/* Screens. The register of what the app actually looks like. */}
+      <section id="screens" className="border-b border-line">
+        <div className="shell py-16 md:py-24">
+          <SectionHead
+            index="03"
+            label="Screens"
+            title="Eight pages, one file."
+            intro="Each page opens on a different question. The dashboard answers what today cost, usage answers when, insights answers whether it is getting worse."
+          />
+
+          <div className="mt-12 grid gap-8 md:grid-cols-12">
+            <div className="md:col-span-4">
+              <p className="text-[0.8125rem] leading-relaxed text-muted">
+                Everything below is the real interface, captured in dark mode at 1500 by 1000 pixels.
+                Select a page to inspect it.
+              </p>
+              <p className="mt-6 border-t border-line pt-4 text-[0.8125rem] leading-relaxed text-muted">
+                The dark theme is the app&apos;s default and the one shown here. A light theme ships with
+                it, with the same charts and contrast.
+              </p>
+            </div>
+            <div className="md:col-span-8">
+              <Screens />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Readout. Measured numbers, attributed to the owner's own benchmark. */}
+      <section id="readout" className="border-b border-line bg-panel/50">
+        <div className="shell py-16 md:py-24">
+          <SectionHead
+            index="04"
+            label="Readout"
+            title="What it costs to run."
+            intro="A permanent background process earns its place only if it stays invisible. These are the numbers the project measures itself against."
+          />
+          <dl className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+            {readout.map((r) => (
+              <div key={r.label} className="bg-ground p-5">
+                <dt className="text-[0.8125rem] font-medium">{r.label}</dt>
+                <dd className="mt-2 flex items-baseline gap-1 font-mono text-[2rem] leading-none tracking-tight text-ink tnum">
+                  {r.value}
+                  <span className="text-[0.875rem] text-muted">{r.unit}</span>
+                </dd>
+                <dd className="mt-1 text-[0.75rem] leading-relaxed text-muted">{r.note}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-4 max-w-2xl text-[0.75rem] leading-relaxed text-muted">
+            Figures come from the project&apos;s own benchmark document, measured on Windows 11 with
+            Python 3.12 and Qt 6.12. They are medians, not promises, and they will move with your
+            hardware.
+          </p>
+        </div>
+      </section>
+
+      {/* Install. The real steps, including the uncomfortable one. */}
+      <section id="install" className="border-b border-line">
+        <div className="shell py-16 md:py-24">
+          <SectionHead
+            index="05"
+            label="Install"
+            title="Three steps, one of them awkward."
+            intro="No account, no email, no subscription. The installer is the only thing between you and a running tracker."
+          />
+          <div className="mt-12 grid gap-10 md:grid-cols-12">
+            <div className="md:col-span-7">
+              <ol>
+                {install.steps.map((s) => (
+                  <li key={s.k} className="ledger grid-cols-[2.5rem_1fr]">
+                    <span className="ledger__n pt-0.5">{s.k}</span>
+                    <div>
+                      <p className="text-[0.9375rem] font-semibold">{s.t}</p>
+                      <p className="mt-1 max-w-lg text-[0.8125rem] leading-relaxed text-muted">{s.d}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a href="/api/download" className="btn btn--primary" data-fill>
+                  <DownloadGlyph />
+                  <span>Download {site.version}</span>
+                </a>
+                <a
+                  href={`${site.releases}/download/${site.checksums}`}
+                  rel="noreferrer"
+                  className="btn btn--ghost font-mono text-[0.8125rem]"
+                  data-fill
+                >
+                  <span>{site.checksums}</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="md:col-span-5">
+              <div className="rounded-xl border border-line">
+                <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
+                  <Image src="/logo.png" alt="" width={20} height={20} className="h-5 w-5" />
+                  <p className="text-[0.8125rem] font-semibold">System requirements</p>
+                </div>
+                <dl className="divide-y divide-line">
+                  {install.requirements.map(([k, v]) => (
+                    <div key={k} className="flex items-baseline justify-between gap-4 px-4 py-2.5">
+                      <dt className="text-[0.75rem] text-muted">{k}</dt>
+                      <dd className="text-right font-mono text-[0.75rem] text-ink">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="border-t border-line px-4 py-3">
+                  <p className="text-[0.75rem] leading-relaxed text-muted">
+                    Verify a download by comparing its SHA-256 hash with the published file. The
+                    release workflow generates it for every build.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Closing statement: the last page of the register. */}
+      <section className="relative overflow-hidden border-b border-line bg-panel/50">
+        <div aria-hidden="true" className="grid-field absolute inset-0 -z-10 opacity-60" />
+        <div className="shell py-20 md:py-28">
+          <p className="micro">Ready when you are</p>
+          <h2 className="mt-6 max-w-[18ch] text-[clamp(2.25rem,7vw,5rem)] leading-[0.95] tracking-[-0.04em]">
+            Install it once. Then let the machine hold the line.
+          </h2>
+          <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <a href="/api/download" className="btn btn--primary" data-fill>
+              <DownloadGlyph />
+              <span>Download for Windows</span>
+            </a>
+            <a href={site.repository} rel="noreferrer" className="btn btn--ghost" data-fill>
+              <GithubGlyph />
+              <span>Star on GitHub</span>
+            </a>
+          </div>
+          <dl className="mt-14 grid gap-6 border-t border-line pt-6 text-[0.75rem] sm:grid-cols-3">
+            <div>
+              <dt className="micro">Version</dt>
+              <dd className="mt-1 font-mono text-ink">
+                {site.version} · {site.releaseDate}
+              </dd>
+            </div>
+            <div>
+              <dt className="micro">Licence</dt>
+              <dd className="mt-1 font-mono text-ink">{site.license}, source included</dd>
+            </div>
+            <div>
+              <dt className="micro">Runs on</dt>
+              <dd className="mt-1 font-mono text-ink">{hero.kicker}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </>
+  )
+}
+
+function DownloadGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true" fill="none">
+      <path
+        d="M7.5 1v8M4 6l3.5 3.5L11 6M2 12.5h11"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function GithubGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+      <path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.94.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z" />
+    </svg>
   )
 }
